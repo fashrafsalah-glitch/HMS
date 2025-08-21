@@ -1,0 +1,192 @@
+{# templates/patients/patient_lab_results.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="mb-0">نتائج التحاليل – {{ patient }}</h3>
+    
+
+    <div class="d-flex gap-2">
+  <a class="btn btn-sm btn-outline-secondary" href="{% url 'manager:patient_detail' patient.id %}">
+    ← الرجوع لملف المريض
+  </a>
+
+  <div class="dropdown">
+    <button class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown">
+      تصدير/طباعة
+    </button>
+    <ul class="dropdown-menu">
+      <li><a class="dropdown-item" href="{% url 'laboratory:patient_lab_results_print' patient.id %}?range=today">نتائج اليوم (PDF)</a></li>
+      <li><a class="dropdown-item" href="{% url 'laboratory:patient_lab_results_print' patient.id %}?range=5d">آخر 5 أيام (PDF)</a></li>
+      <li><a class="dropdown-item" href="{% url 'laboratory:patient_lab_results_print' patient.id %}?range=all">كل النتائج (PDF)</a></li>
+    </ul>
+  </div>
+</div>
+  </div>
+
+  <!-- فلاتر -->
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+      <label class="form-label">المدى</label>
+      <select name="range" class="form-select">
+        <option value="all"  {% if range == "all" %}selected{% endif %}>كل التحاليل</option>
+        <option value="today"{% if range == "today" %}selected{% endif %}>تحاليل اليوم</option>
+        <option value="5d"   {% if range == "5d" %}selected{% endif %}>آخر 5 أيام</option>
+      </select>
+    </div>
+
+    <div class="col-auto">
+      <label class="form-label">العرض</label>
+      <select name="view" class="form-select">
+        <option value="table" {% if view == "table" %}selected{% endif %}>جدول</option>
+        <option value="chart" {% if view == "chart" %}selected{% endif %}>رسم بياني</option>
+      </select>
+    </div>
+
+    <div class="col-auto">
+      <label class="form-label">وحدة الزمن</label>
+      <select name="res" class="form-select">
+        <option value="auto" {% if res == "auto" %}selected{% endif %}>تلقائي</option>
+        <option value="hour" {% if res == "hour" %}selected{% endif %}>بالساعة</option>
+        <option value="day"  {% if res == "day" %}selected{% endif %}>باليوم</option>
+      </select>
+    </div>
+
+    <div class="col-auto d-flex align-items-end">
+      <button class="btn btn-primary">تطبيق</button>
+    </div>
+  </form>
+
+  {# ======================= عرض جدولي ======================= #}
+  {% if view == "table" %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table mb-0 table-striped align-middle">
+          <thead>
+            <tr>
+              <th style="width:220px">التاريخ</th>
+              <th>التحليل</th>
+              <th style="width:160px">الحالة</th>
+              <th>النتيجة</th>
+              <th style="width:120px">الوحدة</th>
+              <th style="width:160px">المرجع</th>
+              <th style="width:120px" class="text-end">الطلب</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for g in grouped %}
+              {% for it in g.rows %}
+                {% with ts=it.observed_at|default:it.verified_at|default:it.request.completed_at|default:it.request.requested_at %}
+                <tr>
+                  <td>{{ ts|date:"Y-m-d H:i" }}</td>
+                  <td>{{ g.test.english_name|default:g.test }}</td>
+                  <td>
+                    <span class="badge
+                      {% if it.status == 'verified' %}text-bg-success
+                      {% elif it.request.status == 'completed' %}text-bg-success
+                      {% elif it.request.status == 'accepted' %}text-bg-info
+                      {% elif it.request.status == 'received' %}text-bg-primary
+                      {% elif it.request.status == 'collected' %}text-bg-warning
+                      {% else %}text-bg-secondary{% endif %}">
+                      {{ it.request.get_status_display }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if it.value_num is not None %}
+                      {{ it.value_num }}
+                    {% elif it.value_text %}
+                      {{ it.value_text }}
+                    {% elif it.value_bool is not None %}
+                      {{ it.value_bool|yesno:"Positive,Negative" }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td>{{ it.unit|default:"" }}</td>
+                  <td>
+                    {% if it.ref_min or it.ref_max %}
+                      {{ it.ref_min|default:"" }} – {{ it.ref_max|default:"" }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'laboratory:lab_request_detail' it.request.id %}">
+                      فتح الطلب
+                    </a>
+                  </td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+            {% empty %}
+              <tr><td colspan="7" class="text-center text-muted">لا بيانات.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {# ======================= عرض رسوم بيانية ======================= #}
+  {% else %}
+    {% if chart_series_json and chart_series_json != "[]" %}
+      <div class="alert alert-info small">يُعرض فقط الاختبارات ذات القيم الرقمية.</div>
+
+      <div class="vstack gap-3">
+        {% for s in chart_series %}
+          <div class="card">
+            <div class="card-header fw-bold">{{ s.label }}</div>
+            <div class="card-body">
+              <canvas id="chart{{ forloop.counter }}" style="width:100%; height:280px;"></canvas>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- التحميل بالترتيب الصحيح -->
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/luxon@^3"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
+
+      <script>
+        const series = {{ chart_series_json|safe }};
+        series.forEach((s, idx) => {
+          const el = document.getElementById("chart" + (idx + 1));
+          if (!el) return;
+          const ctx = el.getContext("2d");
+
+          new Chart(ctx, {
+            type: "line",
+            data: {
+              datasets: [{
+                label: s.label,
+                data: s.data.map(p => ({ x: p.t, y: p.y })), // x: ISO datetime
+                tension: 0.25,
+                pointRadius: 3,
+                spanGaps: true
+              }]
+            },
+            options: {
+              parsing: false,
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: { type: "time", time: { unit: s.timeUnit } },
+                y: { beginAtZero: false }
+              },
+              plugins: {
+                legend: { display: true },
+                tooltip: {
+                  callbacks: { label: (c) => `${c.parsed.y}` }
+                }
+              }
+            }
+          });
+        });
+      </script>
+    {% else %}
+      <div class="text-muted">لا توجد نتائج رقمية لعرضها كرسوم بيانية في هذا النطاق.</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

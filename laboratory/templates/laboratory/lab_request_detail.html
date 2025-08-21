@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <h3>Lab Request #{{ object.id }} – {{ object.patient }}</h3>
+    {% if object.qr_code and object.qr_code.name %}
+  <img src="{{ object.qr_code.url }}" class="img-fluid" alt="QR">
+{% else %}
+  <div class="text-muted">لا يوجد QR محفوظ لهذا الطلب.</div>
+{% endif %}
+<!-- العودة لملف المريض -->
+ <div class="d-flex flex-wrap gap-2 mb-3">
+
+  <a href="{% url 'laboratory:lab_request_list' %}" class="btn btn-soft-primary btn-sm rounded-pill d-inline-flex align-items-center shadow-sm">
+  <i class="bi bi-flask me-2"></i><span>قائمة طلبات المعمل</span>
+</a>
+
+<a href="{% url 'manager:patient_detail' object.patient_id %}" class="btn btn-soft-primary btn-sm rounded-pill d-inline-flex align-items-center shadow-sm">
+  <i class="bi bi-file-earmark-medical me-2"></i><span>ملف المريض</span>
+</a>
+
+</div>
+  </div>
+  <p class="text-muted">Status: <strong>{{ object.get_status_display }}</strong></p>
+ 
+  <p class="mb-1">
+  <strong>Status:</strong> {{ object.get_status_display }}
+  {% if object.completed_at %}
+    — <strong>Completed at:</strong> {{ object.completed_at|date:"Y-m-d H:i" }}
+    {% if object.completed_by %} <strong>by:</strong> {{ object.completed_by }}{% endif %}
+  {% endif %}
+</p>
+
+  <form method="post" class="mb-3">{% csrf_token %}
+    <input type="hidden" name="action" value="accept">
+    <button class="btn btn-sm btn-primary" {% if object.status != 'submitted' %}disabled{% endif %}>Accept Request111</button>
+  </form>
+
+   {# ======================= لوحة الديباج (تظهر فقط مع ?debug=1) ======================= #}
+  {% if request.GET.debug %}
+  <div class="card border-danger mb-3">
+    <div class="card-header bg-danger text-white">DEBUG</div>
+    <div class="card-body small">
+      <ul class="mb-3">
+        <li><b>request.id</b>: {{ object.id }}</li>
+        <li><b>patient.id</b>: {{ object.patient_id }}</li>
+        <li><b>items.count</b>: {{ object.items.count }}</li>
+        <li><b>group</b>:
+          {% if object.group %}
+            {{ object.group.name }} ({{ object.group.tests.count }} tests)
+          {% else %}
+            <span class="text-muted">— لا توجد مجموعة مربوطة بالطلب —</span>
+          {% endif %}
+        </li>
+      </ul>
+
+      <div class="row">
+        <div class="col-md-6">
+          <h6 class="mb-2">Items snapshot</h6>
+          {% if object.items.count %}
+            <ol class="mb-2">
+              {% for it in object.items.all %}
+                <li>
+                  item_id={{ it.id }},
+                  test_id={{ it.test_id }},
+                  test="{{ it.test.english_name|default:it.test }}"
+                  {% if it.value_num %} | value_num={{ it.value_num }}{% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <div class="text-danger">لا توجد عناصر طلب. هذا يعني أن صفحة الإنشاء لم تُرسل أي اختبارات أو أن إنشاء العناصر فشل.</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <h6 class="mb-2">Group tests (إن وُجدت)</h6>
+          {% if object.group %}
+            {% if object.group.tests.count %}
+              <ul class="mb-2">
+                {% for t in object.group.tests.all %}
+                  <li>id={{ t.id }} — {{ t.english_name|default:t }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="text-warning">المجموعة لا تحتوي على تحاليل.</div>
+            {% endif %}
+          {% else %}
+            <div class="text-muted">لا توجد مجموعة مربوطة بهذا الطلب.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <hr>
+      <div>
+        <h6 class="mb-2">Raw request (GET فقط)</h6>
+        <div><code>?{{ request.GET.urlencode }}</code></div>
+        {# ملاحظة: request.POST لن يظهر هنا لأننا الآن في GET بعد التحويل #}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // اطبع Snapshot في الكونسول لسهولة المتابعة
+    (function(){
+      const items = [
+        {% for it in object.items.all %}
+          {
+            item_id: {{ it.id }},
+            test_id: {{ it.test_id|default:"null" }},
+            test_label: "{{ it.test.english_name|default:it.test|stringformat:'s'|escapejs }}",
+            value_num: {{ it.value_num|default:"null" }}
+          }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ];
+      const groupInfo = {
+        hasGroup: {{ object.group|yesno:"true,false" }},
+        name: "{% if object.group %}{{ object.group.name|escapejs }}{% else %}{% endif %}",
+        test_ids: [{% if object.group %}{% for t in object.group.tests.all %}{{ t.id }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}]
+      };
+      console.group("DEBUG: LabRequest {{ object.id }}");
+      console.log("items.count =", items.length, items);
+      console.log("group =", groupInfo);
+      console.groupEnd();
+    })();
+  </script>
+  {% endif %}
+  {# ===================== نهاية الديباج ===================== #}
+يييييييي
+
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Tube</th>
+            <th>Collected</th>
+            <th>Dispatched</th>
+            <th>Received</th>
+            <th>Result</th>
+             <th>completed</th>
+            <th>Status</th>
+           
+            <th style="width:160px" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in object.items.all %}
+            <tr {% if it.is_abnormal %}class="table-warning"{% endif %}>
+              <td>{{ it.test.english_name }}</td>
+              <td>
+                {% if it.tube_prepared_at %}
+                  {{ it.tube_prepared_at|date:"Y-m-d H:i" }}<br><small>{{ it.tube_prepared_by }}</small>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if it.sample_collected_at %}
+                  {{ it.sample_collected_at|date:"Y-m-d H:i" }}<br><small>{{ it.sample_collected_by }}</small>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if it.sample_dispatched_at %}
+                  {{ it.sample_dispatched_at|date:"Y-m-d H:i" }}<br><small>{{ it.sample_dispatched_by }}</small>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if it.sample_received_at %}
+                  {{ it.sample_received_at|date:"Y-m-d H:i" }}<br><small>{{ it.sample_received_by }}</small>
+                {% else %}—{% endif %}
+              </td>
+              
+              <td>
+                {{ it.result_display }}
+                {% if it.ref_min or it.ref_max %}<div class="text-muted"><small>Ref: {{ it.ref_min|default:"" }} – {{ it.ref_max|default:"" }} {{ it.unit }}</small></div>{% endif %}
+              </td>
+              <td>
+                {% if it.sample_completed_at %}
+                  {{ it.sample_completed_at|date:"Y-m-d H:i" }}<br><small>{{ it.sample_completed_by }}</small>
+                {% else %}—{% endif %}
+              </td>
+              
+              <td>{{ it.get_status_display }}</td>
+              <td class="text-end">
+                <form method="post" style="display:inline">{% csrf_token %}
+                  <input type="hidden" name="item_id" value="{{ it.id }}">
+                  <button name="action" value="prepare_tube" class="btn btn-sm btn-outline-secondary" {% if it.tube_prepared_at %}disabled{% endif %}>
+                    <i class="bi bi-beaker"></i>
+                  </button>
+                  <button name="action" value="collect" class="btn btn-sm btn-outline-secondary" {% if it.sample_collected_at %}disabled{% endif %}>
+                    <i class="bi bi-droplet"></i>
+                  </button>
+                  <button name="action" value="dispatch" class="btn btn-sm btn-outline-secondary" {% if it.sample_dispatched_at %}disabled{% endif %}>
+                    <i class="bi bi-truck"></i>
+                  </button>
+                  <button name="action" value="receive" class="btn btn-sm btn-outline-secondary" {% if it.sample_received_at %}disabled{% endif %}>
+                    <i class="bi bi-inboxes"></i>
+                  </button>
+                  
+                  <a class="btn btn-sm btn-primary" href="{% url 'laboratory:lab_item_result' it.id %}">
+                    <i class="bi bi-pencil-square"></i>
+                  </a>
+                  <button name="action" value="receive" class="btn btn-sm btn-outline-secondary" {% if it.sample_completed_at %}disabled{% endif %}>
+                    <i class="bi bi-inboxes"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="text-center text-muted">No tests.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <h6>Durations (example)</h6>
+    <ul class="small text-muted">
+      <li>Accepted at: {{ object.accepted_at|default:"—" }}</li>
+      <li>Accepted by: {{ object.accepted_by|default:"—" }}</li>
+      <li>Collected at: {{ object.collected_at|default:"—" }}</li>
+      <li>Dispatched at: {{ object.dispatched_at|default:"—" }}</li>
+      <li>Received at: {{ object.received_at|default:"—" }}</li>
+      <li>Completed at: {{ object.completed_at|default:"—" }}</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

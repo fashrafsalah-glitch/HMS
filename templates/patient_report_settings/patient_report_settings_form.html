@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Patient Report Settings{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h3 class="mb-0">Patient Report Settings</h3>
+    {% if hospital %}
+      <span class="badge bg-info text-dark">Hospital: {{ hospital.name }}</span>
+    {% endif %}
+  </div>
+
+  <form method="post" class="row g-3">
+    {% csrf_token %}
+
+    <div class="col-12"><h5>General Sections</h5></div>
+    <div class="col-md-4 form-check">{{ form.include_basic_info }} <label class="form-check-label">Basic Info</label></div>
+    <div class="col-md-4 form-check">{{ form.include_companion_info }} <label class="form-check-label">Companion Info</label></div>
+    <div class="col-md-4 form-check">{{ form.include_medical_records }} <label class="form-check-label">Medical Records</label></div>
+
+    <div class="col-12 mt-3"><h5>Medical Record Subsections</h5></div>
+    <div class="col-md-3 form-check">{{ form.include_admission_info }} <label class="form-check-label">Admission Info</label></div>
+    <div class="col-md-3 form-check">{{ form.include_chief_complaints }} <label class="form-check-label">Chief Complaints</label></div>
+    <div class="col-md-3 form-check">{{ form.include_hpi }} <label class="form-check-label">HPI</label></div>
+    <div class="col-md-3 form-check">{{ form.include_ros }} <label class="form-check-label">ROS</label></div>
+    <div class="col-md-3 form-check">{{ form.include_histories }} <label class="form-check-label">Histories</label></div>
+    <div class="col-md-3 form-check">{{ form.include_physical_exam }} <label class="form-check-label">Physical Exam</label></div>
+    <div class="col-md-3 form-check">{{ form.include_medical_decision }} <label class="form-check-label">Medical Decision</label></div>
+    <div class="col-md-3 form-check">{{ form.include_interpretation }} <label class="form-check-label">Interpretation</label></div>
+    <div class="col-md-3 form-check">{{ form.include_impression_plan }} <label class="form-check-label">Impression & Plan</label></div>
+    <div class="col-md-3 form-check">{{ form.include_professional_srv }} <label class="form-check-label">Professional Service</label></div>
+    <div class="col-md-3 form-check">{{ form.include_patient_edu }} <label class="form-check-label">Patient Education</label></div>
+    <div class="col-md-3 form-check">{{ form.include_soap_note }} <label class="form-check-label">SOAP Note</label></div>
+
+    <div class="col-12 mt-3"><h5>Medical Records Table Columns</h5></div>
+    <div class="col-md-3 form-check">{{ form.show_allergies }} <label class="form-check-label">Allergies</label></div>
+    <div class="col-md-3 form-check">{{ form.show_source_history }} <label class="form-check-label">Source History</label></div>
+    <div class="col-md-3 form-check">{{ form.show_present_at_bedside }} <label class="form-check-label">Present at Bedside</label></div>
+    <div class="col-md-3 form-check">{{ form.show_referral_source }} <label class="form-check-label">Referral Source</label></div>
+    <div class="col-md-3 form-check">{{ form.show_history_limitation }} <label class="form-check-label">History Limitation</label></div>
+    <div class="col-md-3 form-check">{{ form.show_ros_constitutional }} <label class="form-check-label">ROS (Constitutional)</label></div>
+    <div class="col-md-3 form-check">{{ form.show_ros_eye }} <label class="form-check-label">ROS (eye)</label></div>
+    <div class="col-md-3 form-check">{{ form.show_ros_ent }} <label class="form-check-label">ROS (ENT)</label></div>
+    <div class="col-md-3 form-check">{{ form.show_past_medical_history }} <label class="form-check-label">Past Medical History</label></div>
+
+    <div class="col-12 mt-3">
+      <button class="btn btn-primary">Save</button>
+      <a class="btn btn-outline-secondary" href="{% url 'manager:patient_report_settings' %}{% if hospital %}?hospital={{ hospital.id }}{% endif %}">Refresh</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

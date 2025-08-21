@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Add Device Usage</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Add Usage</button>
+        <a href="{% url 'device_list' %}" class="btn btn-secondary">Back to Devices</a>
+    </form>
+</div>
+{% endblock %}

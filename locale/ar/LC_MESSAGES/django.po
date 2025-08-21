@@ -1,0 +1,188 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-21 11:03+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#: .\laboratory\views.py:271
+msgid "Cannot delete this test because it is used in results."
+msgstr ""
+
+#: .\manager\models.py:475
+msgid "ICD Code"
+msgstr ""
+
+#: .\manager\models.py:476
+msgid "Diagnosis Title"
+msgstr ""
+
+#: .\manager\models.py:477
+msgid "Description"
+msgstr ""
+
+#: .\manager\models.py:493
+msgid "Diagnosis"
+msgstr ""
+
+#: .\manager\models.py:494
+msgid "Diagnoses"
+msgstr ""
+
+#: .\templates\base.html:9 .\templates\base.html:203
+msgid "Patient Management"
+msgstr ""
+
+#: .\templates\base.html:221
+msgid "Hospitals"
+msgstr ""
+
+#: .\templates\base.html:224
+msgid "Create Hospital"
+msgstr ""
+
+#: .\templates\base.html:227
+msgid "Settings"
+msgstr ""
+
+#: .\templates\base.html:230
+msgid "Users"
+msgstr ""
+
+#: .\templates\base.html:234 .\templates\base.html:318
+msgid "Patients"
+msgstr ""
+
+#: .\templates\base.html:237 .\templates\base.html:321
+msgid "Admissions"
+msgstr ""
+
+#: .\templates\base.html:240
+msgid "Appointments"
+msgstr ""
+
+#: .\templates\base.html:243
+msgid "Visits"
+msgstr ""
+
+#: .\templates\base.html:246
+msgid "Outpatient"
+msgstr ""
+
+#: .\templates\base.html:249 .\templates\base.html:289
+msgid "Departments"
+msgstr ""
+
+#: .\templates\base.html:252 .\templates\base.html:296
+msgid "Staff"
+msgstr ""
+
+#: .\templates\base.html:255
+msgid "Beds"
+msgstr ""
+
+#: .\templates\base.html:258
+msgid "Emergency Dept"
+msgstr ""
+
+#: .\templates\base.html:261
+msgid "Surgical Ops"
+msgstr ""
+
+#: .\templates\base.html:266
+msgid "Maintenance"
+msgstr ""
+
+#: .\templates\base.html:272
+msgid "Lab Dashboard"
+msgstr ""
+
+#: .\templates\base.html:277 .\templates\base.html:328
+msgid "Pharmacy"
+msgstr ""
+
+#: .\templates\base.html:282
+msgid "Manage Hospital"
+msgstr ""
+
+#: .\templates\base.html:286
+msgid "Buildings"
+msgstr ""
+
+#: .\templates\base.html:287
+msgid "Floors"
+msgstr ""
+
+#: .\templates\base.html:288
+msgid "Wards"
+msgstr ""
+
+#: .\templates\base.html:290
+msgid "Rooms"
+msgstr ""
+
+#: .\templates\base.html:291
+msgid "Add HR User"
+msgstr ""
+
+#: .\templates\base.html:299
+msgid "Attendance"
+msgstr ""
+
+#: .\templates\base.html:302
+msgid "Payroll"
+msgstr ""
+
+#: .\templates\base.html:305 .\templates\base.html:331
+msgid "Leave Requests"
+msgstr ""
+
+#: .\templates\base.html:308
+msgid "Schedules"
+msgstr ""
+
+#: .\templates\base.html:311
+msgid "Shift Assignments"
+msgstr ""
+
+#: .\templates\base.html:314 .\templates\base.html:338
+msgid "Shift Swaps"
+msgstr ""
+
+#: .\templates\base.html:324
+msgid "Clinics"
+msgstr ""
+
+#: .\templates\base.html:335
+msgid "My Shifts"
+msgstr ""
+
+#: .\templates\base.html:345
+msgid "Logout"
+msgstr ""
+
+#: .\templates\base.html:349
+msgid "Toggle dark mode"
+msgstr ""
+
+#: .\templates\base.html:354
+msgid "Login"
+msgstr ""
+
+#: .\templates\base.html:365
+msgid "Close"
+msgstr ""

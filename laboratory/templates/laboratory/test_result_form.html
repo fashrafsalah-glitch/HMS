@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <h3>Edit Test Result</h3>
+  <form method="post">{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-secondary" href="{% url 'laboratory:test_results_list' %}">Back</a>
+  </form>
+</div>
+{% endblock %}

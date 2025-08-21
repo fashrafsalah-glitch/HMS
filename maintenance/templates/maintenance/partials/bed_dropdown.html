@@ -1,0 +1,7 @@
+<label for="id_bed">السرير</label>
+<select name="bed" class="form-control" id="id_bed">
+    <option value="">---------</option>
+    {% for bed in beds %}
+        <option value="{{ bed.id }}">{{ bed.name }}</option>
+    {% endfor %}
+</select>

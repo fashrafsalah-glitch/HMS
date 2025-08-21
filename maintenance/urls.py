@@ -1,0 +1,69 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    
+    path('', views.index, name='maintenance_index'),
+    path('devices/', views.device_list, name='device_list'),
+    path('devices/add/', views.add_device, name='add_device'),
+    path('devices/<int:pk>/', views.device_detail, name='device_detail'),
+    path('devices/<int:pk>/edit/', views.device_edit, name='device_edit'),
+    path('devices/<int:pk>/delete/', views.device_delete, name='device_delete'),
+    
+    path('devices/<int:device_id>/transfer/', views.transfer_device, name='device_transfer'),
+     
+    path('device/<int:device_id>/transfer-history/', views.device_transfer_history, name='device_transfer_history'),
+
+    path('devices/department/<int:department_id>/', views.department_devices, name='department_devices'),
+    path('transfers/<int:transfer_id>/approve/', views.approve_transfer, name='approve_transfer'),
+      # تصنيفات جديدة
+    path('categories/add/', views.add_device_category, name='add_device_category'),
+    path('subcategories/add/', views.add_device_subcategory, name='add_device_subcategory'),
+    path('ajax/load-subcategories/', views.load_subcategories, name='ajax_load_subcategories'),
+    path('ajax/load-rooms/', views.load_rooms, name='ajax_load_rooms'),
+    path('device/<int:pk>/', views.device_detail, name='device_detail'),
+    path('device/<int:pk>/info/', views.device_info, name='device_info'),
+    path('device/<int:pk>/add-accessory/', views.add_accessory, name='add_accessory'),
+    path('device/<int:pk>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
+    path('device/<int:pk>/emergency-request/', views.add_emergency_request, name='add_emergency_request'),
+    path('device/<int:pk>/add-spare-part/', views.add_spare_part, name='add_spare_part'),
+   
+    path('ajax/get-rooms/', views.get_rooms, name='get_rooms'),
+    path('ajax/get-beds/', views.get_beds, name='get_beds'),
+
+
+   path('companies/add/', views.add_company, name='add_company'),
+   
+   path('device-types/add/', views.add_device_type, name='add_device_type'),
+   path('device-usages/add/', views.add_device_usage, name='add_device_usage'),
+
+
+   # تعديل وحذف الشركات
+path('company/edit/<int:pk>/', views.edit_company, name='edit_company'),
+path('company/delete/<int:pk>/', views.delete_company, name='delete_company'),
+
+# تعديل وحذف نوع الجهاز
+path('device-type/edit/<int:pk>/', views.edit_device_type, name='edit_device_type'),
+path('device-type/delete/<int:pk>/', views.delete_device_type, name='delete_device_type'),
+
+# تعديل وحذف استخدام الجهاز
+path('device-usage/edit/<int:pk>/', views.edit_device_usage, name='edit_device_usage'),
+path('device-usage/delete/<int:pk>/', views.delete_device_usage, name='delete_device_usage'),
+
+
+path('devices/', views.device_list, name='device_list'),
+ path('devices/<int:device_id>/assign/', views.assign_device, name='assign_device'),
+ path('devices/<int:device_id>/release/', views.release_device, name='release_device'),
+
+
+
+
+path('device/<int:device_id>/clean/', views.clean_device, name='clean_device'),
+path('device/<int:device_id>/sterilize/', views.sterilize_device, name='sterilize_device'),
+path('device/<int:device_id>/maintain/', views.perform_maintenance, name='perform_maintenance'),
+
+
+path('device/<int:device_id>/sterilization_history/', views.sterilization_history, name='sterilization_history'),
+path('device/<int:device_id>/cleaning_history/', views.cleaning_history, name='cleaning_history'),
+path('device/<int:device_id>/maintenance_history/', views.maintenance_history, name='maintenance_history'),
+]

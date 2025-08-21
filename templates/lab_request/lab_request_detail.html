@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Lab Request #{{ object.pk }}</h2>
+  <p><strong>Patient:</strong> {{ object.patient }}</p>
+  <p><strong>Status:</strong> {{ object.get_status_display }}</p>
+  <p><strong>Tests:</strong> {{ object.tests.all|join:", " }}</p>
+
+  <h4>Scan this QR to advance to next stage:</h4>
+  {% if object.qr_code and object.qr_code.name %}
+  <img src="{{ object.qr_code.url }}" class="img-fluid" alt="QR">
+{% else %}
+  <div class="text-muted">لا يوجد QR محفوظ لهذا الطلب.</div>
+{% endif %}
+
+  {% if object.status != object.STATUS_COMPLETED %}
+    <p>
+      <a href="{% url 'laboratory:lab_request_scan' object.token %}" class="btn btn-success">
+        Simulate Scan / Advance
+      </a>
+    </p>
+  {% endif %}
+
+  <a href="{% url 'manager:patient_detail' object.patient.id %}" class="btn btn-secondary">Back to Patient</a>
+{% endblock %}

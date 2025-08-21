@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">⏹️ إنهاء استخدام الجهاز</h2>
+
+    <div class="alert alert-warning">
+        <strong>تنبيه:</strong> سيتم إنهاء استخدام الجهاز وتحديث حالته تلقائيًا إلى:
+        <ul>
+            <li>🔧 <strongصيانة تفقد </strong></li>
+            <li>🧹 <strong>يحتاج تنظيف</strong></li>
+            <li>🧼 <strong>يحتاج تعقيم</strong></li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">معلومات الجهاز:</h5>
+            <p><strong>اسم الجهاز:</strong> {{ device.name }}</p>
+            <p><strong>المريض الحالي:</strong> {{ device.current_patient }}</p>
+            <p><strong>الموقع:</strong> {{ device.department }} - {{ device.room }} - سرير {{ device.bed }}</p>
+        </div>
+    </div>
+
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">⏹️ تأكيد إنهاء الاستخدام</button>
+        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary ms-2">🔙 إلغاء</a>
+    </form>
+</div>
+{% endblock %}

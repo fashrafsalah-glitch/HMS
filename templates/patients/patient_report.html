@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load common %} {# لو لديك فلتر classname في templatetags/common.py #}
+{% load static %}
+
+{% block title %}Patient Report – {{ patient.first_name }} {{ patient.last_name }}{% endblock %}
+
+{% block content %}
+
+{% comment %}DEBUG: Temporary block to see current flags{% endcomment %}
+<div class="alert alert-info">
+  <div><code>include_basic_info</code>: {{ prs.include_basic_info }}</div>
+  <div><code>include_medical_records</code>: {{ prs.include_medical_records }}</div>
+  <div><code>show_allergies</code>: {{ prs.show_allergies }}</div>
+  <div><code>show_source_history</code>: {{ prs.show_source_history }}</div>
+  <div><code>show_present_at_bedside</code>: {{ prs.show_present_at_bedside }}</div>
+  <div><code>show_referral_source</code>: {{ prs.show_referral_source }}</div>
+  <div><code>show_history_limitation</code>: {{ prs.show_history_limitation }}</div>
+  <div><code>show_ros_constitutional</code>: {{ prs.show_ros_constitutional }}</div>
+  <div><code>show_ros_eye</code>: {{ prs.show_ros_eye }}</div>
+  <div><code>show_ros_ent</code>: {{ prs.show_ros_ent }}</div>
+  <div><code>show_past_medical_history</code>: {{ prs.show_past_medical_history }}</div>
+</div>
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">
+      Patient Report: {{ patient.first_name }} {{ patient.last_name }} (MRN: {{ patient.mrn }})
+    </h3>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'manager:patient_report_settings' %}">Report Settings</a>
+      {# لو لديك مسار patient_pdf فعّال: #}
+      {# <a class="btn btn-primary btn-sm" href="{% url 'manager:patient_pdf' patient.id %}">Download PDF</a> #}
+    </div>
+  </div>
+
+  <form method="get" class="mb-3">
+    <label class="me-2">Medical record:</label>
+    <select name="record" onchange="this.form.submit()">
+      {% for r in records %}
+        <option value="{{ r.id }}" {% if record and r.id == record.id %}selected{% endif %}>
+          Record #{{ r.id }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if pdf_settings.header_image %}
+    <div class="mb-3">
+      <img src="{{ pdf_settings.header_image.url }}" alt="Header" style="max-height:60px">
+    </div>
+  {% elif pdf_settings.header_text %}
+    <h5 class="text-muted">{{ pdf_settings.header_text }}</h5>
+  {% endif %}
+
+  {% if prs.include_basic_info %}
+  <div class="card mb-4">
+    <div class="card-header">Patient Information</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6"><strong>Full Name:</strong> {{ patient.first_name }} {{ patient.last_name }}</div>
+        <div class="col-md-6"><strong>Gender:</strong> {{ patient.gender }}</div>
+        <div class="col-md-6"><strong>Date of Birth:</strong> {{ patient.date_of_birth|default:"Not provided" }}</div>
+        <div class="col-md-6">
+          <strong>Age:</strong>
+          {% if patient.age %}
+            {{ patient.age.years|default:0 }} years,
+            {{ patient.age.months|default:0 }} months,
+            {{ patient.age.days|default:0 }} days
+          {% else %}Not provided{% endif %}
+        </div>
+        <div class="col-md-6"><strong>Phone:</strong> {{ patient.phone_number }}</div>
+        <div class="col-md-6"><strong>Email:</strong> {{ patient.email|default:"Not provided" }}</div>
+        <div class="col-md-12"><strong>Address:</strong> {{ patient.address|default:"Not provided" }}</div>
+        <div class="col-md-4"><strong>National ID:</strong> {{ patient.national_id|default:"Not provided" }}</div>
+        <div class="col-md-4"><strong>Occupation:</strong> {{ patient.occupation|default:"Not provided" }}</div>
+        <div class="col-md-4"><strong>Religion:</strong> {{ patient.religion|default:"Not provided" }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if prs.include_medical_records %}
+  <div class="card">
+    <div class="card-header">Medical Records</div>
+    <div class="card-body table-responsive">
+      {% if records %}
+      <table class="table table-bordered table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="white-space:nowrap;">Created At</th>
+            <th>Complaint</th>
+            {% if prs.show_allergies %}<th>Allergies</th>{% endif %}
+            {% if prs.show_source_history %}<th>Source History</th>{% endif %}
+            {% if prs.show_present_at_bedside %}<th>Present at Bedside</th>{% endif %}
+            {% if prs.show_referral_source %}<th>Referral Source</th>{% endif %}
+            {% if prs.show_history_limitation %}<th>History Limitation</th>{% endif %}
+            {% if prs.show_ros_constitutional %}<th>ROS (Constitutional)</th>{% endif %}
+            {% if prs.show_ros_eye %}<th>ROS (eye)</th>{% endif %}
+            {% if prs.show_ros_ent %}<th>ROS (ent)</th>{% endif %}
+            {% if prs.show_past_medical_history %}<th>Past Medical History</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+            {% with src=r.source_history|default_if_none:'' pab=r.present_at_bedside|default_if_none:'' ref=r.referral_source|default_if_none:'' hl=r.history_limitation|default_if_none:'' ros=r.ros|default_if_none:'' %}
+            <tr>
+              <td style="white-space:nowrap;">{{ r.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ r.complaint }}</td>
+
+              {% if prs.show_allergies %}
+                <td>{{ r.allergies|default:"" }}</td>
+              {% endif %}
+
+              {% if prs.show_source_history %}
+                <td>
+                  {% if src|classname == 'list' %}
+                    {{ src|join:", " }}
+                  {% else %}
+                    {{ src }}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+              {% if prs.show_present_at_bedside %}
+                <td>
+                  {% if pab|classname == 'list' %}
+                    {{ pab|join:", " }}
+                  {% else %}
+                    {{ pab }}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+              {% if prs.show_referral_source %}
+                <td>
+                  {% if ref|classname == 'list' %}
+                    {{ ref|join:", " }}
+                  {% else %}
+                    {{ ref }}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+              {% if prs.show_history_limitation %}
+                <td>
+                  {% if hl|classname == 'list' %}
+                    {{ hl|join:", " }}
+                  {% else %}
+                    {{ hl }}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+              {% if prs.show_ros_constitutional %}
+                <td>
+                  {% if ros and ros.constitutional %}
+                    {% if ros.constitutional|classname == 'list' %}
+                      {{ ros.constitutional|join:", " }}
+                    {% else %}
+                      {{ ros.constitutional }}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+               {% if prs.show_ros_eye %}
+                <td>
+                  {% if ros and ros.eye %}
+                    {% if ros.eye|classname == 'list' %}
+                      {{ ros.eye|join:", " }}
+                    {% else %}
+                      {{ ros.eye }}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+               {% if prs.show_ros_ent %}
+                <td>
+                  {% if ros and ros.ent %}
+                    {% if ros.ent|classname == 'list' %}
+                      {{ ros.ent|join:", " }}
+                    {% else %}
+                      {{ ros.ent }}
+                    {% endif %}
+                  {% endif %}
+                </td>
+              {% endif %}
+
+              {% if prs.show_past_medical_history %}
+                <td>{{ r.past_medical_history|default:"" }}</td>
+              {% endif %}
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr><td colspan="8" class="text-center text-muted">No medical records available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="text-muted">No medical records available.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if pdf_settings.footer_text %}
+    <p class="text-muted mt-3">{{ pdf_settings.footer_text }}</p>
+  {% endif %}
+</div>
+{% endblock %}

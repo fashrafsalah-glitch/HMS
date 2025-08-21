@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>🔄 Transfer Device Location</h2>
+    <p><strong>Device:</strong> {{ device.device_id }} – {{ device.model }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.department.label_tag }}
+            {{ form.department }}
+        </div>
+        <div class="mb-3">
+            {{ form.room.label_tag }}
+            {{ form.room }}
+        </div>
+        <button type="submit" class="btn btn-primary">Transfer</button>
+        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">Cancel</a>
+
+
+        {% if form.errors %}
+  <div class="alert alert-danger">
+    <ul>
+      {% for field in form %}
+        {% for error in field.errors %}
+          <li><strong>{{ field.label }}</strong>: {{ error }}</li>
+        {% endfor %}
+      {% endfor %}
+      {% for error in form.non_field_errors %}
+        <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+    </form>
+</div>
+{% endblock %}

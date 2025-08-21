@@ -1,0 +1,194 @@
+{% extends 'base.html' %} 
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">Device List</h2>
+    
+    <div class="mb-3">
+        <a href="{% url 'maintenance:add_device' %}" class="btn btn-success">➕ Add New Device</a>
+        <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-primary btn-sm">➕ Add Category</a>
+        <a href="{% url 'maintenance:add_device_subcategory' %}" class="btn btn-outline-secondary btn-sm">➕ Add Subcategory</a>
+        <a href="{% url 'add_company' %}" class="btn btn-outline-primary">➕ شركة جديدة</a>
+        <a href="{% url 'add_device_type' %}" class="btn btn-outline-success">➕ نوع جهاز</a>
+        <a href="{% url 'add_device_usage' %}" class="btn btn-outline-info">➕ استخدام جهاز</a>
+        {% if device.manufacture_company %}
+        <a href="{% url 'edit_company' device.manufacture_company.pk %}">تعديل الشركة</a>
+       {% else %}
+          <span class="text-muted">لا توجد شركة</span>
+         {% endif %}
+       {% if device.supplier_company %}
+       <a href="{% url 'delete_company' device.supplier_company.pk %}">حذف</a>
+       {% else %}
+        <span class="text-muted">---</span>
+       {% endif %}
+    </div>
+
+      <form method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+        <label class="form-label">Category</label>
+         <!-- التصنيف -->
+
+
+        <select name="category" id="category-select" class="form-select">
+    <option value="">All</option>
+    {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+            {{ cat.name }}
+        </option>
+    {% endfor %}
+    </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">Subcategory</label>
+        
+          <!-- التصنيف الفرعي -->
+      <select name="subcategory" id="subcategory-select" class="form-select">
+    <option value="">All</option>
+    {% for sub in subcategories %}
+        <option value="{{ sub.id }}" {% if request.GET.subcategory == sub.id|stringformat:"s" %}selected{% endif %}>
+            {{ sub.name }}
+        </option>
+    {% endfor %}
+     </select>
+    </div>
+
+      <div class="col-md-3">
+        <label>Department</label>
+        <select name="department" id="department-select" class="form-select">
+            <option value="">All</option>
+            {% for dept in departments %}
+                <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label>Room</label>
+        <select name="room" id="room-select" class="form-select">
+            <option value="">All</option>
+            {% for room in rooms %}
+                <option value="{{ room.id }}" data-dept="{{ room.department_id }}" {% if request.GET.room == room.id|stringformat:"s" %}selected{% endif %}>{{ room.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-2 align-self-end">
+        <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">🔍 Filter</button>
+        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">⟲ Reset</a>
+    </div>
+</form>
+
+    <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+            <tr>
+                 <th>تسلسل</th>
+                <th>Serial No.</th>
+                <th>Category</th>
+                <th>Subcategory</th>
+                <th>Device Name</th>
+                <th>Department</th>
+                <th>Room</th>
+                <th>Bed</th>
+                <th>الحالة</th>
+               <th>النظافة</th>
+               <th>التعقيم</th>
+               <th>المريض الحالي</th> 
+                <th>Actions</th>
+                <th>Start use</th>
+                <th>End use</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ device.id }}</td>
+                <td>{{ device.category.name }}</td>
+                <td>{{ device.subcategory.name }}</td>
+                <td>{{ device.name }}</td>
+                <td>{{ device.department.name }}</td>
+                <td>{{ device.room }}</td>
+                <td>{{ device.bed }}</td>
+                <td>{{ device.get_status_display }}</td>
+                  <td>{{ device.get_clean_status_display }}</td>
+                <td>{{ device.get_sterilization_status_display }}</td>
+                <td>{{ device.current_patient }}</td>
+                <td>
+                    <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-sm btn-info" title="Open">👁️</a>
+                    <a href="{% url 'maintenance:device_edit' device.id %}" class="btn btn-sm btn-warning" title="Edit">✏️</a>
+                    <a href="{% url 'maintenance:device_delete' device.id %}" class="btn btn-sm btn-danger" title="Delete">🗑️</a>
+                    <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-sm btn-secondary" title="Transfer">🔄</a>
+                </td>
+                <td>
+                   {% if device.status == 'working' and not device.current_patient %}
+                  <a href="{% url 'maintenance:assign_device' device.id %}" class="btn btn-sm btn-primary">📥 استخدام</a>
+                    {% else %}
+                        <span class="text-muted">قيد الاستخدام</span>
+                                  {% endif %}
+                </td>
+
+                <td>
+                 {% if device.current_patient %}
+                  <a href="{% url 'maintenance:release_device' device.id %}" class="btn btn-sm btn-warning">⏹️ إنهاء الاستخدام</a>
+                 {% else %}
+                  <span class="text-muted">-</span>
+               {% endif %}
+               </td> 
+
+
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">No devices found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $('#category-select').change(function () {
+        var categoryId = $(this).val();
+        $.ajax({
+            url: "{% url 'maintenance:ajax_load_subcategories' %}",
+            data: {
+                'category_id': categoryId
+            },
+            success: function (data) {
+                var subcategorySelect = $('#subcategory-select');
+                subcategorySelect.empty();
+                subcategorySelect.append('<option value="">All</option>');
+                data.forEach(function (subcategory) {
+                    subcategorySelect.append('<option value="' + subcategory.id + '">' + subcategory.name + '</option>');
+                });
+            }
+        });
+    });
+</script>
+<script>
+document.getElementById('department-select').addEventListener('change', function () {
+    const deptId = this.value;
+    const roomSelect = document.getElementById('room-select');
+    roomSelect.innerHTML = '<option value="">Loading...</option>';
+
+    fetch(`/maintenance/ajax/load-rooms/?department_id=${deptId}`)
+        .then(response => response.json())
+        .then(data => {
+            roomSelect.innerHTML = '<option value="">All</option>';
+            data.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.text = room.name;
+                roomSelect.appendChild(option);
+            });
+        });
+});
+</script>
+{% endblock %}

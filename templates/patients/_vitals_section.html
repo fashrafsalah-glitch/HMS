@@ -1,0 +1,83 @@
+{# --- بطاقة Flow Sheet (وزن/طول/BMI) --- #}
+<div class="card mb-4 p-4">
+  <h4 class="mb-3"><i class="bi bi-heart-fill me-2"></i>Vitals Flow Sheet</h4>
+
+  <div class="text-end mb-3">
+    {# استخدم record القادم من الـcontext، ولا تضع باراميترات إضافية #}
+    <a href="{% url 'manager:vitals_create' record_id=record.id %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-2"></i>Add Vitals
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered">
+      <thead class="table-primary">
+        <tr>
+          <th>Date</th>
+          <th>Weight (kg)</th>
+          <th>Height (cm)</th>
+          <th>BMI</th>
+        </tr>
+      </thead>
+      <tbody>
+        {# غيّر اسم متغير الحلقة لتجنّب ظلال اسم record #}
+        {% for mr in medical_records %}
+          {% if mr.weight or mr.height or mr.bmi %}
+          <tr>
+            <td>{{ mr.created_at }}</td>
+            <td>{{ mr.weight|default:"N/A" }}</td>
+            <td>{{ mr.height|default:"N/A" }}</td>
+            <td>{{ mr.bmi|default:"N/A" }}</td>
+          </tr>
+          {% endif %}
+        {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">
+              <i class="bi bi-heart me-2" style="font-size: 1.5rem;"></i>No vitals recorded.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# --- جدول قراءات العلامات الحيوية --- #}
+<div class="text-end mb-3">
+  <a href="{% url 'manager:vitals_create' record_id=record.id %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-2"></i>إضافة علامات حيوية
+  </a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped table-bordered">
+    <thead class="table-primary">
+      <tr>
+        <th>الوقت</th><th>أُخذت بواسطة</th><th>T(°C)</th><th>HR</th><th>RR</th><th>BP</th><th>SpO₂</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vitals %}
+      <tr>
+        <td>{{ v.taken_at|date:"Y-m-d H:i" }}</td>
+        <td>
+          {% if v.taken_by %}
+            {{ v.taken_by.get_full_name|default:v.taken_by.username }}
+          {% else %} — {% endif %}
+        </td>
+        <td>{{ v.temperature }}</td>
+        <td>{{ v.heart_rate }}</td>
+        <td>{{ v.respiratory_rate }}</td>
+        <td>{{ v.systolic_bp }}/{{ v.diastolic_bp }}</td>
+        <td>{{ v.oxygen_saturation }}%</td>
+        <td class="text-nowrap">
+          <a class="btn btn-sm btn-warning" href="{% url 'manager:vitals_update' v.id %}">تعديل</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'manager:vitals_delete' v.id %}">حذف</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted">لا توجد قراءات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

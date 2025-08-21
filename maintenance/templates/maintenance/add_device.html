@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Add New Device</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-success">Save Device</button>
+        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">Back to Device List</a>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  $('#id_department').change(function () {
+    const departmentId = $(this).val();
+    if (departmentId) {
+      $.ajax({
+        url: '{% url "maintenance:get_rooms" %}',
+        data: { department_id: departmentId },
+        success: function (data) {
+          $('#room-container').html(data);
+          $('#id_room').change();  // تحميل الأسرة مباشرة
+        }
+      });
+    } else {
+      $('#room-container').html('<select id="id_room" name="room" class="form-control"><option value="">---------</option></select>');
+      $('#bed-container').html('<select id="id_bed" name="bed" class="form-control"><option value="">---------</option></select>');
+    }
+  });
+
+  $(document).on('change', '#id_room', function () {
+    const roomId = $(this).val();
+    if (roomId) {
+      $.ajax({
+        url: '{% url "maintenance:get_beds" %}',
+        data: { room_id: roomId },
+        success: function (data) {
+          $('#bed-container').html(data);
+        }
+      });
+    } else {
+      $('#bed-container').html('<select id="id_bed" name="bed" class="form-control"><option value="">---------</option></select>');
+    }
+  });
+
+  $(document).ready(function () {
+    $('#id_department').change();  // لتحديث الحقول تلقائيًا عند التعديل
+  });
+</script>
+{% endblock %}
+

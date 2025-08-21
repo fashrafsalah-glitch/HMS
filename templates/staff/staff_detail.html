@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}تفاصيل الموظف{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="text-center mb-4"><i class="bi bi-person-badge"></i> تفاصيل الموظف</h2>
+
+    <div class="card shadow p-4">
+        <div class="row mb-4">
+            <div class="col-md-4 text-center">
+                {% if staff.photo %}
+                    <img src="{{ staff.photo.url }}" class="img-fluid rounded shadow" style="max-height: 250px;" alt="صورة الموظف">
+                {% else %}
+                    <i class="bi bi-person-circle" style="font-size: 8rem;"></i>
+                    <div class="text-muted">لا توجد صورة</div>
+                {% endif %}
+            </div>
+            <div class="col-md-8">
+                <table class="table table-bordered">
+                    <tr>
+                        <th>الاسم الكامل</th>
+                        <td>{{ staff.first_name }} {{ staff.last_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>الدور الوظيفي</th>
+                        <td>{{ staff.get_role_display }}</td>
+                    </tr>
+                    <tr>
+                        <th>القسم</th>
+                        <td>
+                            {% if staff.departments.all %}
+                                {{ staff.departments.all|join:", " }}
+                            {% else %}
+                                لا قسم
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>الرقم الوطني</th>
+                        <td>{{ staff.national_id }}</td>
+                    </tr>
+                    <tr>
+                        <th>تاريخ التوظيف</th>
+                        <td>{{ staff.hire_date|date:"d M Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>تاريخ انتهاء إذن المزاولة</th>
+                        <td>{{ staff.license_expiry|default:"غير محدد" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+
+
+        <!-- Certificates Table -->
+<div class="card mt-4 p-4">
+    <h5 class="mb-3"><i class="bi bi-award-fill me-2"></i>الشهادات العلمية</h5>
+    {% if staff.certificates.all %}
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>نوع الشهادة</th>
+                    <th>مكان الحصول عليها</th>
+                    <th>تاريخ الحصول</th>
+                    <th>نسخة من الشهادة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in staff.certificates.all %}
+                    <tr>
+                        <td>{{ cert.certificate_type }}</td>
+                        <td>{{ cert.location_obtained }}</td>
+                        <td>{{ cert.date_obtained }}</td>
+                        <td>
+                            {% if cert.copy %}
+                                <a href="{{ cert.copy.url }}" target="_blank">عرض النسخة</a>
+                            {% else %}
+                                لا يوجد
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>لا توجد شهادات مضافة.</p>
+    {% endif %}
+</div>
+
+<!-- Practice Permit Table -->
+<div class="card mt-4 p-4">
+    <h5 class="mb-3"><i class="bi bi-file-earmark-check-fill me-2"></i>إذن مزاولة المهنة</h5>
+    {% if staff.practice_permits.all %}
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>تاريخ الإصدار</th>
+                    <th>تاريخ الانتهاء</th>
+                    <th>نسخة من الإذن</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for permit in staff.practice_permits.all %}
+                    <tr>
+                        <td>{{ permit.date_obtained }}</td>
+                        <td>{{ permit.expiry_date }}</td>
+                        <td>
+                            {% if permit.copy %}
+                                <a href="{{ permit.copy.url }}" target="_blank">عرض النسخة</a>
+                            {% else %}
+                                لا يوجد
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>لا يوجد إذن مزاولة مهنة.</p>
+    {% endif %}
+</div>
+
+        
+
+        <div class="text-end mt-4">
+            <a href="{% url 'hr:staff_list' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> العودة</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

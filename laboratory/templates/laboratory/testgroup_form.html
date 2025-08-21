@@ -1,0 +1,82 @@
+{# templates/laboratory/testgroup_form.html #}
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <h3 class="mb-3">{{ view.object|default_if_none:"مجموعة جديدة" }}</h3>
+
+  {# ديبج اختياري #}
+  {% if tests_count is not None %}
+    <div class="alert alert-info py-2 mb-3">Debug: عدد التحاليل المعروضة: {{ tests_count }}</div>
+  {% endif %}
+  <div class="small text-muted mb-2">Debug choices: {{ form.tests.field.choices|length }}</div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="mb-3">
+      <label class="form-label">اسم المجموعة</label>
+      {{ form.name }}
+      {% if form.name.errors %}
+        <div class="text-danger small">{{ form.name.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label d-flex align-items-center gap-2">
+        التحاليل
+        <input id="test-filter" type="search" class="form-control form-control-sm ms-auto"
+               placeholder="ابحث..." style="max-width:240px;">
+      </label>
+
+      {# ⚠️ رسم يدوي للـ checkboxes مع المحافظة على التحديد #}
+      {% with selected=form.tests.value %}
+      <div id="tests-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
+        {% for value,label in form.tests.field.choices %}
+          <div class="col">
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     name="{{ form.tests.html_name }}"
+                     id="id_tests_{{ forloop.counter0 }}"
+                     value="{{ value }}"
+                     {% if selected and value|stringformat:"s" in selected %}checked{% endif %}>
+              <label class="form-check-label" for="id_tests_{{ forloop.counter0 }}">
+                {{ label }}
+              </label>
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-muted">لا توجد تحاليل.</div>
+        {% endfor %}
+      </div>
+      {% endwith %}
+
+      {% if form.tests.errors %}
+        <div class="text-danger small mt-2">{{ form.tests.errors }}</div>
+      {% endif %}
+    </div>
+
+    <button class="btn btn-primary">حفظ</button>
+    <a class="btn btn-secondary" href="{% url 'laboratory:testgroup_list' %}">رجوع</a>
+  </form>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById('test-filter');
+  const grid  = document.getElementById('tests-grid');
+  if (!input || !grid) return;
+  input.addEventListener('input', function(){
+    const q = this.value.trim().toLowerCase();
+    grid.querySelectorAll('.col').forEach(card => {
+      const label = card.querySelector('label')?.textContent?.toLowerCase() || '';
+      card.style.display = (!q || label.includes(q)) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

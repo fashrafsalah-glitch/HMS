@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}عرض السجل الطبي{% endblock %}
+
+{% block body %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">
+      <i class="bi bi-file-medical me-2"></i>
+      السجل الطبي
+      <small class="text-muted">#{{ record.id }}</small>
+    </h3>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'manager:patient_detail' record.patient.id %}">
+        <i class="bi bi-arrow-right-circle"></i> الرجوع لملف المريض
+      </a>
+      <a class="btn btn-primary" href="{% url 'manager:medical_record_update' record.id %}">
+        <i class="bi bi-pencil-square"></i> تعديل
+      </a>
+      <!-- زر يفتح مودال اختيار الأقسام للطباعة -->
+      <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#printModal">
+        <i class="bi bi-printer"></i> طباعة PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- بطاقة بيانات المريض المختصرة -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3"><strong>الاسم:</strong> {{ record.name|default:record.patient.full_name|default:"غير متوفر" }}</div>
+        <div class="col-md-3"><strong>رقم السجل (MRN):</strong> {{ record.mrn|default:record.patient.mrn|default:"غير متوفر" }}</div>
+        <div class="col-md-3"><strong>تاريخ الميلاد:</strong> {{ record.dob|date:"Y-m-d"|default:"غير متوفر" }}</div>
+        <div class="col-md-3"><strong>الموقع:</strong> {{ record.location|default:"غير متوفر" }}</div>
+        <div class="col-md-3"><strong>الوزن:</strong> {{ record.weight|default:"-" }}</div>
+        <div class="col-md-3"><strong>الطول:</strong> {{ record.height|default:"-" }}</div>
+        <div class="col-md-3"><strong>BMI:</strong> {{ bmi|default:"-" }}</div>
+        <div class="col-md-3"><strong>التاريخ:</strong> {{ record.created_at|date:"Y-m-d H:i"|default:"-" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accordion للأقسام -->
+  <div class="accordion" id="recordAccordion">
+
+    <!-- Basic Info -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-basic">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sec-basic" aria-expanded="true" aria-controls="sec-basic">
+          <i class="bi bi-person-fill me-2"></i> المعلومات الأساسية
+        </button>
+      </h2>
+      <div id="sec-basic" class="accordion-collapse collapse show" aria-labelledby="head-basic" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6"><strong>الشكوى الرئيسية:</strong><br>{{ record.complaint|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>الفحص السريري (مختصر):</strong><br>{{ record.clinical_examination|linebreaks|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admission Info -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-adm">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-adm" aria-expanded="false" aria-controls="sec-adm">
+          <i class="bi bi-hospital-fill me-2"></i> معلومات القبول
+        </button>
+      </h2>
+      <div id="sec-adm" class="accordion-collapse collapse" aria-labelledby="head-adm" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6"><strong>مصدر التاريخ:</strong><br>{{ record.source_history|default:"-" }}</div>
+            <div class="col-md-6"><strong>الحاضرون بجانب السرير:</strong><br>{{ record.present_at_bedside|default:"-" }}</div>
+            <div class="col-md-6"><strong>مصدر الإحالة:</strong><br>{{ record.referral_source|default:"-" }}</div>
+            <div class="col-md-6"><strong>قيود التاريخ:</strong><br>{{ record.history_limitation|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HPI -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-hpi">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-hpi" aria-expanded="false" aria-controls="sec-hpi">
+          <i class="bi bi-file-medical me-2"></i> تاريخ المرض الحالي (HPI)
+        </button>
+      </h2>
+      <div id="sec-hpi" class="accordion-collapse collapse" aria-labelledby="head-hpi" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-4"><strong>البداية:</strong><br>{{ record.hpi_onset|default:"-" }}</div>
+            <div class="col-md-4"><strong>الموقع:</strong><br>{{ record.hpi_location|default:"-" }}</div>
+            <div class="col-md-4"><strong>الشدة:</strong><br>{{ record.hpi_severity|default:"-" }}</div>
+            <div class="col-md-4"><strong>المدة:</strong><br>{{ record.hpi_duration|default:"-" }}</div>
+            <div class="col-md-4"><strong>العوامل المعدِّلة:</strong><br>{{ record.hpi_modifying_factors|default:"-" }}</div>
+            <div class="col-md-4"><strong>أخرى:</strong><br>{{ record.hpi_others|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROS -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-ros">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-ros" aria-expanded="false" aria-controls="sec-ros">
+          <i class="bi bi-check-circle me-2"></i> مراجعة الأنظمة (ROS)
+        </button>
+      </h2>
+      <div id="sec-ros" class="accordion-collapse collapse" aria-labelledby="head-ros" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-4"><strong>Constitutional:</strong><br>{{ record.ros_constitutional|default:"-" }}</div>
+            <div class="col-md-4"><strong>Eye:</strong><br>{{ record.ros_eye|default:"-" }}</div>
+            <div class="col-md-4"><strong>ENT:</strong><br>{{ record.ros_ent|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Histories -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-hist">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-hist" aria-expanded="false" aria-controls="sec-hist">
+          <i class="bi bi-heart-pulse me-2"></i> التاريخ الطبي
+        </button>
+      </h2>
+      <div id="sec-hist" class="accordion-collapse collapse" aria-labelledby="head-hist" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6"><strong>طبي سابق:</strong><br>{{ record.past_medical_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>تحسُّسي:</strong><br>{{ record.allergic_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>اجتماعي:</strong><br>{{ record.social_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>عائلي:</strong><br>{{ record.family_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>جراحي سابق:</strong><br>{{ record.past_surgical_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>الأدوية:</strong><br>{{ record.medication_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>التحصين:</strong><br>{{ record.immunization_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>الغذائي:</strong><br>{{ record.nutritional_history|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>النفسي:</strong><br>{{ record.psychiatric_history|linebreaks|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Physical Exam -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-pe">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-pe" aria-expanded="false" aria-controls="sec-pe">
+          <i class="bi bi-stethoscope me-2"></i> الفحص البدني
+        </button>
+      </h2>
+      <div id="sec-pe" class="accordion-collapse collapse" aria-labelledby="head-pe" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <strong>عام:</strong><br>{{ record.physical_exam_general|default:"-" }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Medical Decision -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-md">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-md" aria-expanded="false" aria-controls="sec-md">
+          <i class="bi bi-clipboard-check me-2"></i> القرار الطبي
+        </button>
+      </h2>
+      <div id="sec-md" class="accordion-collapse collapse" aria-labelledby="head-md" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6"><strong>تشخيصات تفريقية:</strong><br>{{ record.differential_diagnoses|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>مراجعة النتائج:</strong><br>{{ record.result_review|linebreaks|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interpretation -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-int">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-int" aria-expanded="false" aria-controls="sec-int">
+          <i class="bi bi-graph-up me-2"></i> التفسير
+        </button>
+      </h2>
+      <div id="sec-int" class="accordion-collapse collapse" aria-labelledby="head-int" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6"><strong>التفسير:</strong><br>{{ record.interpretation_labs|linebreaks|default:"-" }}</div>
+            <div class="col-md-6"><strong>نتائج المختبر:</strong><br>{{ record.laboratory_results|linebreaks|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Impression & Plan -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-ip">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-ip" aria-expanded="false" aria-controls="sec-ip">
+          <i class="bi bi-list-check me-2"></i> الانطباع والخطة
+        </button>
+      </h2>
+      <div id="sec-ip" class="accordion-collapse collapse" aria-labelledby="head-ip" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-4"><strong>التشخيص:</strong><br>{{ record.diagnosis|linebreaks|default:"-" }}</div>
+            <div class="col-md-4"><strong>المسار:</strong><br>{{ record.course|linebreaks|default:"-" }}</div>
+            <div class="col-md-4"><strong>الأوامر:</strong><br>{{ record.orders|linebreaks|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Professional Service -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-ps">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-ps" aria-expanded="false" aria-controls="sec-ps">
+          <i class="bi bi-briefcase me-2"></i> الخدمة المهنية
+        </button>
+      </h2>
+      <div id="sec-ps" class="accordion-collapse collapse" aria-labelledby="head-ps" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          {{ record.professional_service|linebreaks|default:"-" }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient Education -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-ed">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-ed" aria-expanded="false" aria-controls="sec-ed">
+          <i class="bi bi-book me-2"></i> تثقيف المريض
+        </button>
+      </h2>
+      <div id="sec-ed" class="accordion-collapse collapse" aria-labelledby="head-ed" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          {{ record.patient_education|linebreaks|default:"-" }}
+        </div>
+      </div>
+    </div>
+
+    <!-- SOAP Note -->
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="head-soap">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sec-soap" aria-expanded="false" aria-controls="sec-soap">
+          <i class="bi bi-journal-text me-2"></i> SOAP Note
+        </button>
+      </h2>
+      <div id="sec-soap" class="accordion-collapse collapse" aria-labelledby="head-soap" data-bs-parent="#recordAccordion">
+        <div class="accordion-body">
+          {{ record.soap_note|linebreaks|default:"-" }}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal الطباعة: نفس منطق صفحة الإنشاء لكن نبني form_data من السجل المعروض -->
+<div class="modal fade" id="printModal" tabindex="-1" aria-labelledby="printModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="print-form" method="post" action="{% url 'manager:medical_record_print' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title" id="printModalLabel">إعدادات الطباعة</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="form_data" id="form-data">
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="basic-info" id="print-basic" name="sections" checked>
+          <label class="form-check-label" for="print-basic">المعلومات الأساسية</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="admission-info" id="print-adm" name="sections" checked>
+          <label class="form-check-label" for="print-adm">معلومات القبول</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="chief-complaints" id="print-cc" name="sections" checked>
+          <label class="form-check-label" for="print-cc">الشكاوى الرئيسية</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="hpi" id="print-hpi" name="sections" checked>
+          <label class="form-check-label" for="print-hpi">HPI</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="ros" id="print-ros" name="sections" checked>
+          <label class="form-check-label" for="print-ros">ROS</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="health-status" id="print-hist" name="sections" checked>
+          <label class="form-check-label" for="print-hist">التاريخ الطبي</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="physical-exam" id="print-pe" name="sections" checked>
+          <label class="form-check-label" for="print-pe">الفحص البدني</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="medical-decision" id="print-md" name="sections" checked>
+          <label class="form-check-label" for="print-md">القرار الطبي</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="interpretation" id="print-int" name="sections" checked>
+          <label class="form-check-label" for="print-int">التفسير</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="impression-plan" id="print-ip" name="sections" checked>
+          <label class="form-check-label" for="print-ip">الانطباع والخطة</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="professional-service" id="print-ps" name="sections" checked>
+          <label class="form-check-label" for="print-ps">الخدمة المهنية</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="patient-education" id="print-ed" name="sections" checked>
+          <label class="form-check-label" for="print-ed">تثقيف المريض</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input print-section" type="checkbox" value="soap-note" id="print-soap" name="sections" checked>
+          <label class="form-check-label" for="print-soap">SOAP Note</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">إلغاء</button>
+        <button class="btn btn-primary" id="do-print" type="button">طباعة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // نبني form_data من السجل المعروض لإرساله إلى medical_record_print
+  const printBtn = document.getElementById('do-print');
+  printBtn.addEventListener('click', function () {
+    // نقرأ القيم الظاهرة من الـcontext (مرسلة من السيرفر)
+    // بما أن القيم في الصفحة HTML فقط، سنبني JSON من متغيرات Jinja:
+    const data = {
+      patient: "{{ record.patient.id }}",
+      name: "{{ record.name|default_if_none:''|escapejs }}",
+      dob: "{{ record.dob|date:'Y-m-d'|default_if_none:'' }}",
+      location: "{{ record.location|default_if_none:''|escapejs }}",
+      mrn: "{{ record.mrn|default_if_none:''|escapejs }}",
+      weight: "{{ record.weight|default_if_none:'' }}",
+      height: "{{ record.height|default_if_none:'' }}",
+      complaint: `{{ record.complaint|default_if_none:''|escapejs }}`,
+      medical_history: `{{ record.medical_history|default_if_none:''|escapejs }}`,
+      surgical_history: `{{ record.surgical_history|default_if_none:''|escapejs }}`,
+      medication_history: `{{ record.medication_history|default_if_none:''|escapejs }}`,
+      family_history: `{{ record.family_history|default_if_none:''|escapejs }}`,
+      allergies: `{{ record.allergies|default_if_none:''|escapejs }}`,
+      clinical_examination: `{{ record.clinical_examination|default_if_none:''|escapejs }}`,
+      // HPI
+      hpi_onset: `{{ record.hpi_onset|default_if_none:''|escapejs }}`,
+      hpi_location: `{{ record.hpi_location|default_if_none:''|escapejs }}`,
+      hpi_severity: `{{ record.hpi_severity|default_if_none:''|escapejs }}`,
+      hpi_duration: `{{ record.hpi_duration|default_if_none:''|escapejs }}`,
+      hpi_modifying_factors: `{{ record.hpi_modifying_factors|default_if_none:''|escapejs }}`,
+      hpi_others: `{{ record.hpi_others|default_if_none:''|escapejs }}`,
+      // ROS
+      ros_constitutional: {{ record.ros_constitutional|default:'[]'|safe }},
+      ros_eye: {{ record.ros_eye|default:'[]'|safe }},
+      ros_ent: {{ record.ros_ent|default:'[]'|safe }},
+      // Physical exam
+      physical_exam_general: {{ record.physical_exam_general|default:'[]'|safe }},
+      // Decision / Interpretation / Plan
+      differential_diagnoses: `{{ record.differential_diagnoses|default_if_none:''|escapejs }}`,
+      result_review: `{{ record.result_review|default_if_none:''|escapejs }}`,
+      interpretation_labs: `{{ record.interpretation_labs|default_if_none:''|escapejs }}`,
+      laboratory_results: `{{ record.laboratory_results|default_if_none:''|escapejs }}`,
+      diagnosis: `{{ record.diagnosis|default_if_none:''|escapejs }}`,
+      course: `{{ record.course|default_if_none:''|escapejs }}`,
+      orders: `{{ record.orders|default_if_none:''|escapejs }}`,
+      professional_service: `{{ record.professional_service|default_if_none:''|escapejs }}`,
+      patient_education: `{{ record.patient_education|default_if_none:''|escapejs }}`,
+      soap_note: `{{ record.soap_note|default_if_none:''|escapejs }}`,
+      created_at: "{{ record.created_at|date:'Y-m-d H:i'|default_if_none:'' }}"
+    };
+
+    // حقن JSON في الحقل المخفي وإرسال النموذج
+    document.getElementById('form-data').value = JSON.stringify(data);
+    document.getElementById('print-form').submit();
+  });
+});
+</script>
+{% endblock %}

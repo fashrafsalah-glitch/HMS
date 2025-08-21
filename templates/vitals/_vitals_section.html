@@ -1,0 +1,562 @@
+{# يتوقع: record, vitals (QuerySet/قائمة), show_add_button #}
+<div dir="rtl">
+
+  <!-- شريط علوي: رجوع + إضافة -->
+  <div class="d-flex gap-2 justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="history.back()">
+        <i class="bi bi-arrow-right"></i> رجوع لتفاصيل المريض
+      </button>
+      <span class="text-muted small">السجل رقم {{ record.id }}</span>
+    </div>
+
+    {% if show_add_button %}
+      <a href="{% url 'patient:vitals_create' record_id=record.id %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i> إضافة علامات حيوية
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- حدود طبيعية كمرجع سريع -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge text-bg-light border"><strong>T</strong> 36–37.5 °C</span>
+        <span class="badge text-bg-light border"><strong>HR</strong> 60–100 bpm</span>
+        <span class="badge text-bg-light border"><strong>RR</strong> 12–20 /min</span>
+        <span class="badge text-bg-light border"><strong>BP</strong> SYS 90–120 / DIA 60–80 mmHg</span>
+        <span class="badge text-bg-light border"><strong>SpO₂</strong> ≥ 95%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- أدوات الفلترة + إعدادات العرض -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <form class="row gy-2 gx-3 align-items-end" onsubmit="return false;">
+        <div class="col-12 col-md-3">
+          <label class="form-label">من</label>
+          <input type="datetime-local" id="filterFrom" class="form-control">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">إلى</label>
+          <input type="datetime-local" id="filterTo" class="form-control">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">بحث باسم الموظف</label>
+          <input type="text" id="filterStaff" class="form-control" placeholder="مثال: محمد علي">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">صفوف/صفحة</label>
+          <select id="perPage" class="form-select">
+            <option>10</option>
+            <option selected>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-1">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" id="filterAbnormalOnly">
+            <label class="form-check-label" for="filterAbnormalOnly">غير طبيعي</label>
+          </div>
+        </div>
+        <div class="col-12 text-end">
+          <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+            <i class="bi bi-x-circle"></i> مسح الفلاتر
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- DEBUG: -->
+<td class="text-muted small">
+  ID: {{ v.taken_by_id|default:"None" }}
+</td>
+
+  <!-- الجدول -->
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle" id="vitalsTable">
+      <thead class="table-primary" style="position: sticky; top: 0; z-index: 1;">
+        <tr>
+          <th style="width:60px;" class="text-center">#</th>
+          <th style="min-width:140px;">الوقت</th>
+          <th><i class="bi bi-person-badge me-1"></i> أُخذت بواسطة</th>
+          <th>T (°C)</th>
+          <th>HR</th>
+          <th>RR</th>
+          <th>BP (mmHg)</th>
+          <th>SpO₂ (%)</th>
+          <th style="width:150px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vitals %}
+        <tr
+          data-epoch="{{ v.taken_at|date:'U' }}"
+          data-taken-at="{{ v.taken_at|date:'Y-m-d\\TH:i' }}"
+         data-staff="{% if v.taken_by %}{% firstof v.taken_by.get_full_name v.taken_by.username v.taken_by %}{% endif %}"
+          data-temp="{{ v.temperature|default_if_none:'' }}"
+          "
+          data-temp="{{ v.temperature|default_if_none:'' }}"
+          data-hr="{{ v.heart_rate|default_if_none:'' }}"
+          data-rr="{{ v.respiratory_rate|default_if_none:'' }}"
+          data-sys="{{ v.systolic_bp|default_if_none:'' }}"
+          data-dia="{{ v.diastolic_bp|default_if_none:'' }}"
+          data-spo2="{{ v.oxygen_saturation|default_if_none:'' }}"
+        >
+          <td class="text-center fw-semibold row-index"></td>
+          <td class="text-nowrap">{{ v.taken_at|date:"Y-m-d H:i" }}</td>
+
+          <!-- الموظف (سلسلة بدائل taken_by > created_by > user) -->
+          <td>
+            {% if v.taken_by %}
+              <i class="bi bi-person-badge text-secondary me-1"></i>
+              {% firstof v.taken_by.get_full_name v.taken_by.username v.taken_by %}
+            {% elif v.created_by %}
+              <i class="bi bi-person-badge text-secondary me-1"></i>
+              {% firstof v.created_by.get_full_name v.created_by.username v.created_by %}
+            {% elif v.user %}
+              <i class="bi bi-person-badge text-secondary me-1"></i>
+              {% firstof v.user.get_full_name v.user.username v.user %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+
+          <!-- T -->
+          <td class="{% if v.temperature %}{% if v.temperature < 36 or v.temperature > 37.5 %}text-danger fw-semibold{% endif %}{% endif %}">
+            {% if v.temperature is not None %}
+              {{ v.temperature }}
+              {% if v.temperature < 36 %}<span class="badge text-bg-danger ms-1">منخفض</span>{% elif v.temperature > 37.5 %}<span class="badge text-bg-danger ms-1">مرتفع</span>{% endif %}
+            {% else %} — {% endif %}
+          </td>
+
+          <!-- HR -->
+          <td class="{% if v.heart_rate %}{% if v.heart_rate < 60 or v.heart_rate > 100 %}text-danger fw-semibold{% endif %}{% endif %}">
+            {% if v.heart_rate is not None %}
+              {{ v.heart_rate }}
+              {% if v.heart_rate < 60 %}<span class="badge text-bg-danger ms-1">منخفض</span>{% elif v.heart_rate > 100 %}<span class="badge text-bg-danger ms-1">مرتفع</span>{% endif %}
+            {% else %} — {% endif %}
+          </td>
+
+          <!-- RR -->
+          <td class="{% if v.respiratory_rate %}{% if v.respiratory_rate < 12 or v.respiratory_rate > 20 %}text-danger fw-semibold{% endif %}{% endif %}">
+            {% if v.respiratory_rate is not None %}
+              {{ v.respiratory_rate }}
+              {% if v.respiratory_rate < 12 %}<span class="badge text-bg-danger ms-1">منخفض</span>{% elif v.respiratory_rate > 20 %}<span class="badge text-bg-danger ms-1">مرتفع</span>{% endif %}
+            {% else %} — {% endif %}
+          </td>
+
+          <!-- BP -->
+          <td class="{% if v.systolic_bp and v.diastolic_bp %}{% if v.systolic_bp < 90 or v.systolic_bp > 120 or v.diastolic_bp < 60 or v.diastolic_bp > 80 %}text-danger fw-semibold{% endif %}{% endif %}">
+            {% if v.systolic_bp is not None and v.diastolic_bp is not None %}
+              {{ v.systolic_bp }}/{{ v.diastolic_bp }}
+              {% if v.systolic_bp < 90 or v.diastolic_bp < 60 %}<span class="badge text-bg-danger ms-1">منخفض</span>
+              {% elif v.systolic_bp > 120 or v.diastolic_bp > 80 %}<span class="badge text-bg-danger ms-1">مرتفع</span>{% endif %}
+            {% else %} — {% endif %}
+          </td>
+
+          <!-- SpO2 -->
+          <td class="{% if v.oxygen_saturation %}{% if v.oxygen_saturation < 95 %}text-danger fw-semibold{% endif %}{% endif %}">
+            {% if v.oxygen_saturation is not None %}
+              {{ v.oxygen_saturation }}{% if v.oxygen_saturation < 95 %}<span class="badge text-bg-danger ms-1">منخفض</span>{% endif %}
+            {% else %} — {% endif %}
+          </td>
+
+          <td class="text-nowrap">
+            <a class="btn btn-sm btn-warning" href="{% url 'manager:vitals_update' v.id %}">
+              <i class="bi bi-pencil-square"></i> تعديل
+            </a>
+            <a class="btn btn-sm btn-danger" href="{% url 'manager:vitals_delete' v.id %}">
+              <i class="bi bi-trash"></i> حذف
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted">لا توجد قراءات بعد.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ترقيم الصفحات -->
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div class="small text-muted" id="pageInfo"></div>
+    <nav>
+      <ul class="pagination pagination-sm m-0" id="pager"></ul>
+    </nav>
+  </div>
+
+  <!-- الرسم البياني -->
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="btn-group" role="group" aria-label="range">
+          <button type="button" class="btn btn-outline-primary btn-sm range-btn" data-range="1h">آخر ساعة</button>
+          <button type="button" class="btn btn-outline-primary btn-sm range-btn" data-range="1d">آخر يوم</button>
+          <button type="button" class="btn btn-primary btn-sm range-btn active" data-range="all">كل الوقت</button>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label m-0">المؤشر</label>
+          <select id="metricSelect" class="form-select form-select-sm">
+            <option value="all" selected>الكل (شبكة)</option>
+            <option value="temperature">درجة الحرارة (°C)</option>
+            <option value="heart_rate">النبض HR</option>
+            <option value="respiratory_rate">معدل التنفس RR</option>
+            <option value="bp">ضغط الدم (SYS/DIA)</option>
+            <option value="oxygen_saturation">SpO₂</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="chartsContainer">
+        <!-- رسم واحد -->
+        <canvas id="chartMain" height="180" style="min-height:180px"></canvas>
+
+        <!-- شبكة الرسوم عند اختيار "الكل" -->
+        <div id="smallMultiples" class="row g-3 d-none">
+          <div class="col-12 col-md-6"><canvas id="chartTemp" height="130"></canvas></div>
+          <div class="col-12 col-md-6"><canvas id="chartHR" height="130"></canvas></div>
+          <div class="col-12 col-md-6"><canvas id="chartRR" height="130"></canvas></div>
+          <div class="col-12 col-md-6"><canvas id="chartBP" height="130"></canvas></div>
+          <div class="col-12"><canvas id="chartSpO2" height="130"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Chart.js + Annotation plugin (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+<script>
+  /* إن كنت تستخدم ملفات محلية:
+  {% comment %}
+  {% load static %}
+  <script src="{% static 'vendor/chart.js/chart.umd.min.js' %}"></script>
+  <script src="{% static 'vendor/chart.js/chartjs-plugin-annotation.min.js' %}"></script>
+  {% endcomment %}
+  */
+  if (window.Chart && (window.ChartAnnotation || window['chartjs-plugin-annotation'])) {
+    Chart.register(window.ChartAnnotation || window['chartjs-plugin-annotation']);
+  }
+</script>
+
+<!-- سكربت الفلترة + الترقيم + الرسم -->
+<script>
+(function(){
+  // عناصر الفلترة/الجدول
+  const $from = document.getElementById('filterFrom');
+  const $to = document.getElementById('filterTo');
+  const $staff = document.getElementById('filterStaff');
+  const $abn = document.getElementById('filterAbnormalOnly');
+  const $clear = document.getElementById('clearFilters');
+  const $perPage = document.getElementById('perPage');
+  const $tbody = document.querySelector('#vitalsTable tbody');
+  const $rowsAll = Array.from($tbody.querySelectorAll('tr'));
+  const $pager = document.getElementById('pager');
+  const $pageInfo = document.getElementById('pageInfo');
+
+  // الرسم
+  const $metric = document.getElementById('metricSelect');
+  const $rangeButtons = document.querySelectorAll('.range-btn');
+  const $chartMain = document.getElementById('chartMain');
+  const $multiples = document.getElementById('smallMultiples');
+  const $chartTemp = document.getElementById('chartTemp');
+  const $chartHR = document.getElementById('chartHR');
+  const $chartRR = document.getElementById('chartRR');
+  const $chartBP = document.getElementById('chartBP');
+  const $chartSpO2 = document.getElementById('chartSpO2');
+
+  let filtered = [...$rowsAll];
+  let page = 1;
+
+  // حدود طبيعية
+  const NORMAL = {
+    temperature: { low: 36, high: 37.5 },
+    heart_rate: { low: 60, high: 100 },
+    respiratory_rate: { low: 12, high: 20 },
+    systolic: { low: 90, high: 120 },
+    diastolic: { low: 60, high: 80 },
+    oxygen_saturation: { low: 95, high: 100 }
+  };
+
+  // Helpers
+  const pf = v => { const n = parseFloat(v); return Number.isNaN(n) ? null : n; };
+  const fmt = d => {
+    const pad=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  function isAbnormal(r){
+    const t = pf(r.dataset.temp), hr = pf(r.dataset.hr), rr = pf(r.dataset.rr),
+          sys = pf(r.dataset.sys),  dia = pf(r.dataset.dia), spo2 = pf(r.dataset.spo2);
+    return (t!=null && (t<36||t>37.5)) || (hr!=null&&(hr<60||hr>100)) || (rr!=null&&(rr<12||rr>20)) ||
+           (sys!=null&&(sys<90||sys>120)) || (dia!=null&&(dia<60||dia>80)) || (spo2!=null&&spo2<95);
+  }
+
+  function buildSeries(rows){
+    const arr = [];
+    rows.forEach(r=>{
+      const ts = parseInt(r.dataset.epoch, 10);
+      if (!Number.isFinite(ts)) return;
+      const t = new Date(ts * 1000);
+
+      const fv = k => {
+        const n = parseFloat(r.dataset[k]);
+        return Number.isNaN(n) ? null : n;
+      };
+
+      arr.push({
+        t,
+        temperature: fv('temp'),
+        heart_rate: fv('hr'),
+        respiratory_rate: fv('rr'),
+        systolic: fv('sys'),
+        diastolic: fv('dia'),
+        oxygen_saturation: fv('spo2'),
+      });
+    });
+    arr.sort((a,b)=>a.t - b.t);
+    return arr;
+  }
+
+  // فلترة + ترقيم
+  function applyFilters(){
+    const fromVal = $from.value ? new Date($from.value) : null;
+    const toVal   = $to.value ? new Date($to.value) : null;
+    const staffQ  = ($staff.value || '').trim().toLowerCase();
+    const onlyAbn = $abn.checked;
+
+    filtered = $rowsAll.filter(r=>{
+      const takenAt = r.dataset.takenAt ? new Date(r.dataset.takenAt) : null;
+      if (fromVal && takenAt && takenAt < fromVal) return false;
+      if (toVal   && takenAt && takenAt > toVal)   return false;
+      if (staffQ){
+        const name = (r.dataset.staff || '').toLowerCase();
+        if (!name.includes(staffQ)) return false;
+      }
+      if (onlyAbn && !isAbnormal(r)) return false;
+      return true;
+    });
+
+    // تمييز غير الطبيعي
+    $rowsAll.forEach(r => r.classList.toggle('table-warning', isAbnormal(r)));
+
+    page = 1;
+    render();
+    updateCharts();
+  }
+
+  function render(){
+    const perPage = parseInt($perPage.value, 10) || 25;
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    if (page > pages) page = pages;
+
+    $rowsAll.forEach(r => r.style.display = 'none');
+
+    const start = (page - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+    for (let i = start; i < end; i++){
+      const r = filtered[i];
+      r.style.display = '';
+      const idxCell = r.querySelector('.row-index');
+      if (idxCell) idxCell.textContent = (i + 1).toString();
+    }
+
+    $pageInfo.textContent = total ? `إظهار ${start+1}–${end} من ${total} قراءة` : 'لا توجد نتائج';
+
+    // pagination UI
+    $pager.innerHTML = '';
+    const mk = (label, goTo, dis=false, act=false)=>{
+      const li = document.createElement('li');
+      li.className = 'page-item' + (dis?' disabled':'') + (act?' active':'');
+      const a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=label;
+      a.addEventListener('click', e=>{e.preventDefault(); if(!dis && page!==goTo){page=goTo; render();}});
+      li.appendChild(a); return li;
+    };
+    $pager.appendChild(mk('‹', Math.max(1,page-1), page===1));
+    const show=5; let s=Math.max(1,page-Math.floor(show/2)); let e=Math.min(pages, s+show-1);
+    if (e-s+1<show) s=Math.max(1,e-show+1);
+    for (let p=s;p<=e;p++) $pager.appendChild(mk(String(p), p, false, p===page));
+    $pager.appendChild(mk('›', Math.min(pages,page+1), page===pages));
+  }
+
+  // نطاق الزمن
+  function setRange(mode){
+    const now=new Date(); let from=null,to=null;
+    if (mode==='1h'){from=new Date(now.getTime()-60*60*1000); to=now;}
+    else if (mode==='1d'){from=new Date(now.getTime()-24*60*60*1000); to=now;}
+    else {from=null; to=null;}
+    const toLocal = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    $from.value = from ? toLocal(from) : '';
+    $to.value   = to ? toLocal(to)   : '';
+
+    $rangeButtons.forEach(btn=>{
+      const on = btn.dataset.range===mode;
+      btn.classList.toggle('active', on);
+      btn.classList.toggle('btn-primary', on);
+      btn.classList.toggle('btn-outline-primary', !on);
+    });
+    applyFilters();
+  }
+  $rangeButtons.forEach(btn=>btn.addEventListener('click',()=>setRange(btn.dataset.range)));
+
+  // Chart.js
+  let chartMain=null, chartTemp=null, chartHR=null, chartRR=null, chartBP=null, chartSpO2=null;
+  const destroy = ch => { if (ch) ch.destroy(); };
+
+  function labelsOf(series){ return series.map(s=>fmt(s.t)); }
+
+  function annotationsFor(metric){
+    // تحتاج plugin annotation مسجّل
+    if (!(window.Chart && Chart.registry && Chart.registry.plugins.get('annotation'))) return {};
+    const mk = (y, text)=>({
+      type: 'line',
+      yMin: y, yMax: y,
+      borderColor: 'rgba(220,53,69,0.85)',
+      borderWidth: 1.5,
+      borderDash: [6,6],
+      label: { display: true, content: text, backgroundColor: 'rgba(220,53,69,0.08)', color: '#dc3545', position: 'start' }
+    });
+    const ann = {};
+    if (metric==='temperature'){
+      ann.low  = mk(NORMAL.temperature.low , `حد أدنى ${NORMAL.temperature.low}`);
+      ann.high = mk(NORMAL.temperature.high, `حد أعلى ${NORMAL.temperature.high}`);
+    } else if (metric==='heart_rate'){
+      ann.low  = mk(NORMAL.heart_rate.low , `حد أدنى ${NORMAL.heart_rate.low}`);
+      ann.high = mk(NORMAL.heart_rate.high, `حد أعلى ${NORMAL.heart_rate.high}`);
+    } else if (metric==='respiratory_rate'){
+      ann.low  = mk(NORMAL.respiratory_rate.low , `حد أدنى ${NORMAL.respiratory_rate.low}`);
+      ann.high = mk(NORMAL.respiratory_rate.high, `حد أعلى ${NORMAL.respiratory_rate.high}`);
+    } else if (metric==='oxygen_saturation'){
+      ann.low  = mk(NORMAL.oxygen_saturation.low , `حد أدنى ${NORMAL.oxygen_saturation.low}`);
+    } else if (metric==='bp'){
+      ann.sysLow  = mk(NORMAL.systolic.low , `SYS أدنى ${NORMAL.systolic.low}`);
+      ann.sysHigh = mk(NORMAL.systolic.high, `SYS أعلى ${NORMAL.systolic.high}`);
+      ann.diaLow  = mk(NORMAL.diastolic.low , `DIA أدنى ${NORMAL.diastolic.low}`);
+      ann.diaHigh = mk(NORMAL.diastolic.high, `DIA أعلى ${NORMAL.diastolic.high}`);
+    }
+    return ann;
+  }
+
+  function dataset(label, arr){
+    return {
+      label, data: arr,
+      borderWidth: 2, pointRadius: 0, tension: 0.2, spanGaps: true
+    };
+  }
+
+  function updateSingleChart(series, metric){
+    if (!window.Chart) return;
+    $chartMain.parentElement.classList.remove('d-none');
+    $multiples.classList.add('d-none');
+    destroy(chartMain);
+
+    const labels = labelsOf(series);
+    const cfg = {
+      type: 'line',
+      data: { labels, datasets: [] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true },
+          annotation: { annotations: annotationsFor(metric) }
+        },
+        scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 8 } } }
+      }
+    };
+
+    if (metric==='temperature'){
+      cfg.data.datasets.push(dataset('T (°C)', series.map(s=>s.temperature)));
+    } else if (metric==='heart_rate'){
+      cfg.data.datasets.push(dataset('HR', series.map(s=>s.heart_rate)));
+    } else if (metric==='respiratory_rate'){
+      cfg.data.datasets.push(dataset('RR', series.map(s=>s.respiratory_rate)));
+    } else if (metric==='oxygen_saturation'){
+      cfg.data.datasets.push(dataset('SpO₂', series.map(s=>s.oxygen_saturation)));
+    } else if (metric==='bp'){
+      cfg.data.datasets.push(dataset('SYS', series.map(s=>s.systolic)));
+      cfg.data.datasets.push(dataset('DIA', series.map(s=>s.diastolic)));
+    }
+
+    chartMain = new Chart($chartMain.getContext('2d'), cfg);
+  }
+
+  function updateMultiples(series){
+    if (!window.Chart) return;
+    $chartMain.parentElement.classList.add('d-none');
+    $multiples.classList.remove('d-none');
+    destroy(chartTemp); destroy(chartHR); destroy(chartRR); destroy(chartBP); destroy(chartSpO2);
+
+    const labels = labelsOf(series);
+    const baseOpts = metric => ({
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:true}, annotation:{ annotations: annotationsFor(metric) } },
+      scales:{ x:{ ticks:{ autoSkip:true, maxTicksLimit:6 } } }
+    });
+
+    chartTemp = new Chart($chartTemp.getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[ dataset('T (°C)', series.map(s=>s.temperature)) ] },
+      options: baseOpts('temperature')
+    });
+
+    chartHR = new Chart($chartHR.getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[ dataset('HR', series.map(s=>s.heart_rate)) ] },
+      options: baseOpts('heart_rate')
+    });
+
+    chartRR = new Chart($chartRR.getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[ dataset('RR', series.map(s=>s.respiratory_rate)) ] },
+      options: baseOpts('respiratory_rate')
+    });
+
+    chartBP = new Chart($chartBP.getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[
+        dataset('SYS', series.map(s=>s.systolic)),
+        dataset('DIA', series.map(s=>s.diastolic)),
+      ]},
+      options: baseOpts('bp')
+    });
+
+    chartSpO2 = new Chart($chartSpO2.getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[ dataset('SpO₂', series.map(s=>s.oxygen_saturation)) ] },
+      options: baseOpts('oxygen_saturation')
+    });
+  }
+
+  function updateCharts(){
+    const series = buildSeries(filtered);
+    if (!series.length){
+      if ($chartMain) $chartMain.parentElement.classList.add('d-none');
+      if ($multiples)  $multiples.classList.add('d-none');
+      return;
+    }
+    const metric = ($metric && $metric.value) || 'all';
+    if (metric==='all') updateMultiples(series);
+    else updateSingleChart(series, metric);
+  }
+
+  // أحداث
+  [$from,$to,$staff,$abn,$perPage].forEach(el=>el && el.addEventListener('input', applyFilters));
+  $clear && $clear.addEventListener('click', ()=>{
+    if ($from) $from.value=''; if ($to) $to.value=''; if ($staff) $staff.value=''; if ($abn) $abn.checked=false;
+    setRange('all');
+  });
+  if ($metric) $metric.addEventListener('change', updateCharts);
+
+  // تشغيل أولي
+  applyFilters();
+  setRange('all');
+
+})();
+</script>

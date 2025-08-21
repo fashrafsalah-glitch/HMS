@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h3 class="mb-3">إنشاء طلب مختبر جديد</h3>
+
+  <form id="lab-form" method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="row g-4">
+      <!-- =============== العمود الأيسر: المجموعات =============== -->
+      <div class="col-lg-5">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">المجموعات</span>
+            <small class="text-muted">اختر مجموعة لتحديد كل تحاليلها</small>
+          </div>
+          <div class="card-body">
+            <div id="groups-list" class="list-group">
+              {% for g in groups %}
+                <div class="list-group-item">
+                  <div class="d-flex align-items-center gap-2">
+                    <input
+                      type="checkbox"
+                      class="form-check-input js-group"
+                      id="grp_{{ g.id }}"
+                      data-test-ids="{% for t in g.tests.all %}{{ t.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                    <label class="form-check-label fw-semibold" for="grp_{{ g.id }}">{{ g.name }}</label>
+                    <span class="badge bg-secondary ms-1">{{ g.tests.count }} تحليل</span>
+
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary ms-auto js-group-select-all"
+                            data-target="#grp_{{ g.id }}">
+                      تحديد الكل
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-group-toggle"
+                            data-collapse="#grp_tests_{{ g.id }}">
+                      عرض/إخفاء
+                    </button>
+                  </div>
+
+                  <div id="grp_tests_{{ g.id }}" class="mt-2 collapse">
+                    <div class="small text-muted">
+                      {% for t in g.tests.all %}
+                        <span class="badge bg-light border text-dark me-1 mb-1">
+                          {{ t.english_name|default:t }}
+                        </span>
+                      {% empty %} — لا توجد تحاليل — {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="text-muted px-2">لا توجد مجموعات.</div>
+              {% endfor %}
+              <!-- “أخرى” ستُحقن هنا عند اللزوم -->
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:testgroup_create' %}">+ مجموعة جديدة</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:testgroup_list' %}">قائمة المجموعات</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =============== العمود الأيمن: التحاليل (التشيكبوكسات الفعلية) =============== -->
+      <div class="col-lg-7">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white d-flex align-items-center gap-2">
+            <span class="fw-semibold">التحاليل</span>
+            <input id="test-filter" type="search" class="form-control form-control-sm ms-auto"
+                   placeholder="ابحث عن تحليل..." style="max-width: 260px;">
+          </div>
+          <div class="card-body">
+            <div id="tests-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
+              {% for subwidget in form.tests %}
+                <div class="col js-test-item">
+                  <div class="form-check">
+                    {{ subwidget }}
+                  </div>
+                </div>
+              {% empty %}
+                <div class="text-muted">لا توجد تحاليل.</div>
+              {% endfor %}
+            </div>
+            {{ form.tests.errors }}
+
+            <div class="mt-3 d-flex gap-2">
+              <button type="button" id="btn-clear-tests" class="btn btn-sm btn-outline-danger">مسح الاختيارات</button>
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'laboratory:test_add' %}">+ تحليل جديد</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratory:test_list' %}">قائمة التحاليل</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- أزرار الحفظ -->
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-primary">حفظ الطلب</button>
+      <a class="btn btn-outline-secondary" href="javascript:history.back()">إلغاء</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const form          = document.getElementById('lab-form');
+  const testsGrid     = document.getElementById('tests-grid');
+  const filterInput   = document.getElementById('test-filter');
+  const groupsList    = document.getElementById('groups-list');
+
+  // كل تشيكبوكسات التحاليل (المرسلة للسيرفر)
+  function getTestCheckboxes(){
+    // Django غالبًا يستخدم name="tests" لـ CheckboxSelectMultiple
+    return Array.from(form.querySelectorAll('input[type="checkbox"][name="tests"], input[type="checkbox"][name="tests[]"]'));
+  }
+
+  // علِّم/ألغ تعليم IDs
+  function setTestsCheckedByIds(ids, checked){
+    const set = new Set(ids.map(String));
+    getTestCheckboxes().forEach(cb => {
+      if (set.has(String(cb.value))) cb.checked = !!checked;
+    });
+    updateAllGroupsState();
+  }
+
+  // تحديث حالة مجموعة واحدة (checked/indeterminate) حسب تحاليلها
+  function updateGroupState(groupEl){
+    const ids = (groupEl.dataset.testIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!ids.length){ groupEl.checked = false; groupEl.indeterminate = false; return; }
+
+    const set = new Set(ids);
+    let selected = 0;
+    getTestCheckboxes().forEach(cb => { if (set.has(String(cb.value)) && cb.checked) selected++; });
+
+    if (selected === 0)       { groupEl.checked = false; groupEl.indeterminate = false; }
+    else if (selected === ids.length) { groupEl.checked = true;  groupEl.indeterminate = false; }
+    else                      { groupEl.checked = false; groupEl.indeterminate = true; }
+  }
+
+  function updateAllGroupsState(){
+    groupsList.querySelectorAll('.js-group').forEach(updateGroupState);
+  }
+
+  // بناء “مجموعة أخرى” للتحاليل غير المنسوبة لأي مجموعة
+  function ensureOtherGroup(){
+    const allIds = new Set(getTestCheckboxes().map(cb => String(cb.value)));
+    const inGroups = new Set();
+    groupsList.querySelectorAll('.js-group').forEach(grp => {
+      (grp.dataset.testIds || '').split(',').map(s => s.trim()).filter(Boolean).forEach(id => inGroups.add(id));
+    });
+    const others = Array.from(allIds).filter(id => !inGroups.has(id));
+    if (others.length > 0 && !document.getElementById('grp_other')) {
+      const item = document.createElement('div');
+      item.className = 'list-group-item';
+      item.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <input type="checkbox" class="form-check-input js-group" id="grp_other" data-test-ids="${others.join(',')}">
+          <label class="form-check-label fw-semibold" for="grp_other">أخرى</label>
+          <span class="badge bg-secondary ms-1">${others.length} تحليل</span>
+          <button type="button" class="btn btn-sm btn-outline-primary ms-auto js-group-select-all" data-target="#grp_other">تحديد الكل</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary js-group-toggle" data-collapse="#grp_tests_other">عرض/إخفاء</button>
+        </div>
+        <div id="grp_tests_other" class="mt-2 collapse">
+          <div class="small text-muted">
+            ${
+              getTestCheckboxes()
+                .filter(cb => others.includes(String(cb.value)))
+                .map(cb => {
+                  const label = cb.closest('.form-check')?.querySelector('label');
+                  return '<span class="badge bg-light border text-dark me-1 mb-1">' +
+                         (label ? label.textContent.trim() : cb.value) +
+                         '</span>';
+                }).join(' ')
+            }
+          </div>
+        </div>`;
+      groupsList.appendChild(item);
+    }
+  }
+
+  // أحداث المجموعات
+  groupsList.addEventListener('change', function(e){
+    const grp = e.target.closest('.js-group');
+    if (!grp) return;
+    const ids = (grp.dataset.testIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    setTestsCheckedByIds(ids, grp.checked || grp.indeterminate);
+  });
+
+  groupsList.addEventListener('click', function(e){
+    const btnAll = e.target.closest('.js-group-select-all');
+    if (btnAll){
+      const sel = btnAll.getAttribute('data-target');
+      const grp = sel ? document.querySelector(sel) : null;
+      if (!grp) return;
+      const ids = (grp.dataset.testIds || '').split(',').map(s => s.trim()).filter(Boolean);
+      setTestsCheckedByIds(ids, true);
+      return;
+    }
+    const btnTog = e.target.closest('.js-group-toggle');
+    if (btnTog){
+      const sel = btnTog.getAttribute('data-collapse');
+      const area = sel ? document.querySelector(sel) : null;
+      if (area) area.classList.toggle('collapse');
+    }
+  });
+
+  // عند تغيير أي تحليل يدويًا حدث حالة المجموعات
+  testsGrid.addEventListener('change', function(e){
+    const cb = e.target;
+    if (cb && (cb.name === 'tests' || cb.name === 'tests[]')){
+      updateAllGroupsState();
+    }
+  });
+
+  // فلترة التحاليل
+  if (filterInput){
+    filterInput.addEventListener('input', function(){
+      const q = this.value.trim().toLowerCase();
+      testsGrid.querySelectorAll('.js-test-item').forEach(item => {
+        const txt = item.textContent.toLowerCase();
+        item.style.display = (!q || txt.includes(q)) ? '' : 'none';
+      });
+    });
+  }
+
+  // زر مسح
+  const clearBtn = document.getElementById('btn-clear-tests');
+  if (clearBtn){
+    clearBtn.addEventListener('click', () => {
+      getTestCheckboxes().forEach(cb => cb.checked = false);
+      updateAllGroupsState();
+    });
+  }
+
+  // 🔒 ضمان إرسال القيم المختارة دومًا:
+  form.addEventListener('submit', function(){
+    // احذف أي hidden أضفناه سابقًا
+    form.querySelectorAll('input[type="hidden"][name="tests"]').forEach(n => n.remove());
+    // لكل تحليل مُعلَّم → أضف input hidden يضمن وصوله
+    getTestCheckboxes().forEach(cb => {
+      if (cb.checked){
+        const h = document.createElement('input');
+        h.type  = 'hidden';
+        h.name  = 'tests';
+        h.value = cb.value;
+        form.appendChild(h);
+      }
+    });
+  });
+
+  // تهيئة
+  ensureOtherGroup();
+  updateAllGroupsState();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">تعديل بيانات القسم</h2>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="row">
+      {% for field in form %}
+        <div class="mb-3 col-md-6">
+          <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+          {{ field|add_class:"form-control" }}
+          {% if field.errors %}
+            <div class="text-danger small">
+              {{ field.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-4">
+      <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+      {% if department and department.id %}
+        <a href="{% url 'manager:department_detail' department.id %}" class="btn btn-info">عرض القسم</a>
+      {% endif %}
+      <a href="{% url 'manager:department_list' %}" class="btn btn-secondary">العودة للقائمة</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

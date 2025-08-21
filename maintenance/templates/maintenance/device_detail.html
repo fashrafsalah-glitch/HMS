@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">Device: {{ device.brief_description }}</h2>
+
+    <div class="mb-3">
+        <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-primary">📝 التفاصيل</a>
+        <a href="{% url 'maintenance:device_transfer_history' device.id %}" class="btn btn-outline-primary my-2">
+         📋 عرض سجل حركات الجهاز
+        </a>
+        <a href="{% url 'maintenance:add_accessory' device.id %}" class="btn btn-secondary">➕ إضافة ملحقات</a>
+        <a href="{% url 'maintenance:maintenance_schedule' device.id %}" class="btn btn-success">🛠️ مواعيد الصيانة</a>
+        <a href="{% url 'maintenance:add_emergency_request' device.id %}" class="btn btn-danger">🚨 طلب صيانة مستعجل</a>
+        <a href="{% url 'maintenance:add_spare_part' device.id %}" class="btn btn-warning">🔧 إضافة قطع غيار</a>
+    </div>
+
+    <hr>
+    <h5>معلومات الجهاز:</h5>
+    <ul>
+        <li><strong>رقم الجهاز:</strong> {{ device.device_id }}</li>
+        <li><strong>الاسم:</strong> {{ device.brief_description }}</li>
+        <li><strong>الموديل:</strong> {{ device.model }}</li>
+        <li><strong>القسم:</strong> {{ device.department.name }}</li>
+        <li><strong>الحجرة:</strong> {{ device.room }}</li>
+        <li><strong>الحالة:</strong> {{ device.get_status_display }}</li>
+        <li><strong>النظافة:</strong> {{ device.get_clean_status_display }}</li>
+        <li><strong>التعقيم:</strong> {{ device.get_sterilization_status_display }}</li>
+    </ul>
+</div>
+
+<hr>
+<div class="d-flex gap-2">
+  <a href="{% url 'maintenance:clean_device' device.id %}" class="btn btn-warning">🧽  تم تنظيف الجهاز </a>
+  <a href="{% url 'maintenance:sterilize_device' device.id %}" class="btn btn-info">🧴 تم تعقيم الجهاز</a>
+  <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-success">🔧 تم فحص  الجهاز</a>
+</div>
+
+<hr>
+<div class="mt-3">
+  <a href="{% url 'maintenance:cleaning_history' device.id %}" class="btn btn-outline-warning btn-sm">📄 عرض سجل التنظيف</a>
+  <a href="{% url 'maintenance:sterilization_history' device.id %}" class="btn btn-outline-info btn-sm">📄 عرض سجل التعقيم</a>
+  <a href="{% url 'maintenance:maintenance_history' device.id %}" class="btn btn-outline-success btn-sm">📄 عرض سجل الصيانة</a>
+</div>
+
+{% if device.last_cleaned_by %}
+  <p class="mt-2">🧽 آخر تنظيف: {{ device.last_cleaned_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_cleaned_by }}</p>
+{% endif %}
+{% if device.last_sterilized_by %}
+  <p>🧴 آخر تعقيم: {{ device.last_sterilized_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_sterilized_by }}</p>
+{% endif %}
+{% if device.last_maintained_by %}
+  <p>🔧 آخر صيانة: {{ device.last_maintained_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_maintained_by }}</p>
+{% endif %}
+
+{% endblock %}

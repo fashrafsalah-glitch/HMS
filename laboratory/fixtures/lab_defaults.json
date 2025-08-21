@@ -1,0 +1,402 @@
+[
+  {
+    "model": "laboratory.testgroup",
+    "pk": 1,
+    "fields": {
+      "name": "وظائف الكبد"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 2,
+    "fields": {
+      "name": "وظائف الكلى"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 3,
+    "fields": {
+      "name": "الغدة الدرقية"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 4,
+    "fields": {
+      "name": "الدهون"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 5,
+    "fields": {
+      "name": "التجلط"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 6,
+    "fields": {
+      "name": "CBC"
+    }
+  },
+  {
+    "model": "laboratory.testgroup",
+    "pk": 7,
+    "fields": {
+      "name": "ABG"
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 1,
+    "fields": {
+      "english_name": "ALT",
+      "arabic_name": "ألانين ترانس أميناز",
+      "unit": "U/L",
+      "ref_min": 0,
+      "ref_max": 40,
+      "active": true,
+      "group": 1
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 2,
+    "fields": {
+      "english_name": "AST",
+      "arabic_name": "أسبارتات ترانس أميناز",
+      "unit": "U/L",
+      "ref_min": 0,
+      "ref_max": 40,
+      "active": true,
+      "group": 1
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 3,
+    "fields": {
+      "english_name": "ALP",
+      "arabic_name": "الفوسفاتاز القلوي",
+      "unit": "U/L",
+      "ref_min": 30,
+      "ref_max": 120,
+      "active": true,
+      "group": 1
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 4,
+    "fields": {
+      "english_name": "Total Bilirubin",
+      "arabic_name": "البيليروبين الكلي",
+      "unit": "mg/dL",
+      "ref_min": 0.1,
+      "ref_max": 1.2,
+      "active": true,
+      "group": 1
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 5,
+    "fields": {
+      "english_name": "Direct Bilirubin",
+      "arabic_name": "البيليروبين المباشر",
+      "unit": "mg/dL",
+      "ref_min": 0.0,
+      "ref_max": 0.3,
+      "active": true,
+      "group": 1
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 6,
+    "fields": {
+      "english_name": "Creatinine",
+      "arabic_name": "الكرياتينين",
+      "unit": "mg/dL",
+      "ref_min": 0.6,
+      "ref_max": 1.3,
+      "active": true,
+      "group": 2
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 7,
+    "fields": {
+      "english_name": "BUN",
+      "arabic_name": "يوريا الدم",
+      "unit": "mg/dL",
+      "ref_min": 7,
+      "ref_max": 20,
+      "active": true,
+      "group": 2
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 8,
+    "fields": {
+      "english_name": "Uric Acid",
+      "arabic_name": "حمض اليوريك",
+      "unit": "mg/dL",
+      "ref_min": 3.4,
+      "ref_max": 7.0,
+      "active": true,
+      "group": 2
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 9,
+    "fields": {
+      "english_name": "TSH",
+      "arabic_name": "الهرمون المنبه للغدة الدرقية",
+      "unit": "uIU/mL",
+      "ref_min": 0.4,
+      "ref_max": 4.0,
+      "active": true,
+      "group": 3
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 10,
+    "fields": {
+      "english_name": "Free T3",
+      "arabic_name": "الثيرونين الحر T3",
+      "unit": "pg/mL",
+      "ref_min": 2.3,
+      "ref_max": 4.2,
+      "active": true,
+      "group": 3
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 11,
+    "fields": {
+      "english_name": "Free T4",
+      "arabic_name": "الثيروكسين الحر T4",
+      "unit": "ng/dL",
+      "ref_min": 0.8,
+      "ref_max": 1.8,
+      "active": true,
+      "group": 3
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 12,
+    "fields": {
+      "english_name": "Cholesterol",
+      "arabic_name": "الكوليسترول",
+      "unit": "mg/dL",
+      "ref_min": 125,
+      "ref_max": 200,
+      "active": true,
+      "group": 4
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 13,
+    "fields": {
+      "english_name": "Triglycerides",
+      "arabic_name": "الدهون الثلاثية",
+      "unit": "mg/dL",
+      "ref_min": 0,
+      "ref_max": 150,
+      "active": true,
+      "group": 4
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 14,
+    "fields": {
+      "english_name": "HDL",
+      "arabic_name": "الدهون عالية الكثافة",
+      "unit": "mg/dL",
+      "ref_min": 40,
+      "ref_max": 60,
+      "active": true,
+      "group": 4
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 15,
+    "fields": {
+      "english_name": "LDL",
+      "arabic_name": "الدهون منخفضة الكثافة",
+      "unit": "mg/dL",
+      "ref_min": 0,
+      "ref_max": 130,
+      "active": true,
+      "group": 4
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 16,
+    "fields": {
+      "english_name": "PT",
+      "arabic_name": "زمن البروثرومبين",
+      "unit": "sec",
+      "ref_min": 11,
+      "ref_max": 13.5,
+      "active": true,
+      "group": 5
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 17,
+    "fields": {
+      "english_name": "INR",
+      "arabic_name": "النسبة المعيارية الدولية",
+      "unit": "",
+      "ref_min": 0.8,
+      "ref_max": 1.2,
+      "active": true,
+      "group": 5
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 18,
+    "fields": {
+      "english_name": "aPTT",
+      "arabic_name": "زمن الثرومبوبلاستين الجزئي",
+      "unit": "sec",
+      "ref_min": 30,
+      "ref_max": 40,
+      "active": true,
+      "group": 5
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 19,
+    "fields": {
+      "english_name": "Hemoglobin",
+      "arabic_name": "الهيموغلوبين",
+      "unit": "g/dL",
+      "ref_min": 13.5,
+      "ref_max": 17.5,
+      "active": true,
+      "group": 6
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 20,
+    "fields": {
+      "english_name": "WBC",
+      "arabic_name": "عدد كريات الدم البيضاء",
+      "unit": "10^3/uL",
+      "ref_min": 4.0,
+      "ref_max": 11.0,
+      "active": true,
+      "group": 6
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 21,
+    "fields": {
+      "english_name": "Platelets",
+      "arabic_name": "الصفائح الدموية",
+      "unit": "10^3/uL",
+      "ref_min": 150,
+      "ref_max": 450,
+      "active": true,
+      "group": 6
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 22,
+    "fields": {
+      "english_name": "Hematocrit",
+      "arabic_name": "الهيماتوكريت",
+      "unit": "%",
+      "ref_min": 41,
+      "ref_max": 53,
+      "active": true,
+      "group": 6
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 23,
+    "fields": {
+      "english_name": "pH",
+      "arabic_name": "الرقم الهيدروجيني",
+      "unit": "",
+      "ref_min": 7.35,
+      "ref_max": 7.45,
+      "active": true,
+      "group": 7
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 24,
+    "fields": {
+      "english_name": "pCO2",
+      "arabic_name": "ضغط ثاني أكسيد الكربون",
+      "unit": "mmHg",
+      "ref_min": 35,
+      "ref_max": 45,
+      "active": true,
+      "group": 7
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 25,
+    "fields": {
+      "english_name": "pO2",
+      "arabic_name": "ضغط الأكسجين",
+      "unit": "mmHg",
+      "ref_min": 75,
+      "ref_max": 100,
+      "active": true,
+      "group": 7
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 26,
+    "fields": {
+      "english_name": "HCO3",
+      "arabic_name": "البيكربونات",
+      "unit": "mEq/L",
+      "ref_min": 22,
+      "ref_max": 26,
+      "active": true,
+      "group": 7
+    }
+  },
+  {
+    "model": "laboratory.test",
+    "pk": 27,
+    "fields": {
+      "english_name": "O2 Sat",
+      "arabic_name": "تشبع الأكسجين",
+      "unit": "%",
+      "ref_min": 94,
+      "ref_max": 100,
+      "active": true,
+      "group": 7
+    }
+  }
+]

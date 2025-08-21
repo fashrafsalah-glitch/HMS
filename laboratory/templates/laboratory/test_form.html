@@ -1,0 +1,72 @@
+{# templates/laboratory/test_form.html #}
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container py-3">
+  <h3 class="mb-3">{% if object %}تعديل تحليل{% else %}إضافة تحليل جديد{% endif %}</h3>
+
+  {# رسائل التنبيهات العامة #}
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {# أخطاء عامة #}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">الفئة</label>
+        {{ form.category }}
+        {% for e in form.category.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-8">
+        <label class="form-label">اسم التحليل (EN)</label>
+        {{ form.english_name }}
+        {% for e in form.english_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">الوحدة</label>
+        {{ form.unit }}
+        {% for e in form.unit.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">الحد الأدنى المرجعي</label>
+        {{ form.ref_min }}
+        {% for e in form.ref_min.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">الحد الأعلى المرجعي</label>
+        {{ form.ref_max }}
+        {% for e in form.ref_max.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">نوع النتيجة</label>
+        {{ form.result_type }}
+        {% for e in form.result_type.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="col-md-3 form-check mt-4">
+        {{ form.active }} <label class="form-check-label">نشط</label>
+        {% for e in form.active.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">حفظ</button>
+      <a class="btn btn-outline-secondary" href="{% url 'laboratory:test_list' %}">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

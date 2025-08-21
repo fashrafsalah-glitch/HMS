@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <h3>Laboratory Dashboard</h3>
+
+  <!-- البطاقات -->
+  <div class="row g-3 mt-2">
+
+    <!-- بطاقة قائمة طلبات المعمل -->
+    <div class="col-md-4">
+      <a href="{% url 'laboratory:lab_request_list' %}" class="text-decoration-none">
+        <div class="card shadow-sm p-4 text-center border-0">
+          <i class="bi bi-flask fs-1 mb-2"></i>
+          <div class="fw-bold">قائمة طلبات المعمل</div>
+          <div class="text-muted small">عرض • تصفية • تتبّع الحالة</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- بطاقة طلبات التحاليل المنتظرة -->
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="fs-5">طلبات التحاليل قيد الانتظار</div>
+          <div class="display-6">{{ orders_pending|default:"0" }}</div>
+          <a class="btn btn-sm btn-outline-primary mt-2" href="{% url 'laboratory:testorder_queue' %}">
+            فتح قائمة الانتظار
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- بطاقة طلبات المعمل النشطة -->
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="fs-5">طلبات المعمل النشطة</div>
+          <div class="display-6">{{ requests_pending|default:"0" }}</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- روابط سريعة -->
+  <div class="d-flex flex-wrap gap-2 mt-3">
+    <a href="{% url 'laboratory:lab_request_list' %}"
+       class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2">
+      <i class="bi bi-flask"></i><span>طلبات المعمل</span>
+    </a>
+
+    <a class="btn btn-outline-secondary btn-sm {% if request.resolver_match.namespace == 'laboratory' and request.resolver_match.url_name == 'test_list' %}active{% endif %}"
+       href="{% url 'laboratory:test_list' %}">
+      <i class="bi bi-list-check me-2"></i><span>التحاليل</span>
+    </a>
+
+    <a class="btn btn-outline-secondary btn-sm {% if request.resolver_match.namespace == 'laboratory' and request.resolver_match.url_name == 'testgroup_list' %}active{% endif %}"
+       href="{% url 'laboratory:testgroup_list' %}">
+      <i class="bi bi-folder2-open me-2"></i><span>مجموعات التحاليل</span>
+    </a>
+
+    <a class="btn btn-outline-secondary btn-sm {% if request.resolver_match.namespace == 'laboratory' and request.resolver_match.url_name == 'testorder_queue' %}active{% endif %}"
+       href="{% url 'laboratory:testorder_queue' %}">
+      <i class="bi bi-clipboard2-check me-2"></i><span>قائمة الطلبات</span>
+    </a>
+  </div>
+
+  <!-- آخر الطلبات مع زر إدخال النتائج -->
+  <div class="card mt-4">
+    <div class="card-header">آخر الطلبات</div>
+    <div class="card-body p-0">
+      <table class="table mb-0 table-striped align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المريض</th>
+            <th>الحالة</th>
+            <th>التحاليل</th>
+            <th>التاريخ</th>
+            <th class="text-end">إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in lab_requests %}
+            <tr>
+              <td>{{ r.id }}</td>
+              <td>{{ r.patient }}</td>
+              <td>
+                {# إن كان عندك choices ↤ get_status_display؛ وإلا اعرض القيمة الخام #}
+                {{ r.get_status_display|default:r.status|default:"—" }}
+              </td>
+              <td>
+                {% for t in r.tests.all %}
+                 {{ t.english_name|default:t }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                  —
+                {% endfor %}
+              </td>
+              <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+              <td class="text-end">
+                {# ملاحظة: تأكد أن أسماء المسارات أدناه موجودة في urls.py #}
+                {% if r.order_id %}
+                  {# إن كان عندك اسم view: laboratory:add_results_for_order استخدمه؛
+                     وإلا استخدم laboratory:add_test_result حسب ما وفّرته في المشروع #}
+                  {% url 'laboratory:add_results_for_order' r.order_id as add_order_url %}
+                  {% if add_order_url %}
+                    <a class="btn btn-success btn-sm" href="{{ add_order_url }}">إدخال النتائج</a>
+                  {% else %}
+                    <a class="btn btn-success btn-sm" href="{% url 'laboratory:add_test_result' r.order_id %}">إدخال النتائج</a>
+                  {% endif %}
+                {% else %}
+                  <a class="btn btn-success btn-sm"
+                     href="{% url 'laboratory:add_results_for_request' request_id=r.id %}">
+                    إدخال النتائج
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted">لا توجد طلبات.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- فورم قفز سريع لإدخال النتائج -->
+  <div class="card mt-3">
+    <div class="card-body">
+      <form class="row g-2 align-items-end"
+            onsubmit="event.preventDefault();
+                      const rid = document.getElementById('req-id').value.trim();
+                      const oid = document.getElementById('ord-id').value.trim();
+                      if (rid) { window.location.href = '{% url 'laboratory:lab_request_list' %}?goto=results&request_id=' + encodeURIComponent(rid); return; }
+                      if (oid) { window.location.href = '{% url 'laboratory:testorder_queue' %}?goto=add-result&order_id=' + encodeURIComponent(oid); return; }">
+        <div class="col-md-3">
+          <label class="form-label">Request ID</label>
+          <input id="req-id" type="number" min="1" class="form-control" placeholder="مثال: 3">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Order ID</label>
+          <input id="ord-id" type="number" min="1" class="form-control" placeholder="مثال: 12">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-success w-100">إدخال النتائج</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+ {# رابط قائمة النتائج للمريض - يُعرض فقط عند توفر patient.id #}
+{% if patient and patient.id %}
+  <a class="btn btn-sm btn-outline-primary"
+     href="{% url 'laboratory:patient_lab_results' patient_id=patient.id %}?range=all&view=table">
+    <i class="bi bi-clipboard2-data me-1"></i> نتائج التحاليل
+  </a>
+{% else %}
+  <button class="btn btn-sm btn-outline-secondary" type="button" disabled title="اختر مريضًا أولًا">
+    <i class="bi bi-clipboard2-data me-1"></i> نتائج التحاليل
+  </button>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">🧼 سجل تنظيف الجهاز</h2>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5>🔧 اسم الجهاز: <strong>{{ device.name }}</strong></h5>
+            <p>📟 الرقم التسلسلي: <strong>{{ device.serial_number }}</strong></p>
+            <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-outline-secondary btn-sm">⬅ الرجوع لتفاصيل الجهاز</a>
+        </div>
+    </div>
+
+    {% if logs %}
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>اسم المستخدم</th>
+                <th>تاريخ ووقت التنظيف</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ log.last_cleaned_by.get_full_name|default:log.last_cleaned_by.username }}</td>
+                <td>{{ log.cleaned_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">
+        لا توجد سجلات تنظيف لهذا الجهاز حتى الآن.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

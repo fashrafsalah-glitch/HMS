@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Pending Lab Orders{% endblock %}
+{% block content %}
+<div class="container my-4">
+  <h3>Pending Lab Orders</h3>
+  <table class="table table-striped">
+    <thead><tr><th>ID</th><th>Patient</th><th>Date</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for order in queue %}
+        <tr>
+          <td>#{{ order.id }}</td>
+          <td>{{ order.patient }}</td>
+          <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+          <td><span class="badge bg-secondary">{{ order.get_status_display }}</span></td>
+          <td>
+            <a href="{% url 'laboratory:testorder_print' order.id %}" class="btn btn-sm btn-primary">
+              View / Print
+            </a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted">No pending orders.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

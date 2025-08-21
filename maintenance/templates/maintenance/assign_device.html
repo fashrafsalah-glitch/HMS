@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>📥 استخدام الجهاز</h2>
+    <p><strong>الجهاز:</strong> {{ device.name }} (رقم تسلسلي: {{ device.id }})</p>
+    <p><strong>القسم:</strong> {{ device.department.name }}</p>
+    <p><strong>الغرفة:</strong> {{ device.room }}</p>
+    
+    <form method="post">
+    {% csrf_token %}
+    <p><strong>الجهاز:</strong> {{ device.name }} (رقم تسلسلي: {{ device.id }})</p>
+    <p><strong>القسم:</strong> {{ device.department }}</p>
+    <p><strong>الغرفة:</strong> {{ device.room }}</p>
+
+    <label for="patient">اختر المريض لاستخدام الجهاز:</label>
+    <select name="patient" id="patient" required>
+        <option value="">-- اختر مريضًا --</option>
+        {% for patient in patients %}
+            <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
+        {% endfor %}
+    </select>
+
+    <br><br>
+    <button type="submit">حفظ</button>
+</form>
+</div>
+{% endblock %}

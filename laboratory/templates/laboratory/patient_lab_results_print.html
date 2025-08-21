@@ -1,0 +1,88 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تقرير نتائج المختبر</title>
+  <style>
+    body { font-family: "Segoe UI", Tahoma, sans-serif; font-size: 12px; }
+    h1,h2,h3 { margin: 0 0 8px; }
+    .muted { color: #666; }
+    .header { border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; }
+    th { background: #f5f5f5; }
+    .section { margin-top: 14px; }
+    .small { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>تقرير نتائج المختبر</h2>
+    <div class="small muted">نطاق: 
+      {% if range == "today" %}اليوم{% elif range == "5d" %}آخر 5 أيام{% else %}كل النتائج{% endif %}
+      — مولّد في: {{ generated_at|date:"Y-m-d H:i" }}
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>بيانات المريض</h3>
+    <table>
+      <tr>
+        <th>الاسم</th><td>{{ patient }}</td>
+        <th>الرقم الطبي (MRN)</th><td>{{ mrn|default:"—" }}</td>
+      </tr>
+      <tr>
+        <th>العمر</th><td>{% if age %}{{ age }} سنة{% else %}—{% endif %}</td>
+        <th>الجنس</th><td>{{ gender|default:"—" }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>النتائج</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 170px;">التاريخ</th>
+          <th>التحليل</th>
+          <th style="width: 160px;">الحالة</th>
+          <th>النتيجة</th>
+          <th style="width: 120px;">الوحدة</th>
+          <th style="width: 160px;">المرجع</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+          {% with ts=it.observed_at|default:it.verified_at|default:it.request.completed_at|default:it.request.requested_at %}
+          <tr>
+            <td>{{ ts|date:"Y-m-d H:i" }}</td>
+            <td>{{ it.test.english_name|default:it.test }}</td>
+            <td>{{ it.request.get_status_display }}</td>
+            <td>
+              {% if it.value_num is not None %}
+                {{ it.value_num }}
+              {% elif it.value_text %}
+                {{ it.value_text }}
+              {% elif it.value_bool is not None %}
+                {{ it.value_bool|yesno:"Positive,Negative" }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ it.unit|default:"" }}</td>
+            <td>
+              {% if it.ref_min or it.ref_max %}
+                {{ it.ref_min|default:"" }} – {{ it.ref_max|default:"" }}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+        {% empty %}
+          <tr><td colspan="6" class="muted">لا توجد نتائج في هذا النطاق.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

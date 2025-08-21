@@ -1,0 +1,100 @@
+{# templates/medical_records/_record_panel.html #}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="mb-0">
+        <i class="bi bi-file-medical me-2"></i>
+        السجل الطبي #{{ record.id }}
+        <small class="text-muted">({{ record.created_at|date:"Y-m-d H:i" }})</small>
+      </h5>
+
+      {% if show_actions %}
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'manager:medical_record_detail' record.id %}">
+          <i class="bi bi-arrows-fullscreen"></i> فتح
+        </a>
+        <a class="btn btn-primary btn-sm" href="{% url 'manager:medical_record_update' record.id %}">
+          <i class="bi bi-pencil-square"></i> تعديل
+        </a>
+        <button class="btn btn-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#printModal-{{ record.id }}">
+          <i class="bi bi-printer"></i> طباعة
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-3"><strong>الاسم:</strong>{{ record.name|default:record.patient.first_name }} {{ record.patient.last_name }}</div>
+      <div class="col-md-3"><strong>MRN:</strong> {{ record.mrn|default:record.patient.mrn|default:"-" }}</div>
+      <div class="col-md-3"><strong>الوزن/الطول:</strong> {{ record.weight|default:"-" }}/{{ record.height|default:"-" }}</div>
+      <div class="col-md-3">
+        <strong>BMI:</strong>
+        {{ bmi|default:"-" }}
+      </div>
+    </div>
+
+    <div class="accordion" id="acc-{{ record.id }}">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="h-basic-{{ record.id }}">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                  data-bs-target="#c-basic-{{ record.id }}">
+            <i class="bi bi-person-fill me-2"></i> المعلومات الأساسية
+          </button>
+        </h2>
+        <div id="c-basic-{{ record.id }}" class="accordion-collapse collapse show" data-bs-parent="#acc-{{ record.id }}">
+          <div class="accordion-body">
+            <div class="row g-3">
+              <div class="col-md-6"><strong>الشكوى:</strong><br>{{ record.complaint|linebreaks|default:"-" }}</div>
+              <div class="col-md-6"><strong>الفحص السريري:</strong><br>{{ record.clinical_examination|linebreaks|default:"-" }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {# يمكنك إضافة المزيد من الأقسام هنا مثل HPI أو ROS إن أردت #}
+    </div>
+  </div>
+</div>
+
+{# مودال الطباعة #}
+<div class="modal fade" id="printModal-{{ record.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{% url 'manager:medical_record_print' %}">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">إعدادات الطباعة</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="form_data" id="form-data-{{ record.id }}">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="sections" value="basic-info" id="s1-{{ record.id }}" checked>
+          <label class="form-check-label" for="s1-{{ record.id }}">المعلومات الأساسية</label>
+        </div>
+        {# أضف باقي الخيارات إن أردت #}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="button" class="btn btn-primary" onclick="sendPrint{{ record.id }}()">طباعة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function sendPrint{{ record.id }}() {
+  const data = {
+    patient: "{{ record.patient.id }}",
+    name: "{{ record.name|default_if_none:''|escapejs }}",
+    mrn: "{{ record.mrn|default_if_none:''|escapejs }}",
+    dob: "{{ record.dob|date:'Y-m-d'|default_if_none:'' }}",
+    location: "{{ record.location|default_if_none:''|escapejs }}",
+    weight: "{{ record.weight|default_if_none:'' }}",
+    height: "{{ record.height|default_if_none:'' }}",
+    complaint: `{{ record.complaint|default_if_none:''|escapejs }}`,
+    clinical_examination: `{{ record.clinical_examination|default_if_none:''|escapejs }}`,
+    created_at: "{{ record.created_at|date:'Y-m-d H:i'|default_if_none:'' }}"
+  };
+  document.getElementById('form-data-{{ record.id }}').value = JSON.stringify(data);
+  document.getElementById('form-data-{{ record.id }}').closest('form').submit();
+}
+</script>

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">📋 سجل صيانة الجهاز</h2>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5>🔧 الجهاز: {{ device.name }}</h5>
+            <p>🔢 الرقم التسلسلي: {{ device.serial_number }}</p>
+        </div>
+    </div>
+
+    {% if logs %}
+    <table class="table table-bordered table-striped">
+        <thead class="thead-dark">
+            <tr>
+                <th>#</th>
+                <th>اسم المستخدم</th>
+                <th>التاريخ والوقت</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ log.last_maintained_by.get_full_name|default:log.last_maintained_by.username }}</td>
+                <td>{{ log.maintained_at|date:"Y-m-d H:i:s" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">لا توجد سجلات صيانة حتى الآن.</div>
+    {% endif %}
+    
+    <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary mt-3">⬅️ العودة إلى تفاصيل الجهاز</a>
+</div>
+{% endblock %}

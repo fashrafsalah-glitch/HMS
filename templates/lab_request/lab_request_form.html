@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>New Lab Request</h2>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+
+    <!-- hidden “patient” input is rendered automatically by {{ form }} -->
+    <div class="mb-3">
+      {{ form.tests.label_tag }}<br>
+      {{ form.tests }}                <!-- check-boxes or multi-select -->
+      {{ form.tests.errors }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit Request</button>
+
+    {# go back to the patient page by default #}
+    {% with pid=form.patient.value %}
+      <a href="{% url 'manager:patient_detail' pid %}"
+         class="btn btn-secondary">Back</a>
+    {% endwith %}
+  </form>
+{% endblock %}
