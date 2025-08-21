@@ -1293,6 +1293,23 @@ class MedicalRecordCreateView(LoginRequiredMixin,
     def get_success_url(self):
         return reverse("manager:patient_detail", args=[self.object.patient.id])
 
+class MedicalRecordDetailView(LoginRequiredMixin,
+                              HospitalmanagerRequiredMixin,
+                              DetailView):
+    model = MedicalRecord
+    template_name = "medical_records/medical_record_detail.html"
+    context_object_name = "record"
+
+class MedicalRecordUpdateView(LoginRequiredMixin,
+                              HospitalmanagerRequiredMixin,
+                              UpdateView):
+    model = MedicalRecord
+    form_class = MedicalRecordForm
+    template_name = "medical_records/medical_record_form.html"
+
+    def get_success_url(self):
+        return reverse("manager:medical_record_detail", args=[self.object.id])
+
 def pdf_settings(request):
     """
     Create or update PDF layout settings for the current hospital.
@@ -2750,12 +2767,127 @@ def download_wristband(request, patient_id):
 
     patient = get_object_or_404(Patient, id=patient_id, hospital=request.user.hospital)
 
-    # توليد صورة بسيطة 400x120
-    img = Image.new("RGB", (400, 120), "white")
-    d = ImageDraw.Draw(img)
-    text = f"MRN: {patient.mrn} | {patient.first_name} {patient.last_name}"
-    d.text((10, 45), text)  # لو عايز خط عربي حمله وسجّله
+    # Canvas settings (high resolution wristband)
+    width, height = 1000, 220
+    padding = 24
+    qr_size = 180
+    img = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(img)
 
+    # Attempt to load a clean, readable font
+    def load_font(pref_size):
+        for path in [
+            "arial.ttf",  # Windows
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux common
+            "/Library/Fonts/Arial.ttf",  # macOS
+        ]:
+            try:
+                return ImageFont.truetype(path, pref_size)
+            except Exception:
+                continue
+        return ImageFont.load_default()
+
+    font_title = load_font(28)
+    font_label = load_font(22)
+    font_value = load_font(24)
+    font_small = load_font(18)
+
+    # Latest admission to pull department/ward/doctor
+    latest_adm = (
+        Admission.objects.filter(patient=patient)
+        .order_by("-admission_date")
+        .first()
+    )
+    department_name = latest_adm.department.name if (latest_adm and latest_adm.department) else "-"
+    ward_name = "-"
+    if latest_adm and latest_adm.bed and getattr(latest_adm.bed, "room", None) and getattr(latest_adm.bed.room, "ward", None):
+        ward_name = latest_adm.bed.room.ward.name or "-"
+    # Doctor name: Doctor model links to hr.CustomUser via `user` which has `full_name`
+    doctor_name = "-"
+    if latest_adm and getattr(latest_adm, "treating_doctor", None):
+        doc = latest_adm.treating_doctor
+        user_obj = getattr(doc, "user", None)
+        if user_obj and getattr(user_obj, "full_name", None):
+            doctor_name = user_obj.full_name
+        else:
+            # Fallback to string representation
+            doctor_name = str(doc)
+
+    # Allergy info from last medical record
+    last_record = (
+        MedicalRecord.objects.filter(patient=patient).order_by("-created_at").first()
+    )
+    allergy_text = None
+    if last_record:
+        allergy_text = (last_record.allergic_history or last_record.allergies or "").strip() or None
+
+    # Age calculation
+    def calc_age(dob):
+        try:
+            if not dob:
+                return None
+            from datetime import date
+            today = date.today()
+            return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        except Exception:
+            return None
+
+    age = calc_age(getattr(patient, "date_of_birth", None))
+    dob_str = patient.date_of_birth.strftime("%Y-%m-%d") if getattr(patient, "date_of_birth", None) else "-"
+    age_str = f" / {age}y" if age is not None else ""
+
+    # Left area text positions
+    text_left = padding
+    text_top = padding
+    text_right_limit = width - padding - qr_size - 20
+
+    # Title
+    hospital_name = getattr(request.user.hospital, "name", "Hospital")
+    draw.text((text_left, text_top), f"{hospital_name} – Patient Wristband", font=font_title, fill="black")
+    text_top += 40
+
+    # Patient details
+    def write_line(label, value):
+        nonlocal text_top
+        draw.text((text_left, text_top), f"{label}:", font=font_label, fill="#333333")
+        draw.text((text_left + 210, text_top), f"{value}", font=font_value, fill="black")
+        text_top += 34
+
+    full_name = getattr(patient, "full_name", None) or f"{getattr(patient, 'first_name', '')} {getattr(patient, 'last_name', '')}".strip()
+    write_line("Patient Name", full_name or "-")
+    write_line("Patient ID", patient.mrn or "-")
+    write_line("Date of Birth / Age", f"{dob_str}{age_str}")
+    write_line("Department / Ward", f"{department_name} / {ward_name}")
+    write_line("Doctor's Name", doctor_name)
+
+    # Allergy warning
+    text_top += 6
+    if allergy_text:
+        # Red warning icon and text
+        draw.text((text_left, text_top), "⚠", font=font_value, fill="#d32f2f")
+        draw.text((text_left + 28, text_top), f"Allergy: {allergy_text}", font=font_value, fill="#d32f2f")
+        text_top += 34
+    else:
+        draw.text((text_left, text_top), "Allergy: None Reported", font=font_value, fill="#2e7d32")
+        text_top += 34
+
+    # QR code on the right
+    qr = qrcode.QRCode(version=2, box_size=6, border=0)
+    qr_payload = f"MRN:{patient.mrn}|NAME:{full_name}|DOB:{dob_str}"
+    qr.add_data(qr_payload)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    qr_img = qr_img.resize((qr_size, qr_size), Image.NEAREST)
+    qr_x = width - padding - qr_size
+    qr_y = (height - qr_size) // 2
+    img.paste(qr_img, (qr_x, qr_y))
+
+    # Optional caption under QR
+    caption = "Scan for patient info"
+    cap_w, cap_h = draw.textbbox((0, 0), caption, font=font_small)[2:]
+    draw.text((qr_x + (qr_size - cap_w) // 2, qr_y + qr_size + 4), caption, font=font_small, fill="#555555")
+
+    # Output as PNG
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)

@@ -41,6 +41,97 @@
             <div class="card p-4 mb-4">
                 <h5 class="mb-3"><i class="bi bi-info-circle-fill me-2"></i>Personal Information</h5>
                 <div class="row g-3">
+                    <style>
+                        .form-control-plaintext {
+                            font-size: 1rem;
+                            font-weight: 500;
+                            color: #6c757d;
+                        }
+                        /* Tables color tuning (scoped to this page) */
+                        /* Light mode defaults refinement */
+                        body:not(.dark-mode) .table thead th {
+                            background-color: #f8f9fa;
+                            color: #212529;
+                        }
+                        body:not(.dark-mode) .table {
+                            color: #212529;
+                            border-color: #dee2e6;
+                        }
+                        body:not(.dark-mode) .table-striped tbody tr:nth-of-type(odd) {
+                            background-color: rgba(0,0,0,.03);
+                        }
+                        body:not(.dark-mode) .table-hover tbody tr:hover {
+                            background-color: rgba(0,0,0,.05);
+                        }
+
+                        /* Dark mode overrides */
+                        body.dark-mode .table {
+                            /* Bootstrap 5 table CSS variables */
+                            --bs-table-color: #e5e7eb;
+                            --bs-table-bg: #1f1f1f;
+                            --bs-table-striped-bg: #232323;
+                            --bs-table-striped-color: #e5e7eb;
+                            --bs-table-hover-bg: #2a2a2a;
+                            --bs-table-hover-color: #e5e7eb;
+                            --bs-table-border-color: #3a3a3a;
+                            --bs-table-accent-bg: transparent;
+                            color: var(--bs-table-color) !important;
+                            background-color: var(--bs-table-bg) !important;
+                            border-color: var(--bs-table-border-color) !important;
+                        }
+                        body.dark-mode .table thead,
+                        body.dark-mode .table thead th {
+                            --bs-table-bg: #2f2f2f;
+                            --bs-table-color: #e5e7eb;
+                            background-color: var(--bs-table-bg) !important;
+                            color: var(--bs-table-color) !important;
+                            border-color: #3a3a3a !important;
+                        }
+                        /* Ensure cells inherit dark background */
+                        body.dark-mode .table > :not(caption) > * > * {
+                            background-color: var(--bs-table-bg, #1f1f1f) !important;
+                            color: var(--bs-table-color, #e5e7eb) !important;
+                        }
+                        /* Striped rows per-cell background */
+                        body.dark-mode .table-striped > tbody > tr:nth-of-type(odd) > * {
+                            background-color: var(--bs-table-striped-bg, #232323) !important;
+                            color: var(--bs-table-striped-color, #e5e7eb) !important;
+                        }
+                        /* Hover rows per-cell background */
+                        body.dark-mode .table-hover > tbody > tr:hover > * {
+                            background-color: var(--bs-table-hover-bg, #2a2a2a) !important;
+                            color: var(--bs-table-hover-color, #e5e7eb) !important;
+                        }
+                        /* Colored header variant */
+                        body.dark-mode .table-primary, 
+                        body.dark-mode thead.table-primary, 
+                        body.dark-mode .table .table-primary {
+                            --bs-table-bg: #2f2f2f !important;
+                            --bs-table-color: #e5e7eb !important;
+                            --bs-table-border-color: #3a3a3a !important;
+                        }
+                        /* Fix light badges inside dark tables */
+                        body.dark-mode .badge.text-bg-light {
+                            background-color: #374151 !important; /* slate-700 */
+                            color: #e5e7eb !important;
+                            border: 1px solid #4b5563;
+                        }
+                        body.dark-mode .table td, 
+                        body.dark-mode .table th {
+                            border-color: #3a3a3a !important;
+                        }
+                        body.dark-mode .table-striped tbody tr:nth-of-type(odd) {
+                            background-color: var(--bs-table-striped-bg) !important;
+                            color: var(--bs-table-striped-color) !important;
+                        }
+                        body.dark-mode .table-hover tbody tr:hover {
+                            background-color: var(--bs-table-hover-bg) !important;
+                            color: var(--bs-table-hover-color) !important;
+                        }
+                        body.dark-mode .table .text-muted { color: #9ca3af !important; }
+                        body.dark-mode .table a { color: #93c5fd !important; }
+                        body.dark-mode .table a:hover { color: #bfdbfe !important; }
+                    </style>
                     <div class="col-md-6">
                         <label class="form-label"><strong>Age:</strong></label>
                         <div class="form-control-plaintext">

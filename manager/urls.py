@@ -205,9 +205,8 @@ path(
     medical_record_print,
     name="medical_record_print",
 ),
-    # path('medical-records/<int:pk>/update/', views.MedicalRecordUpdateView.as_view(), name='medical_record_update'),
-    # path("medical-records/<int:pk>/", MedicalRecordDetailView.as_view(), name="medical_record_detail"),
-    path("medical-records/print/", medical_record_print, name="medical_record_print"),
+    path('medical-records/<int:pk>/update/', views.MedicalRecordUpdateView.as_view(), name='medical_record_update'),
+    path("medical-records/<int:pk>/", views.MedicalRecordDetailView.as_view(), name="medical_record_detail"),
 
     path("records/<int:record_id>/vitals/",     VitalSignListView.as_view(),   name="vitals_list"),
     path("records/<int:record_id>/vitals/new/", VitalSignCreateView.as_view(), name="vitals_create"),
