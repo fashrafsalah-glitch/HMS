@@ -12,9 +12,7 @@ from mptt.models import MPTTModel, TreeForeignKey
 import qrcode
 
 from laboratory.models import LabRequest
-
-
-
+from core.qr_utils import QRCodeMixin
 
 # ────────────────────────  ORGANISATION & STAFF  ────────────────────────
 class Department(MPTTModel):
@@ -117,7 +115,7 @@ class Room(models.Model):
         return f"{self.get_room_type_display()} – قسم {self.department.name} – غرفة {self.number}"
 
 
-class Bed(models.Model):
+class Bed(QRCodeMixin, models.Model):
     BED_TYPE_CHOICES = [
         ('regular', 'سرير عادي'),
         ('OT_table', 'طاولة عمليات'),
@@ -160,7 +158,7 @@ class Bed(models.Model):
 
 
 # ─────────────────────────────  PATIENT  ─────────────────────────────
-class Patient(models.Model):
+class Patient(QRCodeMixin, models.Model):
     first_name = models.CharField(max_length=50)
     middle_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50)

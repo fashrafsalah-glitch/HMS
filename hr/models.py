@@ -6,10 +6,9 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from manager.models import Department
 from superadmin.models import SystemSettings
-from django.contrib.auth.models import AbstractUser
+from core.qr_utils import QRCodeMixin
 
-
-class CustomUser(AbstractUser):
+class CustomUser(AbstractUser, QRCodeMixin):
     ROLE_CHOICES = [
         ('super_admin', 'Super Admin'),
         ('doctor', 'Doctor'),

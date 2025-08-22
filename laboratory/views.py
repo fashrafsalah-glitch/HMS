@@ -728,6 +728,117 @@ def sample_scan(request, token):
     messages.info(request, f"Sample for {item.test} marked as received in lab.")
     return redirect("laboratory:lab_request_detail", pk=item.request_id)
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 3: LABORATORY SAMPLE SCAN INTERFACE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def lab_sample_scan_page(request):
+    """
+    Laboratory sample scanning interface - Step 3
+    """
+    context = {
+        'title': 'مسح عينات المختبر - Step 3',
+        'scan_types': [
+            ('receive', 'استلام العينة'),
+            ('process', 'معالجة العينة'),
+            ('complete', 'إكمال التحليل'),
+            ('reject', 'رفض العينة'),
+        ]
+    }
+    return render(request, 'laboratory/sample_scan.html', context)
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@login_required
+def update_sample_status(request):
+    """
+    Update lab sample status via API
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        sample_token = data.get('sample_token')
+        action = data.get('action')
+        notes = data.get('notes', '')
+        
+        if not sample_token or not action:
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+        
+        # Get the lab request item
+        try:
+            item = LabRequestItem.objects.select_related(
+                'request__patient', 'test'
+            ).get(sample_token=sample_token)
+        except LabRequestItem.DoesNotExist:
+            return JsonResponse({'error': 'Sample not found'}, status=404)
+        
+        now = timezone.now()
+        user = request.user
+        
+        # Update based on action
+        if action == 'receive':
+            if item.status == LabRequestItem.STATUS_PENDING:
+                item.status = LabRequestItem.STATUS_IN_LAB
+                item.sample_received_at = now
+                item.sample_received_by = user
+                item.save(update_fields=['status', 'sample_received_at', 'sample_received_by'])
+                message = 'تم استلام العينة بنجاح'
+            else:
+                message = 'العينة مستلمة مسبقاً'
+        
+        elif action == 'process':
+            if item.status in [LabRequestItem.STATUS_PENDING, LabRequestItem.STATUS_IN_LAB]:
+                item.status = LabRequestItem.STATUS_IN_LAB
+                if not item.sample_received_at:
+                    item.sample_received_at = now
+                    item.sample_received_by = user
+                item.save(update_fields=['status', 'sample_received_at', 'sample_received_by'])
+                message = 'تم بدء معالجة العينة'
+            else:
+                message = 'العينة قيد المعالجة'
+        
+        elif action == 'complete':
+            # This would typically redirect to result entry
+            message = 'يرجى إدخال نتائج التحليل'
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'redirect_url': reverse('laboratory:lab_item_result', args=[item.pk])
+            })
+        
+        elif action == 'reject':
+            item.status = 'rejected'  # Assuming you have this status
+            item.save(update_fields=['status'])
+            message = 'تم رفض العينة'
+        
+        else:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+        
+        # Return updated sample info
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'sample': {
+                'token': str(item.sample_token),
+                'test_name': item.test.english_name,
+                'patient_name': str(item.request.patient),
+                'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+                'received_at': item.sample_received_at.isoformat() if item.sample_received_at else None,
+                'received_by': item.sample_received_by.get_full_name() if item.sample_received_by else None,
+            }
+        })
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
 class LabDashboardView(LoginRequiredMixin, generic.TemplateView):
     template_name = "laboratory/dashboard.html"
 
@@ -803,6 +914,43 @@ class TestDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         messages.success(self.request, "Test deleted.")
         return super().delete(request, *args, **kwargs)
     
+
+@login_required
+def get_sample_info(request, sample_token):
+    """
+    Get detailed sample information by token
+    """
+    try:
+        item = LabRequestItem.objects.select_related(
+            'request__patient', 'test', 'sample_received_by'
+        ).get(sample_token=sample_token)
+        
+        return JsonResponse({
+            'success': True,
+            'sample': {
+                'token': str(item.sample_token),
+                'test_name': item.test.english_name,
+                'test_arabic_name': getattr(item.test, 'arabic_name', ''),
+                'patient_name': str(item.request.patient),
+                'patient_mrn': getattr(item.request.patient, 'mrn', ''),
+                'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+                'unit': item.unit or '',
+                'ref_min': item.ref_min,
+                'ref_max': item.ref_max,
+                'tube_prepared_at': item.tube_prepared_at.isoformat() if item.tube_prepared_at else None,
+                'sample_collected_at': item.sample_collected_at.isoformat() if item.sample_collected_at else None,
+                'sample_received_at': item.sample_received_at.isoformat() if item.sample_received_at else None,
+                'sample_received_by': item.sample_received_by.get_full_name() if item.sample_received_by else None,
+                'request_id': item.request.pk,
+                'requested_at': item.request.requested_at.isoformat(),
+            }
+        })
+    
+    except LabRequestItem.DoesNotExist:
+        return JsonResponse({'error': 'Sample not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
 
     # -------------------------------------------------------------------
 # Master data: TestGroup CRUD

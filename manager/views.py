@@ -45,7 +45,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin   # ←  add this
 from django.urls import reverse, reverse_lazy
 # ──────────────────────────── 3rd‑party libs ────────────────────────────
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib import colors
 from django.utils.decorators import method_decorator
 from reportlab.platypus import (
@@ -487,10 +487,10 @@ class AdmissionListView(LoginRequiredMixin, HospitalmanagerRequiredMixin, ListVi
 class AdmissionCreateView(LoginRequiredMixin,
                            HospitalmanagerRequiredMixin,
                            CreateView):
-    model         = Admission
-    form_class    = AdmissionForm
+    model = Admission
+    form_class = AdmissionForm
     template_name = "admissions/admission_form.html"
-    success_url   = reverse_lazy("manager:admission_list")
+    success_url = reverse_lazy("manager:admission_list")
 
     # ---------------- helper setters ----------------
     def get_initial(self):
@@ -1348,8 +1348,8 @@ def medical_record_print(request):
     patient = get_object_or_404(Patient, id=patient_id, hospital=request.user.hospital)
 
     buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
 
     # Check primary font path
     font_path = '/Users/ye/Downloads/HMS/Janna LT Bold.ttf'
@@ -2337,7 +2337,7 @@ def download_patient_pdf(request, patient_id):
     response['Content-Disposition'] = f'attachment; filename="patient_{patient.mrn}.pdf"'
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1*inch, bottomMargin=0.5*inch)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch, bottomMargin=0.5*inch)
     styles = getSampleStyleSheet()
     elements = []
     
@@ -2405,14 +2405,17 @@ def download_patient_pdf(request, patient_id):
         elements.append(Paragraph("Medical Records", styles['Heading2']))
         medical_records = patient.medicalrecord_set.all()
         if medical_records:
-            records_data = [['Created At', 'Complaint', 'Allergies' 'source_history', 'present_at_bedside', 'referral_source', 'history_limitation',]]
+            records_data = [['Created At', 'Complaint', 'Allergies']]
             for record in medical_records:
+                complaint = (record.complaint or '')
+                if len(complaint) > 80:
+                    complaint = complaint[:77] + '...'
                 records_data.append([
                     record.created_at.strftime('%Y-%m-%d %H:%M'),
-                    record.complaint[:50] + ('...' if len(record.complaint) > 50 else ''),
+                    complaint or '—',
                     record.allergies or 'None',
                 ])
-            records_table = Table(records_data, colWidths=[2*inch, 2.5*inch, 1.5*inch])
+            records_table = Table(records_data, colWidths=[1.6*inch, 3.6*inch, 1.7*inch])
             records_table.setStyle(TableStyle([
                 ('FONT', (0, 0), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), pdf_settings.font_size),
@@ -2420,17 +2423,28 @@ def download_patient_pdf(request, patient_id):
                 ('GRID', (0, 0), (-1, -1), 0.5, getattr(colors, pdf_settings.table_border_color, colors.grey)),
                 ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
             ]))
             elements.append(records_table)
         else:
             elements.append(Paragraph("No medical records available.", styles['Normal']))
     
     def add_footer(canvas, doc):
-        if pdf_settings.footer_text:
-            canvas.saveState()
+        canvas.saveState()
+        # Header (center)
+        if pdf_settings.header_text:
             canvas.setFont("Helvetica", 10)
-            canvas.drawString(inch, 0.5*inch, pdf_settings.footer_text)
-            canvas.restoreState()
+            canvas.drawCentredString(doc.pagesize[0] / 2.0, doc.pagesize[1] - 0.4*inch, pdf_settings.header_text)
+        # Footer: date (left), custom text (center), page number (right)
+        from datetime import datetime as _dt
+        canvas.setFont("Helvetica", 9)
+        canvas.drawString(0.6*inch, 0.5*inch, _dt.now().strftime('%Y-%m-%d %H:%M'))
+        if pdf_settings.footer_text:
+            canvas.drawCentredString(doc.pagesize[0] / 2.0, 0.5*inch, pdf_settings.footer_text)
+        canvas.drawRightString(doc.pagesize[0] - 0.6*inch, 0.5*inch, f"Page {doc.page}")
+        canvas.restoreState()
     
     doc.build(elements, onFirstPage=add_footer, onLaterPages=add_footer)
     response.write(buffer.getvalue())
@@ -2915,5 +2929,138 @@ def patient_detail(request, pk):
     # لو LabRequest فيه حقل hospital وثبّتّه عند الإنشاء، فعّل هذا:
     # if "hospital" in [f.name for f in LabRequest._meta.fields]:
     #     lab_requests = lab_requests.filter(hospital=request.user.hospital)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 3: PATIENT DASHBOARD - COMPREHENSIVE PROFILE VIEW
+# ═══════════════════════════════════════════════════════════════════════════
+
+from django.contrib.auth.decorators import login_required
+from django.apps import apps
+
+@login_required
+def patient_dashboard(request, patient_id):
+    """
+    Comprehensive patient dashboard - Step 3
+    Shows patient profile, devices, lab samples, transfers, and operations
+    """
+    patient = get_object_or_404(Patient, pk=patient_id, hospital=request.user.hospital)
+    
+    # Get related models
+    Device = apps.get_model('maintenance', 'Device')
+    DeviceUsageLog = apps.get_model('maintenance', 'DeviceUsageLog')
+    DeviceTransferLog = apps.get_model('maintenance', 'DeviceTransferLog')
+    PatientTransferLog = apps.get_model('maintenance', 'PatientTransferLog')
+    LabRequest = apps.get_model('laboratory', 'LabRequest')
+    LabRequestItem = apps.get_model('laboratory', 'LabRequestItem')
+    
+    # Current devices assigned to patient
+    current_devices = Device.objects.filter(
+        current_patient=patient,
+        in_use=True
+    ).select_related('department', 'room', 'bed')
+    
+    # Recent device usage logs
+    recent_usage = DeviceUsageLog.objects.filter(
+        patient=patient
+    ).select_related('user', 'bed').prefetch_related(
+        'items__device'
+    ).order_by('-start_time')[:10]
+    
+    # Patient transfer history
+    transfer_history = PatientTransferLog.objects.filter(
+        patient=patient
+    ).select_related(
+        'from_department', 'to_department',
+        'from_room', 'to_room',
+        'from_bed', 'to_bed',
+        'transferred_by'
+    ).order_by('-transferred_at')[:10]
+    
+    # Lab requests and samples
+    lab_requests = LabRequest.objects.filter(
+        patient=patient
+    ).prefetch_related(
+        Prefetch(
+            'items',
+            queryset=LabRequestItem.objects.select_related('test')
+        )
+    ).order_by('-requested_at')[:10]
+    
+    # Recent lab samples
+    lab_samples = LabRequestItem.objects.filter(
+        request__patient=patient
+    ).select_related(
+        'test', 'request', 'sample_received_by'
+    ).order_by('-request__requested_at')[:15]
+    
+    # Device transfer logs involving this patient's devices
+    device_transfers = DeviceTransferLog.objects.filter(
+        Q(device__current_patient=patient) |
+        Q(device__in=current_devices)
+    ).select_related(
+        'device', 'transferred_by',
+        'from_department', 'to_department',
+        'from_room', 'to_room',
+        'from_bed', 'to_bed'
+    ).order_by('-transferred_at')[:10]
+    
+    # Statistics
+    stats = {
+        'total_devices': current_devices.count(),
+        'total_lab_requests': lab_requests.count(),
+        'pending_samples': lab_samples.filter(
+            status=LabRequestItem.STATUS_PENDING
+        ).count() if hasattr(LabRequestItem, 'STATUS_PENDING') else 0,
+        'completed_samples': lab_samples.filter(
+            Q(value_text__isnull=False) | Q(value_num__isnull=False)
+        ).count(),
+        'total_transfers': transfer_history.count(),
+    }
+    
+    context = {
+        'patient': patient,
+        'current_devices': current_devices,
+        'recent_usage': recent_usage,
+        'transfer_history': transfer_history,
+        'lab_requests': lab_requests,
+        'lab_samples': lab_samples,
+        'device_transfers': device_transfers,
+        'stats': stats,
+        'title': f'لوحة معلومات المريض - {patient}'
+    }
+    
+    return render(request, 'patients/patient_dashboard.html', context)
+
+
+@login_required
+def patient_search_api(request):
+    """
+    API for patient search autocomplete
+    """
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'patients': []})
+    
+    patients = Patient.objects.filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(mrn__icontains=query),
+        hospital=request.user.hospital
+    ).values(
+        'id', 'first_name', 'last_name', 'mrn', 'date_of_birth'
+    )[:20]
+    
+    patient_list = []
+    for p in patients:
+        patient_list.append({
+            'id': p['id'],
+            'name': f"{p['first_name']} {p['last_name']}",
+            'mrn': p['mrn'],
+            'dob': p['date_of_birth'].strftime('%Y-%m-%d') if p['date_of_birth'] else '',
+            'display': f"{p['first_name']} {p['last_name']} (MRN: {p['mrn']})"
+        })
+    
+    return JsonResponse({'patients': patient_list})
 
     

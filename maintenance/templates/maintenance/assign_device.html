@@ -2,28 +2,83 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>📥 استخدام الجهاز</h2>
-    <p><strong>الجهاز:</strong> {{ device.name }} (رقم تسلسلي: {{ device.id }})</p>
-    <p><strong>القسم:</strong> {{ device.department.name }}</p>
-    <p><strong>الغرفة:</strong> {{ device.room }}</p>
-    
-    <form method="post">
-    {% csrf_token %}
-    <p><strong>الجهاز:</strong> {{ device.name }} (رقم تسلسلي: {{ device.id }})</p>
-    <p><strong>القسم:</strong> {{ device.department }}</p>
-    <p><strong>الغرفة:</strong> {{ device.room }}</p>
+<div class="container mt-4" dir="rtl">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="mb-1">📥 بدء استخدام الجهاز</h2>
+      <p class="text-muted mb-0">اختر المريض لإسناد الجهاز وبدء الجلسة</p>
+    </div>
+    <div>
+      <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-secondary">⟵ رجوع</a>
+    </div>
+  </div>
 
-    <label for="patient">اختر المريض لاستخدام الجهاز:</label>
-    <select name="patient" id="patient" required>
-        <option value="">-- اختر مريضًا --</option>
-        {% for patient in patients %}
-            <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
-        {% endfor %}
-    </select>
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="mb-3">
+            <div class="d-flex align-items-center flex-wrap gap-3">
+              <span class="badge text-bg-primary">الجهاز: {{ device.name }}</span>
+              <span class="badge text-bg-light border">ID: {{ device.id }}</span>
+              <span class="badge text-bg-info">القسم: {{ device.department }}</span>
+              <span class="badge text-bg-secondary">الغرفة: {{ device.room|default:"-" }}</span>
+              {% if device.current_patient %}
+                <span class="badge text-bg-warning">مستخدم حاليًا لـ: {{ device.current_patient }}</span>
+              {% endif %}
+            </div>
+          </div>
 
-    <br><br>
-    <button type="submit">حفظ</button>
-</form>
+          <form method="post" class="row g-3">
+            {% csrf_token %}
+
+            <div class="col-12">
+              <label for="patient" class="form-label">اختر المريض</label>
+              <select name="patient" id="patient" class="form-select" required>
+                <option value="">— اختر مريضًا —</option>
+                {% for patient in patients %}
+                  <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
+                {% empty %}
+                  <option value="" disabled>لا يوجد مرضى متاحون في هذا القسم</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">سيتم تعيين حالة الجهاز إلى "قيد الاستخدام".</div>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+              <button type="submit" class="btn btn-primary">بدء الاستخدام</button>
+              <a href="{% url 'maintenance:device_list' %}" class="btn btn-light border">إلغاء</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+          <h5 class="mb-3">رمز الجهاز (QR)</h5>
+          {% if device.qr_code %}
+            <img src="{{ device.qr_code.url }}" alt="QR" class="img-thumbnail mb-2" style="width:200px;height:200px;object-fit:contain;"/>
+            <div class="small text-muted mb-2">{{ device.qr_token }}</div>
+            <div class="d-flex gap-2">
+              <a href="{{ device.qr_code.url }}" target="_blank" class="btn btn-sm btn-outline-primary">فتح</a>
+              <a href="{{ device.qr_code.url }}" download class="btn btn-sm btn-outline-secondary">تحميل</a>
+            </div>
+          {% else %}
+            <div class="text-muted">لا يوجد رمز بعد</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+  // تحسينات بسيطة على الواجهة
+  document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('patient');
+    if (select) select.focus();
+  });
+</script>
 {% endblock %}

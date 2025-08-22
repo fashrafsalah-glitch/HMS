@@ -106,8 +106,10 @@ TEMPLATES = [
 #LOGIN_URL = 'hr:login'            # صفحة الدخول العامة
 #LOGIN_REDIRECT_URL = 'core:home'        # احتياطي آمن بعد الدخول (صفحة ليست login)
 #LOGOUT_REDIRECT_URL = 'hr:login'
-LOGIN_URL          = reverse_lazy("superadmin:login")
-LOGOUT_REDIRECT_URL = reverse_lazy("superadmin:login")
+LOGIN_URL            = reverse_lazy("superadmin:login")
+LOGOUT_REDIRECT_URL  = reverse_lazy("superadmin:login")
+# بعد تسجيل الدخول، وجّه المستخدمين إلى قائمة المرضى بدل المسار الافتراضي /accounts/profile/
+LOGIN_REDIRECT_URL   = reverse_lazy("manager:patient_list")
 
 WSGI_APPLICATION = "core.wsgi.application"
 

@@ -66,4 +66,17 @@ path('device/<int:device_id>/maintain/', views.perform_maintenance, name='perfor
 path('device/<int:device_id>/sterilization_history/', views.sterilization_history, name='sterilization_history'),
 path('device/<int:device_id>/cleaning_history/', views.cleaning_history, name='cleaning_history'),
 path('device/<int:device_id>/maintenance_history/', views.maintenance_history, name='maintenance_history'),
+
+# QR/Barcode Scanning System URLs
+path('scan/', views.scan_session_page, name='scan_session'),
+path('api/scan-qr/', views.scan_qr_code, name='scan_qr_code'),
+path('qr-test/', views.qr_test_page, name='qr_test_page'),
+path('api/save-session/', views.save_scan_session, name='save_scan_session'),
+path('usage-logs/', views.device_usage_logs, name='device_usage_logs'),
+path('usage-logs/export/', views.export_device_usage_logs, name='export_device_usage_logs'),
+
+# Step 3: Additional API endpoints
+path('api/start-session/', views.start_scan_session, name='start_scan_session'),
+path('api/reset-session/', views.reset_scan_session, name='reset_scan_session'),
+path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
 ]

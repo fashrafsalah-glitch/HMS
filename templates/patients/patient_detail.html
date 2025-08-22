@@ -2,13 +2,57 @@
 {% load lab_filters %}
 {% block title %}Patient Details - {{ patient.first_name }} {{ patient.last_name }}{% endblock %}
 {% block content %}
+
+  <!-- Print Utilities: professional A4 print layout -->
+  <style>
+    @page { size: A4; margin: 12mm; }
+    @media print {
+      /* Hide non-essential UI */
+      .no-print, .btn, .breadcrumb, .alert, .pagination, .sidebar, nav, footer { display: none !important; }
+      /* Expand content */
+      .container { max-width: 100% !important; width: 100% !important; }
+      /* Clean cards */
+      .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+      /* Improve readability */
+      body { color: #000 !important; }
+      h1, h2, h3, h4, h5 { color: #000 !important; page-break-after: avoid; }
+      table { page-break-inside: auto; }
+      tr, img { page-break-inside: avoid; page-break-after: auto; }
+      .table { border-color: #bbb !important; }
+      .table thead th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-header, .print-footer { display: block !important; }
+      /* Avoid breaking info cards mid-page */
+      .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+    }
+    /* Screen-only helper */
+    .d-print-block { display: none; }
+    @media print { .d-print-block { display: block !important; } }
+    .print-header { text-align: center; margin-bottom: 8px; }
+    .print-header .title { font-size: 1.35rem; font-weight: 700; }
+    .print-header .meta { font-size: 0.95rem; color: #555; }
+    .print-footer { text-align: center; font-size: 0.85rem; color: #666; margin-top: 8px; }
+    .print-divider { border-top: 2px solid #222; margin: 8px 0 12px; }
+  </style>
+
+  <!-- Print-only header -->
+  <div class="print-header d-none d-print-block">
+    <div class="title">Patient Summary Report</div>
+    <div class="meta">
+      Name: {{ patient.first_name }} {{ patient.last_name }} | MRN: {{ patient.mrn }}
+    </div>
+    <div class="meta">Generated on: {% now "Y-m-d H:i" %}</div>
+    <div class="print-divider"></div>
+  </div>
 <div class="container my-4">
     <h2 class="mb-4 text-center">
         <i class="bi bi-person-fill me-2"></i>Patient Details: {{ patient.first_name }} {{ patient.last_name }}
     </h2>
 
-    <!-- PDF Settings Link -->
-    <div class="text-end mb-3">
+    <!-- Actions (screen only) -->
+    <div class="text-end mb-3 no-print">
+        <button type="button" class="btn btn-dark btn-sm" onclick="window.print()">
+          <i class="bi bi-printer me-2"></i>Print
+        </button>
         <a href="{% url 'manager:pdf_settings' %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-gear-fill me-2"></i>PDF Settings
         </a>

@@ -853,14 +853,14 @@ class BonusTypeDeleteView(LoginRequiredMixin, HRRequiredMixin, DeleteView):
 # Vacation and Leave Views
 class VacationPolicyListView(LoginRequiredMixin, HRRequiredMixin, ListView):
     model = VacationPolicy
-    template_name = 'leave/vacation_policy_list.html'
+    template_name = 'leaves/vacation_policy_list.html'
     context_object_name = 'vacation_policies'
 
 
 class VacationPolicyCreateView(LoginRequiredMixin, HRRequiredMixin, CreateView):
     model = VacationPolicy
     form_class = VacationPolicyForm
-    template_name = 'leave/vacation_policy_form.html'
+    template_name = 'leaves/vacation_policy_form.html'
     success_url = reverse_lazy('hr:vacation_policy_list')
 
     def form_valid(self, form):
@@ -871,7 +871,7 @@ class VacationPolicyCreateView(LoginRequiredMixin, HRRequiredMixin, CreateView):
 class VacationPolicyUpdateView(LoginRequiredMixin, HRRequiredMixin, UpdateView):
     model = VacationPolicy
     form_class = VacationPolicyForm
-    template_name = 'leave/vacation_policy_form.html'
+    template_name = 'leaves/vacation_policy_form.html'
     success_url = reverse_lazy('hr:vacation_policy_list')
 
     def form_valid(self, form):
@@ -881,13 +881,13 @@ class VacationPolicyUpdateView(LoginRequiredMixin, HRRequiredMixin, UpdateView):
 
 class VacationPolicyDeleteView(LoginRequiredMixin, HRRequiredMixin, DeleteView):
     model = VacationPolicy
-    template_name = 'leave/vacation_policy_confirm_delete.html'
+    template_name = 'leaves/vacation_policy_confirm_delete.html'
     success_url = reverse_lazy('hr:vacation_policy_list')
 
 
 class VacationBalanceListView(LoginRequiredMixin, HRRequiredMixin, ListView):
     model = VacationBalance
-    template_name = 'leave/vacation_balance_list.html'
+    template_name = 'leaves/vacation_balance_list.html'
     context_object_name = 'vacation_balances'
 
     def get_queryset(self):
@@ -897,7 +897,7 @@ class VacationBalanceListView(LoginRequiredMixin, HRRequiredMixin, ListView):
 class VacationBalanceCreateView(LoginRequiredMixin, HRRequiredMixin, CreateView):
     model = VacationBalance
     form_class = VacationBalanceForm
-    template_name = 'leave/vacation_balance_form.html'
+    template_name = 'leaves/vacation_balance_form.html'
     success_url = reverse_lazy('hr:vacation_balance_list')
 
     def get_form_kwargs(self):
@@ -913,7 +913,7 @@ class VacationBalanceCreateView(LoginRequiredMixin, HRRequiredMixin, CreateView)
 class VacationBalanceUpdateView(LoginRequiredMixin, HRRequiredMixin, UpdateView):
     model = VacationBalance
     form_class = VacationBalanceForm
-    template_name = 'leave/vacation_balance_form.html'
+    template_name = 'leaves/vacation_balance_form.html'
     success_url = reverse_lazy('hr:vacation_balance_list')
 
     def get_form_kwargs(self):
@@ -931,7 +931,7 @@ class VacationBalanceUpdateView(LoginRequiredMixin, HRRequiredMixin, UpdateView)
 
 class VacationBalanceDeleteView(LoginRequiredMixin, HRRequiredMixin, DeleteView):
     model = VacationBalance
-    template_name = 'leave/vacation_balance_confirm_delete.html'
+    template_name = 'leaves/vacation_balance_confirm_delete.html'
     success_url = reverse_lazy('hr:vacation_balance_list')
 
     def get_queryset(self):
@@ -964,7 +964,7 @@ class LeaveRequestCreateView(LoginRequiredMixin, CreateView):
 class LeaveApprovalView(LoginRequiredMixin, HRRequiredMixin, UpdateView):
     model = LeaveRequest
     form_class = LeaveApprovalForm
-    template_name = 'leave/leave_approval_form.html'
+    template_name = 'leaves/leave_approval_form.html'
     success_url = reverse_lazy('hr:leave_request_list')
 
     def form_valid(self, form):

@@ -1,4 +1,5 @@
 {# يتوقع: record, vitals (QuerySet/قائمة), show_add_button #}
+{% load l10n %}
 <div dir="rtl">
 
   <!-- شريط علوي: رجوع + إضافة -->
@@ -11,7 +12,7 @@
     </div>
 
     {% if show_add_button %}
-      <a href="{% url 'patient:vitals_create' record_id=record.id %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'manager:vitals_create' record_id=record.id %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle me-1"></i> إضافة علامات حيوية
       </a>
     {% endif %}
@@ -69,10 +70,6 @@
       </form>
     </div>
   </div>
-  <!-- DEBUG: -->
-<td class="text-muted small">
-  ID: {{ v.taken_by_id|default:"None" }}
-</td>
 
   <!-- الجدول -->
   <div class="table-responsive">
@@ -95,15 +92,13 @@
         <tr
           data-epoch="{{ v.taken_at|date:'U' }}"
           data-taken-at="{{ v.taken_at|date:'Y-m-d\\TH:i' }}"
-         data-staff="{% if v.taken_by %}{% firstof v.taken_by.get_full_name v.taken_by.username v.taken_by %}{% endif %}"
-          data-temp="{{ v.temperature|default_if_none:'' }}"
-          "
-          data-temp="{{ v.temperature|default_if_none:'' }}"
-          data-hr="{{ v.heart_rate|default_if_none:'' }}"
-          data-rr="{{ v.respiratory_rate|default_if_none:'' }}"
-          data-sys="{{ v.systolic_bp|default_if_none:'' }}"
-          data-dia="{{ v.diastolic_bp|default_if_none:'' }}"
-          data-spo2="{{ v.oxygen_saturation|default_if_none:'' }}"
+          data-staff="{% firstof v.taken_by.get_full_name v.taken_by.username v.taken_by v.created_by.get_full_name v.created_by.username v.created_by v.user.get_full_name v.user.username v.user '' %}"
+          data-temp="{{ v.temperature|unlocalize|default_if_none:'' }}"
+          data-hr="{{ v.heart_rate|unlocalize|default_if_none:'' }}"
+          data-rr="{{ v.respiratory_rate|unlocalize|default_if_none:'' }}"
+          data-sys="{{ v.systolic_bp|unlocalize|default_if_none:'' }}"
+          data-dia="{{ v.diastolic_bp|unlocalize|default_if_none:'' }}"
+          data-spo2="{{ v.oxygen_saturation|unlocalize|default_if_none:'' }}"
         >
           <td class="text-center fw-semibold row-index"></td>
           <td class="text-nowrap">{{ v.taken_at|date:"Y-m-d H:i" }}</td>

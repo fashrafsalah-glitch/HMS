@@ -5,11 +5,18 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from io import BytesIO
+import qrcode
+import uuid
 
 from manager.models import Bed
+from core.qr_utils import QRCodeMixin
 
 
-
+# ═══════════════════════════════════════════════════════════════════════════
+# EXISTING MODELS
+# ═══════════════════════════════════════════════════════════════════════════
 
 # شركات
 class Company(models.Model):
@@ -129,7 +136,7 @@ class DeviceSubCategory(models.Model):
     def __str__(self):
         return f"{self.category.name} - {self.name}"
 
-class Device(models.Model):
+class Device(QRCodeMixin, models.Model):
 
     DEVICE_CLASSIFICATION_CHOICES = [
         ('Airway Support Device', 'Airway Support Device'),
@@ -270,7 +277,7 @@ class DeviceCleaningLog(models.Model):
     on_delete=models.SET_NULL,
     null=True,
     blank=True,
-    related_name='devices_last_cleaned'  # ✅ اسم مميز
+    related_name='devices_last_cleaned'  # اسم مميز
 )
     cleaned_at = models.DateTimeField(auto_now_add=True)
 
@@ -284,7 +291,7 @@ class DeviceSterilizationLog(models.Model):
     on_delete=models.SET_NULL,
     null=True,
     blank=True,
-    related_name='devices_last_sterilized'  # ✅ اسم مميز
+    related_name='devices_last_sterilized'  # اسم مميز
 )
     sterilized_at = models.DateTimeField(auto_now_add=True)
 
@@ -298,9 +305,445 @@ class DeviceMaintenanceLog(models.Model):
     on_delete=models.SET_NULL,
     null=True,
     blank=True,
-    related_name='devices_last_maintained'  # ✅ اسم مميز
+    related_name='devices_last_maintained'  # اسم مميز
 )
     maintained_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Maintained by {self.maintained_by} on {self.maintained_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"Maintained by {self.last_maintained_by} on {self.maintained_at.strftime('%Y-%m-%d %H:%M')}"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QR/BARCODE INTEGRATION MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DeviceUsageLog(models.Model):
+    """Log for tracking device usage sessions via QR scanning"""
+    OPERATION_CHOICES = [
+        ('surgery', 'عملية جراحية'),
+        ('transfer', 'نقل'),
+        ('assignment', 'تخصيص'),
+        ('maintenance', 'صيانة'),
+        ('cleaning', 'تنظيف'),
+        ('sterilization', 'تعقيم'),
+        ('inspection', 'فحص'),
+        ('other', 'أخرى'),
+    ]
+    
+    # Session info
+    session_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="المستخدم"
+    )
+    
+    # Context
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="المريض"
+    )
+    bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="السرير"
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="القسم"
+    )
+    
+    # Operation details
+    operation_type = models.CharField(
+        max_length=20,
+        choices=OPERATION_CHOICES,
+        default='other',
+        verbose_name="نوع العملية"
+    )
+    notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت الإنشاء")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت الإكمال")
+    
+    # Status
+    is_completed = models.BooleanField(default=False, verbose_name="مكتملة؟")
+    
+    class Meta:
+        verbose_name = "سجل استخدام الأجهزة"
+        verbose_name_plural = "سجلات استخدام الأجهزة"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Session {self.session_id} - {self.user.get_full_name()} - {self.get_operation_type_display()}"
+
+
+class DeviceUsageLogItem(models.Model):
+    """Individual devices/accessories used in a session"""
+    usage_log = models.ForeignKey(
+        DeviceUsageLog,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name="سجل الاستخدام"
+    )
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        verbose_name="الجهاز"
+    )
+    scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
+    notes = models.CharField(max_length=255, blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "عنصر سجل استخدام الجهاز"
+        verbose_name_plural = "عناصر سجل استخدام الأجهزة"
+        unique_together = ['usage_log', 'device']
+    
+    def __str__(self):
+        return f"{self.device} في {self.usage_log}"
+
+
+class ScanSession(models.Model):
+    """Active scanning session"""
+    STATUS_CHOICES = [
+        ('active', 'نشطة'),
+        ('completed', 'مكتملة'),
+        ('cancelled', 'ملغاة'),
+    ]
+    
+    session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="المستخدم"
+    )
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="المريض"
+    )
+    bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="السرير"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        verbose_name="الحالة"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "جلسة مسح"
+        verbose_name_plural = "جلسات المسح"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Session {self.session_id} - {self.get_status_display()}"
+
+
+class ScanHistory(models.Model):
+    """History of scanned items in a session"""
+    session = models.ForeignKey(
+        ScanSession,
+        on_delete=models.CASCADE,
+        related_name='scan_history',
+        verbose_name="الجلسة"
+    )
+    scanned_code = models.CharField(max_length=100, verbose_name="الكود الممسوح")
+    entity_type = models.CharField(max_length=50, verbose_name="نوع الكيان")
+    entity_id = models.IntegerField(verbose_name="معرف الكيان")
+    entity_data = models.JSONField(default=dict, verbose_name="بيانات الكيان")
+    scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
+    is_valid = models.BooleanField(default=True, verbose_name="صالح؟")
+    error_message = models.CharField(max_length=255, blank=True, null=True, verbose_name="رسالة الخطأ")
+    
+    class Meta:
+        verbose_name = "تاريخ المسح"
+        verbose_name_plural = "تاريخ المسح"
+        ordering = ['-scanned_at']
+    
+    def __str__(self):
+        return f"{self.scanned_code} - {self.entity_type}:{self.entity_id}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 3: TRANSFER AND HANDOVER MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DeviceTransferLog(models.Model):
+    """Log for device transfers between departments/rooms/beds"""
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='transfer_logs',
+        verbose_name="الجهاز"
+    )
+    
+    # From location
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_from',
+        verbose_name="من القسم"
+    )
+    from_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_from',
+        verbose_name="من الغرفة"
+    )
+    from_bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_from',
+        verbose_name="من السرير"
+    )
+    
+    # To location
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_to',
+        verbose_name="إلى القسم"
+    )
+    to_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_to',
+        verbose_name="إلى الغرفة"
+    )
+    to_bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfers_to',
+        verbose_name="إلى السرير"
+    )
+    
+    moved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="نُقل بواسطة"
+    )
+    moved_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ النقل")
+    note = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "سجل نقل الجهاز"
+        verbose_name_plural = "سجلات نقل الأجهزة"
+        ordering = ['-moved_at']
+    
+    def __str__(self):
+        return f"نقل {self.device} من {self.from_department or self.from_room} إلى {self.to_department or self.to_room}"
+
+
+class PatientTransferLog(models.Model):
+    """Log for patient transfers between departments/rooms/beds"""
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='transfer_logs',
+        verbose_name="المريض"
+    )
+    
+    # From location
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_from',
+        verbose_name="من القسم"
+    )
+    from_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_from',
+        verbose_name="من الغرفة"
+    )
+    from_bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_from',
+        verbose_name="من السرير"
+    )
+    
+    # To location
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_to',
+        verbose_name="إلى القسم"
+    )
+    to_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_to',
+        verbose_name="إلى الغرفة"
+    )
+    to_bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_transfers_to',
+        verbose_name="إلى السرير"
+    )
+    
+    moved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="نُقل بواسطة"
+    )
+    moved_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ النقل")
+    note = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "سجل نقل المريض"
+        verbose_name_plural = "سجلات نقل المرضى"
+        ordering = ['-moved_at']
+    
+    def __str__(self):
+        return f"نقل {self.patient} من {self.from_bed or self.from_room} إلى {self.to_bed or self.to_room}"
+
+
+class DeviceHandoverLog(models.Model):
+    """Log for device handovers between users"""
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='handover_logs',
+        verbose_name="الجهاز"
+    )
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_handovers_from',
+        verbose_name="من المستخدم"
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='device_handovers_to',
+        verbose_name="إلى المستخدم"
+    )
+    handed_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ التسليم")
+    note = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "سجل تسليم الجهاز"
+        verbose_name_plural = "سجلات تسليم الأجهزة"
+        ordering = ['-handed_at']
+    
+    def __str__(self):
+        from_str = str(self.from_user) if self.from_user else "غير محدد"
+        return f"تسليم {self.device} من {from_str} إلى {self.to_user}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DEVICE ACCESSORY MODEL
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DeviceAccessory(QRCodeMixin, models.Model):
+    """Model for device accessories with QR code functionality"""
+    name = models.CharField(max_length=255, verbose_name="اسم الملحق")
+    description = models.TextField(blank=True, null=True, verbose_name="الوصف")
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='accessories',
+        verbose_name="الجهاز"
+    )
+    serial_number = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name="الرقم التسلسلي")
+    model = models.CharField(max_length=100, blank=True, null=True, verbose_name="الموديل")
+    manufacturer = models.CharField(max_length=100, blank=True, null=True, verbose_name="الشركة المصنعة")
+    purchase_date = models.DateField(blank=True, null=True, verbose_name="تاريخ الشراء")
+    warranty_expiry = models.DateField(blank=True, null=True, verbose_name="انتهاء الضمان")
+    
+    STATUS_CHOICES = [
+        ('available', 'متاح'),
+        ('in_use', 'قيد الاستخدام'),
+        ('maintenance', 'تحت الصيانة'),
+        ('damaged', 'تالف'),
+        ('lost', 'مفقود'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='available',
+        verbose_name="الحالة"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التحديث")
+    
+    class Meta:
+        verbose_name = "ملحق الجهاز"
+        verbose_name_plural = "ملحقات الأجهزة"
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} - {self.device.name}"
+
+
+class DeviceAccessoryUsageLog(models.Model):
+    """Log for accessory usage in sessions"""
+    usage_log = models.ForeignKey(
+        DeviceUsageLog,
+        on_delete=models.CASCADE,
+        related_name='accessory_items',
+        verbose_name="سجل الاستخدام"
+    )
+    accessory = models.ForeignKey(
+        DeviceAccessory,
+        on_delete=models.CASCADE,
+        verbose_name="الملحق"
+    )
+    scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
+    notes = models.CharField(max_length=255, blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "عنصر ملحق في سجل الاستخدام"
+        verbose_name_plural = "عناصر الملحقات في سجل الاستخدام"
+        unique_together = ['usage_log', 'accessory']
+    
+    def __str__(self):
+        return f"{self.accessory} في {self.usage_log}"

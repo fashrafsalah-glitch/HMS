@@ -2,37 +2,118 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>🔄 Transfer Device Location</h2>
-    <p><strong>Device:</strong> {{ device.device_id }} – {{ device.model }}</p>
-    <form method="post">
-        {% csrf_token %}
-        <div class="mb-3">
-            {{ form.department.label_tag }}
-            {{ form.department }}
+<div class="container mt-4" dir="rtl">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h2 class="mb-1">🔄 نقل موقع الجهاز</h2>
+          <p class="text-muted mb-0">اختر القسم والغرفة لنقل الجهاز</p>
         </div>
-        <div class="mb-3">
-            {{ form.room.label_tag }}
-            {{ form.room }}
+        <div>
+          <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-secondary">⟵ رجوع لقائمة الأجهزة</a>
         </div>
-        <button type="submit" class="btn btn-primary">Transfer</button>
-        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">Cancel</a>
-
-
-        {% if form.errors %}
-  <div class="alert alert-danger">
-    <ul>
-      {% for field in form %}
-        {% for error in field.errors %}
-          <li><strong>{{ field.label }}</strong>: {{ error }}</li>
-        {% endfor %}
-      {% endfor %}
-      {% for error in form.non_field_errors %}
-        <li>{{ error }}</li>
-      {% endfor %}
-    </ul>
+      </div>
+    </div>
   </div>
-{% endif %}
-    </form>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">تفاصيل النقل</h5>
+        </div>
+        <div class="card-body">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label class="form-label">القسم</label>
+              {{ form.department }}
+              {% if form.department.errors %}
+                <div class="invalid-feedback d-block">
+                  {{ form.department.errors|striptags }}
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">الغرفة</label>
+              {{ form.room }}
+              {% if form.room.errors %}
+                <div class="invalid-feedback d-block">
+                  {{ form.room.errors|striptags }}
+                </div>
+              {% endif %}
+            </div>
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {{ form.non_field_errors|striptags }}
+              </div>
+            {% endif %}
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">
+                💾 حفظ النقل
+              </button>
+              <a href="{% url 'maintenance:device_list' %}" class="btn btn-light border">
+                إلغاء
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light">
+          <h6 class="mb-0">معلومات الجهاز</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-5 text-muted">المعرف:</div>
+            <div class="col-7 fw-semibold">{{ device.device_id }}</div>
+
+            <div class="col-5 text-muted">الموديل:</div>
+            <div class="col-7">{{ device.model }}</div>
+
+            {% if device.department %}
+              <div class="col-5 text-muted">القسم الحالي:</div>
+              <div class="col-7">{{ device.department }}</div>
+            {% endif %}
+
+            {% if device.room %}
+              <div class="col-5 text-muted">الغرفة الحالية:</div>
+              <div class="col-7">{{ device.room }}</div>
+            {% endif %}
+          </div>
+
+          {% if device.qr_code %}
+            <hr>
+            <div class="text-center">
+              <img src="{{ device.qr_code.url }}" alt="QR" class="img-thumbnail" style="max-width:160px">
+              {% if device.qr_token %}
+                <div class="small text-muted mt-2">{{ device.qr_token }}</div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+// إضافة form-control تلقائياً لعناصر الفورم
+document.addEventListener('DOMContentLoaded', function() {
+  const selectors = 'select,input[type="text"],input[type="number"],input[type="date"],textarea';
+  document.querySelectorAll(selectors).forEach(el => {
+    if (!el.classList.contains('form-control')) {
+      el.classList.add('form-control');
+    }
+  });
+});
+</script>
 {% endblock %}

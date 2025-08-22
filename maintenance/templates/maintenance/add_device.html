@@ -2,20 +2,56 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Add New Device</h2>
+<div class="container mt-4" dir="rtl">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="mb-1">إضافة جهاز جديد</h2>
+      <p class="text-muted mb-0">أكمل الحقول التالية لإضافة جهاز إلى النظام</p>
+    </div>
+    <div>
+      <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-secondary">
+        ⟵ رجوع إلى قائمة الأجهزة
+      </a>
+    </div>
+  </div>
 
-    <form method="post" enctype="multipart/form-data">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" class="row g-3">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success">Save Device</button>
-        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">Back to Device List</a>
-    </form>
+
+        <!-- استعرض الحقول تلقائياً بشكل مرتب داخل شبكة -->
+        <div class="col-12">
+          <div class="row g-3">
+            {{ form.non_field_errors }}
+            {% for field in form %}
+              <div class="col-md-6">
+                <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <div class="form-text">{{ field.help_text }}</div>
+                {% endif %}
+                {% for error in field.errors %}
+                  <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary">💾 حفظ الجهاز</button>
+          <a href="{% url 'maintenance:device_list' %}" class="btn btn-light border">إلغاء</a>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-  $('#id_department').change(function () {
+  // تحميل الغرف حسب القسم
+  $('#id_department').on('change', function () {
     const departmentId = $(this).val();
     if (departmentId) {
       $.ajax({
@@ -23,7 +59,7 @@
         data: { department_id: departmentId },
         success: function (data) {
           $('#room-container').html(data);
-          $('#id_room').change();  // تحميل الأسرة مباشرة
+          $('#id_room').trigger('change'); // تحميل الأسرة مباشرة
         }
       });
     } else {
@@ -32,6 +68,7 @@
     }
   });
 
+  // تحميل الأسرة حسب الغرفة
   $(document).on('change', '#id_room', function () {
     const roomId = $(this).val();
     if (roomId) {
@@ -48,7 +85,18 @@
   });
 
   $(document).ready(function () {
-    $('#id_department').change();  // لتحديث الحقول تلقائيًا عند التعديل
+    // إضافة تنسيق bootstrap لعناصر النموذج بشكل عام
+    $('form input:not([type=checkbox]):not([type=radio]), form select, form textarea').addClass('form-control');
+    $('form input[type=checkbox], form input[type=radio]').addClass('form-check-input');
+
+    // تأكد من وجود حاويات الغرفة/السرير لاستخدامها في التحديث عبر AJAX
+    if (!$('#room-container').length && $('#id_room').length) {
+      $('#id_room').wrap('<div id="room-container"></div>');
+    }
+    if (!$('#bed-container').length && $('#id_bed').length) {
+      $('#id_bed').wrap('<div id="bed-container"></div>');
+    }
+    $('#id_department').trigger('change'); // لتحديث الحقول تلقائيًا عند الدخول
   });
 </script>
 {% endblock %}

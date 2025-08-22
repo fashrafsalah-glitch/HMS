@@ -128,6 +128,11 @@ path("test-groups/<int:pk>/delete/", views.TestGroupDeleteView.as_view(), name="
     # مسح QR
     path("requests/scan/<uuid:token>/", views.lab_request_scan, name="lab_request_scan"),
     path("samples/scan/<uuid:token>/", views.sample_scan, name="sample_scan"),
+    
+    # Step 3: Laboratory sample scanning interface
+    path("sample-scan/", views.lab_sample_scan_page, name="sample_scan"),
+    path("api/update-sample-status/", views.update_sample_status, name="update_sample_status"),
+    path("api/sample-info/<uuid:sample_token>/", views.get_sample_info, name="get_sample_info"),
 ]
     
 

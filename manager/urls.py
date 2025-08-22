@@ -266,6 +266,9 @@ path(
    path("", PatientListView.as_view(), name="patient_list"),     # ==> /patients/
    path("<int:pk>/", PatientDetailView.as_view(), name="patient_detail"),  # ==> /patients/1/
 
+   # Step 3: Patient dashboard and search API
+   path("<int:patient_id>/dashboard/", views.patient_dashboard, name="patient_dashboard"),
+   path("api/patient-search/", views.patient_search_api, name="patient_search_api"),
 
    # path("patients/<int:pk>/lab-results/", 
      # include(("laboratory.patient_results_urls", "laboratory"), namespace="laboratory")),

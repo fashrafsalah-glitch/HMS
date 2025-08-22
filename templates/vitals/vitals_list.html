@@ -1,4 +1,8 @@
 {# templates/vitals/vitals_list.html #}
-<div class="container py-3">
-  {% include "vitals/_vitals_section.html" with record=record vitals=vitals show_add_button=True only %}
-</div>
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container py-3">
+    {% include "vitals/_vitals_section.html" with record=record vitals=vitals show_add_button=True only %}
+  </div>
+{% endblock %}

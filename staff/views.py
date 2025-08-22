@@ -1,4 +1,4 @@
-from pyexpat.errors import messages
+from django.contrib import messages
 from django.views.generic import ListView, CreateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import redirect
@@ -49,7 +49,7 @@ class MedicalRecordCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView
     def form_valid(self, form):
         medical_record = form.save()
         messages.success(self.request, "Medical record created successfully.")
-        return redirect('staff:patient_detail', patient_id=medical_record.patient.id)
+        return redirect('staff:patient_detail', pk=medical_record.patient.id)
 
 
 class AppointmentCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
@@ -65,4 +65,22 @@ class AppointmentCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
     def form_valid(self, form):
         appointment = form.save()
         messages.success(self.request, "Appointment created successfully.")
-        return redirect('patient_detail', patient_id=appointment.patient.id)
+        return redirect('staff:patient_detail', pk=appointment.patient.id)
+
+
+# Simple redirect so staff namespace has a clinic_list URL
+def clinic_list_redirect(request):
+    return redirect('manager:clinic_list')
+
+
+# Redirects to HR app for staff menu links
+def leave_request_list_redirect(request):
+    return redirect('hr:leave_request_list')
+
+
+def shift_assignment_list_redirect(request):
+    return redirect('hr:shift_assignment_list')
+
+
+def shift_swap_request_list_redirect(request):
+    return redirect('hr:shift_swap_request_list')

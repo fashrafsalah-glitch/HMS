@@ -555,7 +555,7 @@
                     <a class="nav-link {% if request.resolver_match.url_name == 'patient_list' %}active{% endif %}" href="{% url 'staff:patient_list' %}">
                         <i class="bi bi-person-lines-fill me-2"></i><span>{% trans "Patients" %}</span>
                     </a>
-                    <a class="nav-link {% if request.resolver_match.url_name == 'admission_list' %}active{% endif %}" href="{% url 'staff:admission_list' %}">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'admission_list' %}active{% endif %}" href="{% url 'manager:admission_list' %}">
                         <i class="bi bi-clipboard-check me-2"></i><span>{% trans "Admissions" %}</span>
                     </a>
                     <a class="nav-link {% if request.resolver_match.url_name == 'clinic_list' %}active{% endif %}" href="{% url 'staff:clinic_list' %}">
