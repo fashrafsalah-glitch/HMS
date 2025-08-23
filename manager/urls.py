@@ -4,6 +4,7 @@ from django.urls import include, path
 from .views import MedicalRecordCreateView,  SurgicalOperationsDepartmentDeleteView, SurgicalOperationsDepartmentUpdateView, department_devices
 from . import views  # ← هذا هو المطلوب
 from . import views
+from . import views_qr
 from .views import patient_report_view
 from .views import (
     VitalSignCreateView, VitalSignUpdateView, VitalSignListView, VitalSignDeleteView,
@@ -163,6 +164,7 @@ path(
     path("beds/add/",        BedCreateView.as_view(),    name="bed_add"),
     path("beds/<int:pk>/edit/",   BedUpdateView.as_view(), name="bed_edit"),
     path("beds/<int:pk>/delete/", BedDeleteView.as_view(), name="bed_delete"),
+    path("generate-qr/<str:entity_type>/<int:entity_id>/", views_qr.generate_qr, name="generate_qr"),
     path("beds/<int:pk>/",        BedDetailView.as_view(), name="bed_detail"),
 
     # dependent-dropdown AJAX
@@ -178,7 +180,8 @@ path(
     path("departments/<int:pk>/",       department_detail,        name="department_detail"),
     path("departments/<int:pk>/edit/",  edit_department,          name="department_edit"),
     path("departments/<int:pk>/delete/",delete_department,        name="department_delete"),
-    path("departments/<int:department_id>/page/",      department_page,      name="department_page"),
+    # Unified combined page (keeps old name for reverse compatibility)
+    path("departments/<int:department_id>/page/",      views.department_surgical_combined,      name="department_page"),
     path("departments/<int:department_id>/doctors/",   department_doctors,   name="department_doctors"),
     path("departments/<int:department_id>/patients/",  department_patients,  name="department_patients"),
     path("departments/<int:department_id>/staffs/",  department_staffs,      name="department_staffs"),
@@ -236,7 +239,9 @@ path(
     # ─── emergency & surgical departments ───────────────────────
     path("emergency-departments/",      EmergencyDepartmentListView.as_view(),      name="emergency_department_list"),
     path("emergency-departments/new/",  EmergencyDepartmentCreateView.as_view(),    name="emergency_department_create"),
-    path("surgical-operations/",        SurgicalOperationsDepartmentListView.as_view(), name="surgical_operations_department_list"),
+    # Point surgical operations list to combined page (no department header)
+    path("surgical-operations/",        views.department_surgical_combined, name="surgical_operations_department_list"),
+    path("surgical-operations/<int:pk>/", views.SurgicalOperationsDepartmentDetailView.as_view(), name="surgical_operations_department_detail"),
     path("surgical-operations/new/",    SurgicalOperationsDepartmentCreateView.as_view(), name="surgical_operations_department_create"),
     path(
         'surgical-operations/<int:pk>/edit/',

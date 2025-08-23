@@ -1445,3 +1445,58 @@ def qr_test_page(request):
     return render(request, 'maintenance/qr_test.html', {
         'title': 'اختبار نظام QR/Barcode - Step 2'
     })
+
+
+@csrf_exempt
+@login_required
+def generate_qr_code(request):
+    """
+    Generate QR code for any entity (bed, device, patient, etc.)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        entity_type = data.get('entity_type')
+        entity_id = data.get('entity_id')
+        
+        if not entity_type or not entity_id:
+            return JsonResponse({'error': 'entity_type and entity_id are required'}, status=400)
+        
+        # Map entity types to models
+        model_mapping = {
+            'bed': apps.get_model('manager', 'Bed'),
+            'device': apps.get_model('maintenance', 'Device'),
+            'accessory': apps.get_model('maintenance', 'DeviceAccessory'),
+            'patient': apps.get_model('manager', 'Patient'),
+            'user': apps.get_model('hr', 'CustomUser'),
+        }
+        
+        if entity_type not in model_mapping:
+            return JsonResponse({'error': f'Unsupported entity type: {entity_type}'}, status=400)
+        
+        model_class = model_mapping[entity_type]
+        
+        try:
+            entity = model_class.objects.get(pk=entity_id)
+        except model_class.DoesNotExist:
+            return JsonResponse({'error': f'{entity_type} with ID {entity_id} not found'}, status=404)
+        
+        # Generate QR code
+        if hasattr(entity, 'generate_qr_code'):
+            entity.generate_qr_code()
+            entity.save()
+            
+            return JsonResponse({
+                'success': True,
+                'qr_code_url': entity.qr_code.url if entity.qr_code else None,
+                'qr_token': entity.qr_token
+            })
+        else:
+            return JsonResponse({'error': f'{entity_type} does not support QR code generation'}, status=400)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)

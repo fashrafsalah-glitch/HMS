@@ -747,3 +747,69 @@ class DeviceAccessoryUsageLog(models.Model):
     
     def __str__(self):
         return f"{self.accessory} في {self.usage_log}"
+
+
+class AccessoryTransaction(models.Model):
+    """Model for tracking accessory handover/receipt/transfer operations"""
+    TRANSACTION_TYPES = [
+        ('handover', 'تسليم'),
+        ('receipt', 'استلام'),
+        ('transfer', 'نقل'),
+        ('maintenance', 'صيانة'),
+        ('return', 'إرجاع'),
+    ]
+    
+    accessory = models.ForeignKey(
+        DeviceAccessory,
+        on_delete=models.CASCADE,
+        related_name='transactions',
+        verbose_name="الملحق"
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TRANSACTION_TYPES,
+        verbose_name="نوع العملية"
+    )
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transactions_from',
+        verbose_name="من المستخدم"
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='accessory_transactions_to',
+        verbose_name="إلى المستخدم"
+    )
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transactions_from',
+        verbose_name="من القسم"
+    )
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transactions_to',
+        verbose_name="إلى القسم"
+    )
+    notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    scanned_barcode = models.CharField(max_length=100, blank=True, null=True, verbose_name="الباركود الممسوح")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ العملية")
+    is_confirmed = models.BooleanField(default=False, verbose_name="مؤكدة؟")
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ التأكيد")
+    
+    class Meta:
+        verbose_name = "معاملة ملحق"
+        verbose_name_plural = "معاملات الملحقات"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} - {self.accessory.name} - {self.created_at.strftime('%Y-%m-%d')}"

@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch          import receiver
 from django.utils             import timezone
 
-from .models import Patient, Department, Visit
+from .models import Patient, Department, Visit, Bed
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Department, SurgicalOperationsDepartment
@@ -58,3 +58,29 @@ def create_opd_visit(sender, instance, created, **kwargs):
         visit_date  = timezone.now(),
         status      = "active",
     )
+
+
+# ───────────────────────────  AUTO QR FOR BEDS  ───────────────────────────
+@receiver(post_save, sender=Bed, dispatch_uid="bed_generate_qr_on_create")
+def bed_generate_qr_on_create(sender, instance, created, **kwargs):
+    """
+    Ensure every Bed has a QR code.
+    - On creation: generate immediately if missing.
+    - On update: backfill if qr_code/qr_token are missing.
+    """
+    # Avoid unnecessary second saves
+    needs_qr = (instance.qr_code is None or not getattr(instance.qr_code, "name", None) or not instance.qr_token)
+    if created and needs_qr:
+        try:
+            instance.generate_qr_code()
+            # save only the QR fields to avoid recursion/extra work
+            instance.save(update_fields=["qr_code", "qr_token"])
+        except Exception:
+            # Fail silently to not block bed creation; admins can regenerate via UI/API
+            pass
+    elif (not created) and needs_qr:
+        try:
+            instance.generate_qr_code()
+            instance.save(update_fields=["qr_code", "qr_token"])
+        except Exception:
+            pass

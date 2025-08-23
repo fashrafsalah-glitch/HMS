@@ -79,4 +79,5 @@ path('usage-logs/export/', views.export_device_usage_logs, name='export_device_u
 path('api/start-session/', views.start_scan_session, name='start_scan_session'),
 path('api/reset-session/', views.reset_scan_session, name='reset_scan_session'),
 path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
+path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
 ]

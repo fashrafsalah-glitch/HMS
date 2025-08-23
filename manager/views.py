@@ -44,6 +44,7 @@ from django.template.loader import render_to_string
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin   # ←  add this
 from django.urls import reverse, reverse_lazy
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 # ──────────────────────────── 3rd‑party libs ────────────────────────────
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib import colors
@@ -1177,6 +1178,48 @@ def department_detail(request, pk):
     department = get_object_or_404(Department, pk=pk, hospital=request.user.hospital)
     return render(request, 'departments/department_detail.html', {'department': department})
 
+def department_surgical_combined(request, department_id=None):
+    """
+    Combined page that preserves BOTH:
+    - Department hub header/buttons (when department_id is provided)
+    - Surgical Operations list with search + pagination
+
+    Used by:
+    - /patients/departments/<id>/page/
+    - /patients/surgical-operations/
+    """
+    department = None
+    if department_id is not None:
+        department = get_object_or_404(Department, id=department_id, hospital=request.user.hospital)
+
+    surgical_qs = SurgicalOperationsDepartment.objects.filter(hospital=request.user.hospital)
+
+    search_query = request.GET.get("q", "").strip()
+    if search_query:
+        surgical_qs = surgical_qs.filter(
+            Q(name__icontains=search_query)
+            | Q(surgical_type__icontains=search_query)
+            | Q(location__icontains=search_query)
+        )
+
+    paginator = Paginator(surgical_qs.order_by("name"), 10)
+    page = request.GET.get("page")
+    try:
+        surgicals = paginator.get_page(page)
+    except PageNotAnInteger:
+        surgicals = paginator.get_page(1)
+    except EmptyPage:
+        surgicals = paginator.get_page(paginator.num_pages)
+
+    context = {
+        "department": department,
+        "surgicals": surgicals,           # iterable in template
+        "page_obj": surgicals,            # for pagination controls
+        "is_paginated": surgicals.paginator.num_pages > 1,
+        "search_query": search_query,
+    }
+    return render(request, "combined/department_surgical.html", context)
+
 def edit_department(request, pk):
     department = get_object_or_404(Department, pk=pk, hospital=request.user.hospital)
     if request.method == 'POST':
@@ -2245,6 +2288,13 @@ class SurgicalOperationsDepartmentDeleteView(LoginRequiredMixin, Hospitalmanager
     success_url = reverse_lazy('manager:surgical_operations_department_list')
     template_name = 'surgical_operations/surgical_operations_department_confirm_delete.html'
     success_message = "Surgical Operations Department deleted successfully."
+
+class SurgicalOperationsDepartmentDetailView(LoginRequiredMixin, HospitalmanagerRequiredMixin, DetailView):
+    model = SurgicalOperationsDepartment
+    template_name = 'surgical_operations/surgical_operations_department_detail.html'
+    context_object_name = 'surgical'
+    def get_queryset(self):
+        return super().get_queryset().filter(hospital=self.request.user.hospital)
 
 # Medication and Prescription Views
 class MedicationListView(LoginRequiredMixin, HospitalmanagerRequiredMixin, ListView):
