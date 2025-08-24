@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4" dir="rtl">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h2 class="mb-1">🔍 اختبار نظام QR/Barcode - Step 2</h2>
+          <p class="text-muted mb-0">اختبار مسح الكيانات الجديدة: المرضى، الأسرّة، المستخدمين، وملحقات الأجهزة</p>
+        </div>
+        <div>
+          <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-secondary">⟵ رجوع</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- QR Scanner Section -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">📱 ماسح QR/Barcode</h5>
+        </div>
+        <div class="card-body">
+          <form id="scanForm">
+            <div class="mb-3">
+              <label for="qrInput" class="form-label">امسح أو أدخل الكود</label>
+              <input type="text" class="form-control form-control-lg" id="qrInput" 
+                     placeholder="امسح الكود هنا أو اكتبه يدوياً..." autofocus>
+              <div class="form-text">
+                الأنواع المدعومة: Patient, Bed, User, Device, DeviceAccessory
+              </div>
+            </div>
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary btn-lg">🔍 مسح الكود</button>
+              <button type="button" class="btn btn-outline-secondary" id="clearBtn">🗑️ مسح</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Sample QR Codes -->
+      <div class="card shadow-sm mt-4">
+        <div class="card-header">
+          <h6 class="mb-0">📋 أمثلة على أكواد QR</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-6">
+              <button class="btn btn-outline-info btn-sm w-100" onclick="testCode('patient:1|MRN:P001|Name:abdullah_galal|DOB:1990-01-01')">
+                👤 مريض (صيغة خاصة)
+              </button>
+            </div>
+            <div class="col-6">
+              <button class="btn btn-outline-success btn-sm w-100" onclick="testCode('bed:1')">
+                🛏️ سرير
+              </button>
+            </div>
+            <div class="col-6">
+              <button class="btn btn-outline-warning btn-sm w-100" onclick="testCode('user:5')">
+                👥 مستخدم
+              </button>
+            </div>
+            <div class="col-6">
+              <button class="btn btn-outline-secondary btn-sm w-100" onclick="testCode('device:1')">
+                🔧 جهاز
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">📊 نتائج المسح</h5>
+        </div>
+        <div class="card-body">
+          <div id="scanResults">
+            <div class="text-center text-muted py-5">
+              <i class="fas fa-qrcode fa-3x mb-3"></i>
+              <p>قم بمسح كود QR لعرض النتائج هنا</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan History -->
+      <div class="card shadow-sm mt-4">
+        <div class="card-header">
+          <h6 class="mb-0">📝 تاريخ المسح</h6>
+        </div>
+        <div class="card-body">
+          <div id="scanHistory" style="max-height: 300px; overflow-y: auto;">
+            <p class="text-muted text-center">لا يوجد تاريخ مسح بعد</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">جاري التحميل...</span>
+        </div>
+        <p class="mt-2 mb-0">جاري معالجة الكود...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scanForm = document.getElementById('scanForm');
+    const qrInput = document.getElementById('qrInput');
+    const scanResults = document.getElementById('scanResults');
+    const scanHistory = document.getElementById('scanHistory');
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    
+    let historyCount = 0;
+
+    // Form submission
+    scanForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const qrCode = qrInput.value.trim();
+        if (qrCode) {
+            scanQRCode(qrCode);
+        }
+    });
+
+    // Clear button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        qrInput.value = '';
+        qrInput.focus();
+    });
+
+    // Auto-focus on input
+    qrInput.focus();
+
+    // Scan QR Code function
+    function scanQRCode(qrCode) {
+        loadingModal.show();
+        
+        fetch('{% url "maintenance:scan_qr_code" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                qr_code: qrCode
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingModal.hide();
+            displayResults(data, qrCode);
+            addToHistory(qrCode, data);
+            qrInput.value = '';
+            qrInput.focus();
+        })
+        .catch(error => {
+            loadingModal.hide();
+            console.error('Error:', error);
+            displayError('حدث خطأ في الاتصال بالخادم');
+        });
+    }
+
+    // Display results
+    function displayResults(data, qrCode) {
+        let html = '';
+        
+        if (data.success) {
+            const entity = data.entity_data;
+            const type = data.entity_type;
+            
+            html = `
+                <div class="alert alert-success">
+                    <h6 class="alert-heading">✅ تم المسح بنجاح</h6>
+                    <hr>
+                    <div class="row g-2">
+                        <div class="col-sm-4"><strong>النوع:</strong></div>
+                        <div class="col-sm-8"><span class="badge bg-primary">${getEntityTypeName(type)}</span></div>
+                        
+                        <div class="col-sm-4"><strong>المعرف:</strong></div>
+                        <div class="col-sm-8">${entity.id}</div>
+                        
+                        <div class="col-sm-4"><strong>الاسم:</strong></div>
+                        <div class="col-sm-8">${entity.name}</div>
+            `;
+            
+            // Add specific fields based on entity type
+            if (type === 'patient') {
+                html += `
+                        <div class="col-sm-4"><strong>الاسم الكامل:</strong></div>
+                        <div class="col-sm-8">${entity.full_name || ''}</div>
+                        
+                        <div class="col-sm-4"><strong>رقم الملف:</strong></div>
+                        <div class="col-sm-8">${entity.mrn || 'غير محدد'}</div>
+                        
+                        <div class="col-sm-4"><strong>تاريخ الميلاد:</strong></div>
+                        <div class="col-sm-8">${entity.date_of_birth || 'غير محدد'}</div>
+                `;
+                
+                if (entity.extra) {
+                    html += `
+                        <div class="col-12"><hr><h6>البيانات الإضافية من QR:</h6></div>
+                        <div class="col-sm-4"><strong>MRN:</strong></div>
+                        <div class="col-sm-8">${entity.extra.MRN}</div>
+                        
+                        <div class="col-sm-4"><strong>الاسم:</strong></div>
+                        <div class="col-sm-8">${entity.extra.Name}</div>
+                        
+                        <div class="col-sm-4"><strong>DOB:</strong></div>
+                        <div class="col-sm-8">${entity.extra.DOB}</div>
+                    `;
+                }
+            } else if (type === 'bed') {
+                html += `
+                        <div class="col-sm-4"><strong>رقم السرير:</strong></div>
+                        <div class="col-sm-8">${entity.bed_number || ''}</div>
+                        
+                        <div class="col-sm-4"><strong>النوع:</strong></div>
+                        <div class="col-sm-8">${entity.bed_type || ''}</div>
+                        
+                        <div class="col-sm-4"><strong>الحالة:</strong></div>
+                        <div class="col-sm-8"><span class="badge bg-${getStatusColor(entity.status)}">${entity.status}</span></div>
+                `;
+            } else if (type === 'user' || type === 'customuser') {
+                html += `
+                        <div class="col-sm-4"><strong>الاسم الكامل:</strong></div>
+                        <div class="col-sm-8">${entity.full_name || ''}</div>
+                        
+                        <div class="col-sm-4"><strong>الدور:</strong></div>
+                        <div class="col-sm-8"><span class="badge bg-info">${entity.role || ''}</span></div>
+                        
+                        <div class="col-sm-4"><strong>رقم الوظيفة:</strong></div>
+                        <div class="col-sm-8">${entity.job_number || 'غير محدد'}</div>
+                `;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            // Add warnings if any
+            if (data.warnings && data.warnings.length > 0) {
+                html += '<div class="alert alert-warning mt-2"><h6>تحذيرات:</h6><ul class="mb-0">';
+                data.warnings.forEach(warning => {
+                    html += `<li>${warning}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+        } else {
+            html = `
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">❌ فشل في المسح</h6>
+                    <p class="mb-0">${data.error}</p>
+                </div>
+            `;
+        }
+        
+        scanResults.innerHTML = html;
+    }
+
+    // Display error
+    function displayError(message) {
+        scanResults.innerHTML = `
+            <div class="alert alert-danger">
+                <h6 class="alert-heading">❌ خطأ</h6>
+                <p class="mb-0">${message}</p>
+            </div>
+        `;
+    }
+
+    // Add to history
+    function addToHistory(qrCode, data) {
+        historyCount++;
+        const time = new Date().toLocaleTimeString('ar-EG');
+        const status = data.success ? 'success' : 'danger';
+        const icon = data.success ? '✅' : '❌';
+        const entityName = data.success ? data.entity_data.name : 'خطأ';
+        
+        const historyItem = `
+            <div class="border-bottom pb-2 mb-2">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="badge bg-${status}">${icon} ${historyCount}</span>
+                        <small class="text-muted ms-2">${time}</small>
+                    </div>
+                    <small class="text-muted">${qrCode.substring(0, 20)}...</small>
+                </div>
+                <div class="mt-1">
+                    <strong>${entityName}</strong>
+                </div>
+            </div>
+        `;
+        
+        if (historyCount === 1) {
+            scanHistory.innerHTML = historyItem;
+        } else {
+            scanHistory.insertAdjacentHTML('afterbegin', historyItem);
+        }
+    }
+
+    // Helper functions
+    function getEntityTypeName(type) {
+        const names = {
+            'patient': 'مريض',
+            'bed': 'سرير',
+            'user': 'مستخدم',
+            'customuser': 'مستخدم',
+            'device': 'جهاز',
+            'accessory': 'ملحق',
+            'deviceaccessory': 'ملحق جهاز'
+        };
+        return names[type] || type;
+    }
+
+    function getStatusColor(status) {
+        const colors = {
+            'available': 'success',
+            'occupied': 'warning',
+            'maintenance': 'danger',
+            'working': 'success',
+            'broken': 'danger'
+        };
+        return colors[status] || 'secondary';
+    }
+
+    // Global function for test buttons
+    window.testCode = function(code) {
+        qrInput.value = code;
+        scanQRCode(code);
+    };
+});
+</script>
+{% endblock %}

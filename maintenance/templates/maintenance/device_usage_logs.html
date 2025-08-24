@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Device Usage Logs - HMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filters-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .logs-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table th {
+        background: #007bff;
+        color: white;
+        border: none;
+        font-weight: 600;
+    }
+    
+    .table td {
+        vertical-align: middle;
+        border-color: #e9ecef;
+    }
+    
+    .operation-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+    
+    .operation-surgery { background: #e3f2fd; color: #1976d2; }
+    .operation-transfer { background: #f3e5f5; color: #7b1fa2; }
+    .operation-assignment { background: #e8f5e8; color: #388e3c; }
+    .operation-maintenance { background: #fff3e0; color: #f57c00; }
+    .operation-cleaning { background: #e0f2f1; color: #00796b; }
+    .operation-sterilization { background: #fce4ec; color: #c2185b; }
+    .operation-inspection { background: #f1f8e9; color: #689f38; }
+    .operation-other { background: #f5f5f5; color: #616161; }
+    
+    .device-list {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .export-section {
+        text-align: right;
+        margin-bottom: 20px;
+    }
+    
+    .filter-row {
+        margin-bottom: 15px;
+    }
+    
+    .btn-filter {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+    }
+    
+    .btn-export {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        border: none;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+    }
+    
+    .btn-clear {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-clipboard-data me-2"></i>
+                سجلات استخدام الأجهزة الطبية
+            </h1>
+        </div>
+    </div>
+    
+    <!-- Export Section -->
+    <div class="export-section">
+        <a href="{% url 'maintenance:export_device_usage_logs' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" 
+           class="btn btn-export">
+            <i class="bi bi-download me-2"></i>
+            تصدير إلى Excel
+        </a>
+        <a href="{% url 'maintenance:scan_session' %}" class="btn btn-primary ms-2">
+            <i class="bi bi-qr-code-scan me-2"></i>
+            جلسة مسح جديدة
+        </a>
+    </div>
+    
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <h5 class="mb-3">
+            <i class="bi bi-funnel me-2"></i>
+            تصفية النتائج
+        </h5>
+        
+        <form method="GET" action="">
+            <div class="row filter-row">
+                <div class="col-md-3">
+                    <label for="user" class="form-label">المستخدم:</label>
+                    <select name="user" id="user" class="form-select">
+                        <option value="">جميع المستخدمين</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}" {% if filters.user == user.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user.get_full_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="patient" class="form-label">المريض:</label>
+                    <select name="patient" id="patient" class="form-select">
+                        <option value="">جميع المرضى</option>
+                        {% for patient in patients %}
+                            <option value="{{ patient.id }}" {% if filters.patient == patient.id|stringformat:"s" %}selected{% endif %}>
+                                {{ patient.first_name }} {{ patient.last_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="department" class="form-label">القسم:</label>
+                    <select name="department" id="department" class="form-select">
+                        <option value="">جميع الأقسام</option>
+                        {% for department in departments %}
+                            <option value="{{ department.id }}" {% if filters.department == department.id|stringformat:"s" %}selected{% endif %}>
+                                {{ department.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="operation_type" class="form-label">نوع العملية:</label>
+                    <select name="operation_type" id="operation_type" class="form-select">
+                        <option value="">جميع العمليات</option>
+                        {% for choice in operation_choices %}
+                            <option value="{{ choice.0 }}" {% if filters.operation_type == choice.0 %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row filter-row">
+                <div class="col-md-3">
+                    <label for="date_from" class="form-label">من تاريخ:</label>
+                    <input type="date" name="date_from" id="date_from" class="form-control" 
+                           value="{{ filters.date_from }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="date_to" class="form-label">إلى تاريخ:</label>
+                    <input type="date" name="date_to" id="date_to" class="form-control" 
+                           value="{{ filters.date_to }}">
+                </div>
+                
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="submit" class="btn btn-filter me-2">
+                        <i class="bi bi-search me-2"></i>
+                        تصفية
+                    </button>
+                    <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-clear">
+                        <i class="bi bi-x-circle me-2"></i>
+                        مسح التصفية
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Logs Table -->
+    <div class="logs-table">
+        {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>رقم الجلسة</th>
+                            <th>المستخدم</th>
+                            <th>المريض</th>
+                            <th>السرير</th>
+                            <th>القسم</th>
+                            <th>نوع العملية</th>
+                            <th>الأجهزة المستخدمة</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>تاريخ الإكمال</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                            <tr>
+                                <td>
+                                    <code>{{ log.session_id|truncatechars:8 }}</code>
+                                </td>
+                                <td>
+                                    <strong>{{ log.user.get_full_name }}</strong>
+                                    {% if log.user.role %}
+                                        <br><small class="text-muted">{{ log.user.get_role_display }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.patient %}
+                                        {{ log.patient.first_name }} {{ log.patient.last_name }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.bed %}
+                                        {{ log.bed }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.department %}
+                                        {{ log.department.name }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="operation-badge operation-{{ log.operation_type }}">
+                                        {{ log.get_operation_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="device-list" title="{% for item in log.items.all %}{{ item.device }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                                        {% for item in log.items.all %}
+                                            {{ item.device }}{% if not forloop.last %}, {% endif %}
+                                        {% empty %}
+                                            <span class="text-muted">لا توجد أجهزة</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% if log.items.count > 0 %}
+                                        <small class="text-muted">({{ log.items.count }} جهاز)</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ log.created_at|date:"Y-m-d H:i" }}
+                                </td>
+                                <td>
+                                    {% if log.completed_at %}
+                                        {{ log.completed_at|date:"Y-m-d H:i" }}
+                                    {% else %}
+                                        <span class="text-muted">غير مكتمل</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#logModal{{ log.id }}">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">لا توجد سجلات</h4>
+                <p class="text-muted">لم يتم العثور على سجلات استخدام أجهزة بالمعايير المحددة</p>
+                <a href="{% url 'maintenance:scan_session' %}" class="btn btn-primary">
+                    <i class="bi bi-qr-code-scan me-2"></i>
+                    بدء جلسة مسح جديدة
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Log Detail Modals -->
+{% for log in logs %}
+<div class="modal fade" id="logModal{{ log.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clipboard-data me-2"></i>
+                    تفاصيل سجل الاستخدام
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>معلومات الجلسة:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>رقم الجلسة:</strong> <code>{{ log.session_id }}</code></li>
+                            <li><strong>المستخدم:</strong> {{ log.user.get_full_name }}</li>
+                            <li><strong>نوع العملية:</strong> 
+                                <span class="operation-badge operation-{{ log.operation_type }}">
+                                    {{ log.get_operation_type_display }}
+                                </span>
+                            </li>
+                            <li><strong>تاريخ الإنشاء:</strong> {{ log.created_at|date:"Y-m-d H:i:s" }}</li>
+                            <li><strong>تاريخ الإكمال:</strong> 
+                                {% if log.completed_at %}
+                                    {{ log.completed_at|date:"Y-m-d H:i:s" }}
+                                {% else %}
+                                    <span class="text-muted">غير مكتمل</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>السياق:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>المريض:</strong> 
+                                {% if log.patient %}
+                                    {{ log.patient.first_name }} {{ log.patient.last_name }}
+                                {% else %}
+                                    <span class="text-muted">غير محدد</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>السرير:</strong> 
+                                {% if log.bed %}
+                                    {{ log.bed }}
+                                {% else %}
+                                    <span class="text-muted">غير محدد</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>القسم:</strong> 
+                                {% if log.department %}
+                                    {{ log.department.name }}
+                                {% else %}
+                                    <span class="text-muted">غير محدد</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if log.notes %}
+                <div class="mt-3">
+                    <h6>الملاحظات:</h6>
+                    <p class="text-muted">{{ log.notes }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <h6>الأجهزة المستخدمة ({{ log.items.count }}):</h6>
+                    {% if log.items.all %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>الجهاز</th>
+                                        <th>وقت المسح</th>
+                                        <th>ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in log.items.all %}
+                                        <tr>
+                                            <td>{{ item.device }}</td>
+                                            <td>{{ item.scanned_at|date:"H:i:s" }}</td>
+                                            <td>
+                                                {% if item.notes %}
+                                                    {{ item.notes }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">لا توجد أجهزة مسجلة في هذه الجلسة</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit form when filters change
+    const filterInputs = document.querySelectorAll('#user, #patient, #department, #operation_type');
+    filterInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+});
+</script>
+{% endblock %}

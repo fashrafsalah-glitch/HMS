@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_accessory
 
 urlpatterns = [
     
@@ -23,7 +24,7 @@ urlpatterns = [
     path('ajax/load-rooms/', views.load_rooms, name='ajax_load_rooms'),
     path('device/<int:pk>/', views.device_detail, name='device_detail'),
     path('device/<int:pk>/info/', views.device_info, name='device_info'),
-    path('device/<int:pk>/add-accessory/', views.add_accessory, name='add_accessory'),
+    path('device/<int:pk>/add-accessory/', views.redirect_to_accessories, name='add_accessory'),
     path('device/<int:pk>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
     path('device/<int:pk>/emergency-request/', views.add_emergency_request, name='add_emergency_request'),
     path('device/<int:pk>/add-spare-part/', views.add_spare_part, name='add_spare_part'),
@@ -80,4 +81,19 @@ path('api/start-session/', views.start_scan_session, name='start_scan_session'),
 path('api/reset-session/', views.reset_scan_session, name='reset_scan_session'),
 path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
 path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
+
+# Device Accessories URLs
+path('devices/<int:device_id>/accessories/', views_accessory.DeviceAccessoryListView.as_view(), name='device_accessories'),
+path('devices/<int:device_id>/accessories/add/', views_accessory.DeviceAccessoryCreateView.as_view(), name='accessory_create'),
+path('accessories/<int:pk>/edit/', views_accessory.DeviceAccessoryUpdateView.as_view(), name='accessory_edit'),
+path('accessories/<int:pk>/delete/', views_accessory.DeviceAccessoryDeleteView.as_view(), name='accessory_delete'),
+path('accessories/<int:pk>/', views_accessory.accessory_detail, name='accessory_detail'),
+path('accessories/<int:pk>/qr-print/', views_accessory.accessory_qr_print, name='accessory_qr_print'),
+path('devices/<int:device_id>/accessories/scan/', views_accessory.accessory_scan_page, name='accessory_scan'),
+path('api/devices/<int:device_id>/verify-accessories/', views_accessory.verify_device_accessories, name='verify_device_accessories'),
+
+# Accessory Transfer URLs
+path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
+path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
+path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
 ]

@@ -91,6 +91,251 @@
           {% endif %}
         </div>
       </div>
+
+      <!-- Accessories Section with Tabs -->
+      <div class="card shadow-sm mt-3">
+        <div class="card-header bg-info text-white">
+          <h6 class="mb-0">
+            <i class="bi bi-gear me-2"></i>ملحقات الجهاز
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <!-- Nav tabs -->
+          <ul class="nav nav-tabs" id="accessoryTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="accessories-list-tab" data-bs-toggle="tab" data-bs-target="#accessories-list" type="button" role="tab">
+                <i class="bi bi-list me-1"></i>قائمة الملحقات
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="add-accessory-tab" data-bs-toggle="tab" data-bs-target="#add-accessory" type="button" role="tab">
+                <i class="bi bi-plus-circle me-1"></i>إضافة ملحق
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="scan-accessory-tab" data-bs-toggle="tab" data-bs-target="#scan-accessory" type="button" role="tab">
+                <i class="bi bi-qr-code-scan me-1"></i>مسح باركود
+              </button>
+            </li>
+          </ul>
+
+          <!-- Tab content -->
+          <div class="tab-content p-3" id="accessoryTabContent">
+            <!-- Accessories List Tab -->
+            <div class="tab-pane fade show active" id="accessories-list" role="tabpanel">
+              {% if device.accessories.all %}
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>الاسم</th>
+                        <th>الحالة</th>
+                        <th>الرقم التسلسلي</th>
+                        <th>الإجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for accessory in device.accessories.all %}
+                      <tr>
+                        <td>{{ accessory.name }}</td>
+                        <td>
+                          <span class="badge bg-{% if accessory.status == 'available' %}success{% elif accessory.status == 'in_use' %}primary{% elif accessory.status == 'maintenance' %}warning{% elif accessory.status == 'damaged' %}danger{% else %}secondary{% endif %}">
+                            {{ accessory.get_status_display }}
+                          </span>
+                        </td>
+                        <td>{{ accessory.serial_number|default:"-" }}</td>
+                        <td>
+                          <div class="btn-group btn-group-sm">
+                            <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-outline-info" title="التفاصيل">
+                              <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'maintenance:accessory_edit' accessory.id %}" class="btn btn-outline-warning" title="تعديل">
+                              <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'maintenance:accessory_qr_print' accessory.id %}" class="btn btn-outline-secondary" title="طباعة QR">
+                              <i class="bi bi-qr-code"></i>
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="text-center text-muted py-4">
+                  <i class="bi bi-gear" style="font-size: 2rem;"></i>
+                  <p class="mb-0">لا توجد ملحقات مسجلة لهذا الجهاز</p>
+                  <button class="btn btn-sm btn-primary mt-2" onclick="document.getElementById('add-accessory-tab').click()">
+                    إضافة أول ملحق
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+
+            <!-- Add Accessory Tab -->
+            <div class="tab-pane fade" id="add-accessory" role="tabpanel">
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="add_accessory" value="1">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.name.id_for_label }}" class="form-label">{{ accessory_form.name.label }}</label>
+                      {{ accessory_form.name }}
+                      {% if accessory_form.name.errors %}
+                        <div class="text-danger small">{{ accessory_form.name.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.status.id_for_label }}" class="form-label">{{ accessory_form.status.label }}</label>
+                      {{ accessory_form.status }}
+                      {% if accessory_form.status.errors %}
+                        <div class="text-danger small">{{ accessory_form.status.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="{{ accessory_form.description.id_for_label }}" class="form-label">{{ accessory_form.description.label }}</label>
+                  {{ accessory_form.description }}
+                  {% if accessory_form.description.errors %}
+                    <div class="text-danger small">{{ accessory_form.description.errors }}</div>
+                  {% endif %}
+                </div>
+
+                <div class="row">
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.serial_number.id_for_label }}" class="form-label">{{ accessory_form.serial_number.label }}</label>
+                      {{ accessory_form.serial_number }}
+                      {% if accessory_form.serial_number.errors %}
+                        <div class="text-danger small">{{ accessory_form.serial_number.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.model.id_for_label }}" class="form-label">{{ accessory_form.model.label }}</label>
+                      {{ accessory_form.model }}
+                      {% if accessory_form.model.errors %}
+                        <div class="text-danger small">{{ accessory_form.model.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.manufacturer.id_for_label }}" class="form-label">{{ accessory_form.manufacturer.label }}</label>
+                      {{ accessory_form.manufacturer }}
+                      {% if accessory_form.manufacturer.errors %}
+                        <div class="text-danger small">{{ accessory_form.manufacturer.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.purchase_date.id_for_label }}" class="form-label">{{ accessory_form.purchase_date.label }}</label>
+                      {{ accessory_form.purchase_date }}
+                      {% if accessory_form.purchase_date.errors %}
+                        <div class="text-danger small">{{ accessory_form.purchase_date.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="{{ accessory_form.warranty_expiry.id_for_label }}" class="form-label">{{ accessory_form.warranty_expiry.label }}</label>
+                      {{ accessory_form.warranty_expiry }}
+                      {% if accessory_form.warranty_expiry.errors %}
+                        <div class="text-danger small">{{ accessory_form.warranty_expiry.errors }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check-lg me-1"></i>إضافة الملحق
+                </button>
+              </form>
+            </div>
+
+            <!-- Scan Accessory Tab -->
+            <div class="tab-pane fade" id="scan-accessory" role="tabpanel">
+              <div class="row">
+                <div class="col-md-8">
+                  <form method="post" id="scanForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="scan_accessory" value="1">
+                    <div class="mb-3">
+                      <label for="{{ scan_form.barcode.id_for_label }}" class="form-label">{{ scan_form.barcode.label }}</label>
+                      {{ scan_form.barcode }}
+                      {% if scan_form.barcode.errors %}
+                        <div class="text-danger small">{{ scan_form.barcode.errors }}</div>
+                      {% endif %}
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="mb-3">
+                          <label for="{{ scan_form.transaction_type.id_for_label }}" class="form-label">{{ scan_form.transaction_type.label }}</label>
+                          {{ scan_form.transaction_type }}
+                          {% if scan_form.transaction_type.errors %}
+                            <div class="text-danger small">{{ scan_form.transaction_type.errors }}</div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="mb-3">
+                          <label for="{{ scan_form.notes.id_for_label }}" class="form-label">{{ scan_form.notes.label }}</label>
+                          {{ scan_form.notes }}
+                          {% if scan_form.notes.errors %}
+                            <div class="text-danger small">{{ scan_form.notes.errors }}</div>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      <i class="bi bi-check-lg me-1"></i>تسجيل العملية
+                    </button>
+                  </form>
+                </div>
+
+                <div class="col-md-4">
+                  <h6 class="mb-3">
+                    <i class="bi bi-clock-history me-2"></i>العمليات الأخيرة
+                  </h6>
+                  {% if recent_transactions %}
+                    <div class="list-group list-group-flush">
+                      {% for transaction in recent_transactions %}
+                      <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <h6 class="mb-1 small">{{ transaction.accessory.name }}</h6>
+                            <p class="mb-1 small text-muted">{{ transaction.get_transaction_type_display }}</p>
+                            <small class="text-muted">{{ transaction.created_at|date:"d/m H:i" }}</small>
+                          </div>
+                          <span class="badge bg-{% if transaction.is_confirmed %}success{% else %}warning{% endif %} small">
+                            {% if transaction.is_confirmed %}مؤكد{% else %}معلق{% endif %}
+                          </span>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <p class="text-muted text-center small">لا توجد عمليات سابقة</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="col-lg-4">

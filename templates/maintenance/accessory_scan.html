@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}مسح ملحقات الجهاز - {{ device.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-qr-code-scan me-2"></i>
+                        مسح ملحقات الجهاز
+                    </h4>
+                    <small class="text-muted">الجهاز: {{ device.name }}</small>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="scanForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.barcode.id_for_label }}" class="form-label">{{ form.barcode.label }}</label>
+                            {{ form.barcode }}
+                            {% if form.barcode.errors %}
+                                <div class="text-danger small">{{ form.barcode.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.transaction_type.id_for_label }}" class="form-label">{{ form.transaction_type.label }}</label>
+                                    {{ form.transaction_type }}
+                                    {% if form.transaction_type.errors %}
+                                        <div class="text-danger small">{{ form.transaction_type.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+                                    {{ form.notes }}
+                                    {% if form.notes.errors %}
+                                        <div class="text-danger small">{{ form.notes.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>تسجيل العملية
+                        </button>
+                        <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>رجوع
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        العمليات الأخيرة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_transactions %}
+                        <div class="list-group list-group-flush">
+                            {% for transaction in recent_transactions %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ transaction.accessory.name }}</h6>
+                                        <p class="mb-1 small text-muted">{{ transaction.get_transaction_type_display }}</p>
+                                        <small class="text-muted">{{ transaction.created_at|date:"d/m/Y H:i" }}</small>
+                                    </div>
+                                    <span class="badge bg-{% if transaction.is_confirmed %}success{% else %}warning{% endif %}">
+                                        {% if transaction.is_confirmed %}مؤكد{% else %}معلق{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد عمليات سابقة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.getElementById('{{ form.barcode.id_for_label }}');
+    
+    // Auto-focus on barcode input
+    barcodeInput.focus();
+    
+    // Auto-submit on Enter key
+    barcodeInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('scanForm').submit();
+        }
+    });
+    
+    // Clear input after form submission for next scan
+    document.getElementById('scanForm').addEventListener('submit', function() {
+        setTimeout(function() {
+            barcodeInput.value = '';
+            barcodeInput.focus();
+        }, 100);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QR Scanning Session - HMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scan-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .scan-input-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 30px;
+        margin-bottom: 30px;
+        text-align: center;
+        border: 3px dashed #007bff;
+    }
+    
+    .scan-input {
+        font-size: 18px;
+        padding: 15px;
+        border: 2px solid #007bff;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        margin: 10px auto;
+        display: block;
+    }
+    
+    .scan-input:focus {
+        outline: none;
+        border-color: #0056b3;
+        box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    }
+    
+    .session-status {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .scan-history {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .scan-item {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        border-left: 4px solid #007bff;
+        background: #f8f9fa;
+    }
+    
+    .scan-item.device {
+        border-left-color: #28a745;
+    }
+    
+    .scan-item.patient {
+        border-left-color: #17a2b8;
+    }
+    
+    .scan-item.user {
+        border-left-color: #ffc107;
+    }
+    
+    .scan-item.bed {
+        border-left-color: #6f42c1;
+    }
+    
+    .alert-custom {
+        padding: 10px 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+        animation: fadeIn 0.5s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .btn-save-session {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        font-size: 16px;
+        border-radius: 25px;
+        transition: all 0.3s;
+    }
+    
+    .btn-save-session:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+    }
+    
+    .operation-selector {
+        margin: 20px 0;
+    }
+    
+    .notes-section {
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="scan-container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-center mb-4">
+                <i class="bi bi-qr-code-scan me-2"></i>
+                جلسة مسح الأجهزة الطبية
+            </h1>
+        </div>
+    </div>
+    
+    <!-- Scan Input Section -->
+    <div class="scan-input-section">
+        <h3 class="mb-3">
+            <i class="bi bi-camera me-2"></i>
+            امسح الكود أو اكتبه يدوياً
+        </h3>
+        <input 
+            type="text" 
+            id="scanInput" 
+            class="scan-input" 
+            placeholder="امسح QR Code أو اكتب الكود هنا..."
+            autocomplete="off"
+            autofocus
+        >
+        <p class="text-muted mt-2">
+            <small>
+                <i class="bi bi-info-circle me-1"></i>
+                ضع المؤشر في المربع أعلاه واستخدم قارئ الباركود أو اكتب الكود يدوياً
+            </small>
+        </p>
+    </div>
+    
+    <div class="row">
+        <!-- Session Status -->
+        <div class="col-md-6">
+            <div class="session-status">
+                <h4 class="mb-3">
+                    <i class="bi bi-clipboard-check me-2"></i>
+                    حالة الجلسة
+                </h4>
+                
+                <div id="sessionStatus">
+                    <div class="mb-2">
+                        <strong>المستخدم:</strong> 
+                        <span id="currentUser">{{ request.user.get_full_name }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>المريض:</strong> 
+                        <span id="currentPatient">غير محدد</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>السرير:</strong> 
+                        <span id="currentBed">غير محدد</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>عدد الأجهزة المسحوبة:</strong> 
+                        <span id="deviceCount">0</span>
+                    </div>
+                </div>
+                
+                <!-- Operation Type Selector -->
+                <div class="operation-selector">
+                    <label for="operationType" class="form-label">
+                        <strong>نوع العملية:</strong>
+                    </label>
+                    <select id="operationType" class="form-select">
+                        <option value="surgery">عملية جراحية</option>
+                        <option value="transfer">نقل</option>
+                        <option value="assignment">تخصيص</option>
+                        <option value="maintenance">صيانة</option>
+                        <option value="cleaning">تنظيف</option>
+                        <option value="sterilization">تعقيم</option>
+                        <option value="inspection">فحص</option>
+                        <option value="other" selected>أخرى</option>
+                    </select>
+                </div>
+                
+                <!-- Notes Section -->
+                <div class="notes-section">
+                    <label for="sessionNotes" class="form-label">
+                        <strong>ملاحظات:</strong>
+                    </label>
+                    <textarea 
+                        id="sessionNotes" 
+                        class="form-control" 
+                        rows="3" 
+                        placeholder="أضف أي ملاحظات إضافية..."
+                    ></textarea>
+                </div>
+                
+                <!-- Save Session Button -->
+                <div class="text-center mt-3">
+                    <button 
+                        id="saveSessionBtn" 
+                        class="btn btn-save-session"
+                        disabled
+                    >
+                        <i class="bi bi-save me-2"></i>
+                        حفظ الجلسة
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scan History -->
+        <div class="col-md-6">
+            <div class="scan-history">
+                <h4 class="mb-3">
+                    <i class="bi bi-clock-history me-2"></i>
+                    تاريخ المسح
+                </h4>
+                
+                <div id="scanHistoryList">
+                    <!-- Scan history items will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alerts Container -->
+    <div id="alertsContainer" class="mt-3"></div>
+</div>
+
+<!-- Session Data -->
+<script>
+    const SESSION_ID = '{{ session.session_id }}';
+    const SCAN_API_URL = '{% url "maintenance:scan_qr_code" %}';
+    const SAVE_SESSION_URL = '{% url "maintenance:save_scan_session" %}';
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scanInput = document.getElementById('scanInput');
+    const alertsContainer = document.getElementById('alertsContainer');
+    const scanHistoryList = document.getElementById('scanHistoryList');
+    const saveSessionBtn = document.getElementById('saveSessionBtn');
+    const operationType = document.getElementById('operationType');
+    const sessionNotes = document.getElementById('sessionNotes');
+    
+    let currentSession = {
+        id: SESSION_ID,
+        user: null,
+        patient: null,
+        bed: null,
+        scannedDevices: []
+    };
+    
+    // Auto-focus on scan input
+    scanInput.focus();
+    
+    // Handle scan input
+    scanInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const code = this.value.trim();
+            if (code) {
+                scanQRCode(code);
+                this.value = '';
+            }
+        }
+    });
+    
+    // Keep focus on input
+    document.addEventListener('click', function() {
+        setTimeout(() => scanInput.focus(), 100);
+    });
+    
+    // Scan QR Code function
+    async function scanQRCode(code) {
+        try {
+            showAlert('جاري المسح...', 'info');
+            
+            const response = await fetch(SCAN_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    qr_code: code,
+                    session_id: currentSession.id
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                handleSuccessfulScan(data);
+            } else {
+                showAlert(`خطأ: ${data.error}`, 'danger');
+            }
+        } catch (error) {
+            showAlert(`خطأ في الاتصال: ${error.message}`, 'danger');
+        }
+    }
+    
+    // Handle successful scan
+    function handleSuccessfulScan(data) {
+        // Update session status
+        updateSessionStatus(data.session_status);
+        
+        // Add to scan history
+        addToScanHistory(data);
+        
+        // Show success message
+        let message = `✅ تم مسح ${getEntityDisplayName(data.entity_type)}: ${data.entity_data.name}`;
+        
+        // Add warnings if any
+        if (data.warnings && data.warnings.length > 0) {
+            message += '<br>' + data.warnings.join('<br>');
+        }
+        
+        showAlert(message, data.warnings && data.warnings.length > 0 ? 'warning' : 'success');
+        
+        // Update device count if it's a device
+        if (data.entity_type === 'device') {
+            currentSession.scannedDevices.push(data.entity_data);
+            updateDeviceCount();
+        }
+        
+        // Enable save button if we have devices
+        if (currentSession.scannedDevices.length > 0) {
+            saveSessionBtn.disabled = false;
+        }
+    }
+    
+    // Update session status display
+    function updateSessionStatus(status) {
+        if (status.user) {
+            document.getElementById('currentUser').textContent = status.user;
+            currentSession.user = status.user;
+        }
+        if (status.patient) {
+            document.getElementById('currentPatient').textContent = status.patient;
+            currentSession.patient = status.patient;
+        }
+        if (status.bed) {
+            document.getElementById('currentBed').textContent = status.bed;
+            currentSession.bed = status.bed;
+        }
+    }
+    
+    // Add item to scan history
+    function addToScanHistory(data) {
+        const historyItem = document.createElement('div');
+        historyItem.className = `scan-item ${data.entity_type}`;
+        
+        const time = new Date().toLocaleTimeString('ar-EG');
+        historyItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${getEntityDisplayName(data.entity_type)}</strong><br>
+                    <small>${data.entity_data.name}</small>
+                </div>
+                <div class="text-muted">
+                    <small>${time}</small>
+                </div>
+            </div>
+        `;
+        
+        scanHistoryList.insertBefore(historyItem, scanHistoryList.firstChild);
+    }
+    
+    // Update device count
+    function updateDeviceCount() {
+        document.getElementById('deviceCount').textContent = currentSession.scannedDevices.length;
+    }
+    
+    // Get entity display name in Arabic
+    function getEntityDisplayName(entityType) {
+        const names = {
+            'device': 'جهاز',
+            'patient': 'مريض',
+            'bed': 'سرير',
+            'user': 'مستخدم',
+            'customuser': 'مستخدم',
+            'doctor': 'طبيب',
+            'department': 'قسم'
+        };
+        return names[entityType] || entityType;
+    }
+    
+    // Show alert
+    function showAlert(message, type) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-custom alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        alertsContainer.appendChild(alert);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+    
+    // Save session
+    saveSessionBtn.addEventListener('click', async function() {
+        if (currentSession.scannedDevices.length === 0) {
+            showAlert('لا توجد أجهزة لحفظها في الجلسة', 'warning');
+            return;
+        }
+        
+        try {
+            this.disabled = true;
+            this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>جاري الحفظ...';
+            
+            const response = await fetch(SAVE_SESSION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    session_id: currentSession.id,
+                    operation_type: operationType.value,
+                    notes: sessionNotes.value
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showAlert(data.message, 'success');
+                
+                // Reset session
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showAlert(`خطأ في الحفظ: ${data.error}`, 'danger');
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-save me-2"></i>حفظ الجلسة';
+            }
+        } catch (error) {
+            showAlert(`خطأ في الاتصال: ${error.message}`, 'danger');
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save me-2"></i>حفظ الجلسة';
+        }
+    });
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}

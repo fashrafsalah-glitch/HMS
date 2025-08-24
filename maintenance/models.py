@@ -768,6 +768,7 @@ class AccessoryTransaction(models.Model):
     transaction_type = models.CharField(
         max_length=20,
         choices=TRANSACTION_TYPES,
+        default='handover',
         verbose_name="نوع العملية"
     )
     from_user = models.ForeignKey(
@@ -801,7 +802,7 @@ class AccessoryTransaction(models.Model):
         verbose_name="إلى القسم"
     )
     notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
-    scanned_barcode = models.CharField(max_length=100, blank=True, null=True, verbose_name="الباركود الممسوح")
+    scanned_barcode = models.CharField(max_length=200, blank=True, null=True, verbose_name="الباركود الممسوح")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ العملية")
     is_confirmed = models.BooleanField(default=False, verbose_name="مؤكدة؟")
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ التأكيد")
@@ -813,3 +814,184 @@ class AccessoryTransaction(models.Model):
     
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.accessory.name} - {self.created_at.strftime('%Y-%m-%d')}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACCESSORY TRANSFER MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AccessoryTransferRequest(models.Model):
+    """Model for accessory transfer requests that need approval"""
+    accessory = models.ForeignKey(
+        DeviceAccessory,
+        on_delete=models.CASCADE,
+        related_name='transfer_requests',
+        verbose_name="الملحق"
+    )
+    
+    # From location/device
+    from_device = models.ForeignKey(
+        Device,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfers_from',
+        verbose_name="من الجهاز"
+    )
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_requests_from',
+        verbose_name="من القسم"
+    )
+    from_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfers_from',
+        verbose_name="من الغرفة"
+    )
+    
+    # To location/device
+    to_device = models.ForeignKey(
+        Device,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfers_to',
+        verbose_name="إلى الجهاز"
+    )
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_requests_to',
+        verbose_name="إلى القسم"
+    )
+    to_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfers_to',
+        verbose_name="إلى الغرفة"
+    )
+    
+    # Request details
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='accessory_transfer_requested_by',
+        verbose_name="طلب بواسطة"
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الطلب")
+    reason = models.TextField(blank=True, null=True, verbose_name="سبب النقل")
+    
+    # Approval details
+    is_approved = models.BooleanField(default=False, verbose_name="موافق عليه؟")
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_approved_by',
+        verbose_name="وافق عليه"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الموافقة")
+    rejection_reason = models.TextField(blank=True, null=True, verbose_name="سبب الرفض")
+    
+    class Meta:
+        verbose_name = "طلب نقل ملحق"
+        verbose_name_plural = "طلبات نقل الملحقات"
+        ordering = ['-requested_at']
+    
+    def __str__(self):
+        device_info = f"من {self.from_device}" if self.from_device else f"من {self.from_department}"
+        to_info = f"إلى {self.to_device}" if self.to_device else f"إلى {self.to_department}"
+        return f"نقل {self.accessory.name} {device_info} {to_info} (موافق: {self.is_approved})"
+
+
+class AccessoryTransferLog(models.Model):
+    """Log for completed accessory transfers"""
+    accessory = models.ForeignKey(
+        DeviceAccessory,
+        on_delete=models.CASCADE,
+        related_name='transfer_logs',
+        verbose_name="الملحق"
+    )
+    
+    # From location/device
+    from_device = models.ForeignKey(
+        Device,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_from',
+        verbose_name="من الجهاز"
+    )
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_from',
+        verbose_name="من القسم"
+    )
+    from_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_from',
+        verbose_name="من الغرفة"
+    )
+    
+    # To location/device
+    to_device = models.ForeignKey(
+        Device,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_to',
+        verbose_name="إلى الجهاز"
+    )
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_to',
+        verbose_name="إلى القسم"
+    )
+    to_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accessory_transfer_logs_to',
+        verbose_name="إلى الغرفة"
+    )
+    
+    # Transfer details
+    transferred_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="نُقل بواسطة"
+    )
+    transferred_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ النقل")
+    notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    class Meta:
+        verbose_name = "سجل نقل ملحق"
+        verbose_name_plural = "سجلات نقل الملحقات"
+        ordering = ['-transferred_at']
+    
+    def __str__(self):
+        from_info = str(self.from_device) if self.from_device else str(self.from_department or self.from_room)
+        to_info = str(self.to_device) if self.to_device else str(self.to_department or self.to_room)
+        return f"نقل {self.accessory.name} من {from_info} إلى {to_info}"

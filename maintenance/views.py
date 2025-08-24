@@ -30,7 +30,8 @@ from .models import Device
 
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from .models import DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog
+from .models import DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceAccessory, AccessoryTransaction
+from .forms import DeviceAccessoryForm, AccessoryScanForm
 
 @login_required
 def clean_device(request, device_id):
@@ -238,7 +239,16 @@ def add_device_subcategory(request):
     return render(request, 'maintenance/device_subcategory_form.html', {'form': form})
 def device_detail(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    return render(request, 'maintenance/device_detail.html', {'device': device})
+    # Keep device detail page focused on device info only
+    context = {
+        'device': device,
+    }
+    return render(request, 'maintenance/device_detail.html', context)
+
+@login_required
+def redirect_to_accessories(request, pk):
+    """Redirect old add-accessory URL to device detail page with accessories tab"""
+    return redirect('maintenance:device_accessories', device_id=pk)
 
 def device_edit(request, pk):
     device = get_object_or_404(Device, pk=pk)
@@ -260,18 +270,40 @@ def device_delete(request, pk):
 
 def transfer_device(request, device_id):
     device = get_object_or_404(Device, id=device_id)
+    
+    # Check device transfer eligibility
+    transfer_errors = []
+    if hasattr(device, 'status') and device.status != 'working':
+        transfer_errors.append(f"الجهاز في حالة: {device.get_status_display()} - يجب أن يكون يعمل")
+    if hasattr(device, 'clean_status') and device.clean_status != 'clean':
+        transfer_errors.append("الجهاز يحتاج تنظيف قبل النقل")
+    if hasattr(device, 'sterilization_status') and device.sterilization_status != 'sterilized':
+        transfer_errors.append("الجهاز يحتاج تعقيم قبل النقل")
+    if hasattr(device, 'availability') and not device.availability:
+        transfer_errors.append("الجهاز غير متاح حالياً - لا يمكن نقله")
 
     if request.method == 'POST':
         form = DeviceTransferForm(request.POST)
         if form.is_valid():
+            if transfer_errors:
+                for error in transfer_errors:
+                    messages.error(request, error)
+                return render(request, 'maintenance/device_transfer.html', {
+                    'form': form, 
+                    'device': device, 
+                    'transfer_errors': transfer_errors
+                })
+            
             transfer = DeviceTransferRequest.objects.create(
                 device=device,
                 from_department=device.department,
                 to_department=form.cleaned_data['department'],
                 from_room=device.room,
                 to_room=form.cleaned_data['room'],
-                requested_by=request.user  # تأكد أن المستخدم مسجل دخول
+                requested_by=request.user,
+                reason=form.cleaned_data.get('reason', '')
             )
+            messages.success(request, "تم إرسال طلب نقل الجهاز بنجاح")
             return redirect('maintenance:device_detail', pk=device.id)
     else:
         form = DeviceTransferForm(initial={
@@ -279,28 +311,61 @@ def transfer_device(request, device_id):
             'room': device.room
         })
 
-    return render(request, 'maintenance/device_transfer.html', {'form': form, 'device': device})
+    return render(request, 'maintenance/device_transfer.html', {
+        'form': form, 
+        'device': device, 
+        'transfer_errors': transfer_errors
+    })
 
 
 
 def approve_transfer(request, transfer_id):
     transfer = get_object_or_404(DeviceTransferRequest, id=transfer_id)
+    device = transfer.device
+    
+    # Re-check device eligibility before approval
+    transfer_errors = []
+    if hasattr(device, 'status') and device.status != 'working':
+        transfer_errors.append(f"الجهاز في حالة: {device.get_status_display()} - يجب أن يكون يعمل")
+    if hasattr(device, 'clean_status') and device.clean_status != 'clean':
+        transfer_errors.append("الجهاز يحتاج تنظيف قبل النقل")
+    if hasattr(device, 'sterilization_status') and device.sterilization_status != 'sterilized':
+        transfer_errors.append("الجهاز يحتاج تعقيم قبل النقل")
+    if hasattr(device, 'availability') and not device.availability:
+        transfer_errors.append("الجهاز غير متاح حالياً - لا يمكن نقله")
 
     if request.method == 'POST':
+        if transfer_errors:
+            for error in transfer_errors:
+                messages.error(request, f"لا يمكن الموافقة على النقل: {error}")
+            return redirect('maintenance:device_detail', pk=device.id)
+        
+        # Approve transfer
         transfer.is_approved = True
         transfer.approved_by = request.user
-        transfer.approved_at = timezone.now()  # تسجيل وقت القبول
+        transfer.approved_at = timezone.now()
         transfer.save()
 
-        device = transfer.device
+        # Create transfer log
+        DeviceTransferLog.objects.create(
+            device=device,
+            from_department=transfer.from_department,
+            from_room=transfer.from_room,
+            to_department=transfer.to_department,
+            to_room=transfer.to_room,
+            transferred_by=request.user,
+            notes=f"نقل معتمد - طلب رقم {transfer.id}"
+        )
+
+        # Update device location
         device.department = transfer.to_department
         device.room = transfer.to_room
         device.save()
 
         messages.success(request, "تم قبول نقل الجهاز بنجاح.")
-        return redirect('maintenance:department_devices', department_id=transfer.to_department.id)
+        return redirect('maintenance:device_detail', pk=device.id)
     
-    return redirect('maintenance:device_detail', pk=transfer.device.id)
+    return redirect('maintenance:device_detail', pk=device.id)
 
 def index(request):
     return render(request, 'maintenance/index.html')
@@ -824,6 +889,54 @@ def scan_qr_code(request):
                     device.save()
                     notifications.append(f"🔧 تم تعيين الجهاز كمستخدم: {device.name}")
                 
+                # Check if we have accessories scanned in this session that need linking
+                accessory_scans = scan_session.scan_history.filter(entity_type='accessory')
+                for accessory_scan in accessory_scans:
+                    try:
+                        accessory = apps.get_model('maintenance', 'DeviceAccessory').objects.get(pk=accessory_scan.entity_id)
+                        
+                        # Check if accessory is already linked to this device
+                        if accessory.device_id == device.id:
+                            notifications.append(f"✅ الملحق {accessory.name} مربوط بالفعل بالجهاز")
+                        else:
+                            # Check if accessory is linked to another device
+                            if accessory.device and accessory.device != device:
+                                # Create transfer request
+                                transfer_request = apps.get_model('maintenance', 'AccessoryTransferRequest').objects.create(
+                                    accessory=accessory,
+                                    from_device=accessory.device,
+                                    from_department=accessory.device.department,
+                                    from_room=accessory.device.room,
+                                    to_device=device,
+                                    to_department=device.department,
+                                    to_room=device.room,
+                                    requested_by=scan_session.user,
+                                    reason=f"نقل تلقائي من المسح - من {accessory.device.name} إلى {device.name}"
+                                )
+                                notifications.append(f"📋 تم إرسال طلب نقل الملحق {accessory.name} من {accessory.device.name} إلى {device.name}")
+                                warnings.append(f"⚠️ الملحق {accessory.name} مربوط حالياً بجهاز آخر - تم إرسال طلب نقل")
+                            else:
+                                # Link accessory to device directly
+                                old_device = accessory.device
+                                accessory.device = device
+                                accessory.save()
+                                
+                                # Create transfer log
+                                apps.get_model('maintenance', 'AccessoryTransferLog').objects.create(
+                                    accessory=accessory,
+                                    from_device=old_device,
+                                    from_department=old_device.department if old_device else None,
+                                    from_room=old_device.room if old_device else None,
+                                    to_device=device,
+                                    to_department=device.department,
+                                    to_room=device.room,
+                                    transferred_by=scan_session.user,
+                                    notes=f"ربط تلقائي من المسح"
+                                )
+                                notifications.append(f"✅ تم ربط الملحق {accessory.name} بالجهاز: {device.name}")
+                    except apps.get_model('maintenance', 'DeviceAccessory').DoesNotExist:
+                        continue
+                
                 if hasattr(device, 'status') and device.status == 'maintenance':
                     warnings.append(f"⚠️ الجهاز تحت الصيانة - لا يمكن استخدامه")
                 elif hasattr(device, 'status') and device.status != 'working':
@@ -859,6 +972,64 @@ def scan_qr_code(request):
         elif entity_type == 'operation_token':
             notifications.append(f"🔧 تم تحديد نوع العملية: {entity_data['operation']}")
         
+        elif entity_type == 'accessory':
+            try:
+                accessory = apps.get_model('maintenance', 'DeviceAccessory').objects.get(pk=entity_id)
+                notifications.append(f"🔧 تم مسح الملحق: {accessory.name}")
+                
+                # Check if we have a device scanned in this session
+                device_scans = scan_session.scan_history.filter(entity_type='device')
+                if device_scans.exists():
+                    # Get the last scanned device
+                    last_device_scan = device_scans.last()
+                    target_device = apps.get_model('maintenance', 'Device').objects.get(pk=last_device_scan.entity_id)
+                    
+                    # Check if accessory is already linked to this device
+                    if accessory.device_id == target_device.id:
+                        notifications.append(f"✅ الملحق مربوط بالفعل بالجهاز: {target_device.name}")
+                    else:
+                        # Check if accessory is linked to another device
+                        if accessory.device and accessory.device != target_device:
+                            # Create transfer request
+                            transfer_request = apps.get_model('maintenance', 'AccessoryTransferRequest').objects.create(
+                                accessory=accessory,
+                                from_device=accessory.device,
+                                from_department=accessory.device.department,
+                                from_room=accessory.device.room,
+                                to_device=target_device,
+                                to_department=target_device.department,
+                                to_room=target_device.room,
+                                requested_by=scan_session.user,
+                                reason=f"نقل تلقائي من المسح - من {accessory.device.name} إلى {target_device.name}"
+                            )
+                            notifications.append(f"📋 تم إرسال طلب نقل الملحق من {accessory.device.name} إلى {target_device.name}")
+                            warnings.append(f"⚠️ الملحق مربوط حالياً بجهاز آخر - تم إرسال طلب نقل")
+                        else:
+                            # Link accessory to device directly
+                            old_device = accessory.device
+                            accessory.device = target_device
+                            accessory.save()
+                            
+                            # Create transfer log
+                            apps.get_model('maintenance', 'AccessoryTransferLog').objects.create(
+                                accessory=accessory,
+                                from_device=old_device,
+                                from_department=old_device.department if old_device else None,
+                                from_room=old_device.room if old_device else None,
+                                to_device=target_device,
+                                to_department=target_device.department,
+                                to_room=target_device.room,
+                                transferred_by=scan_session.user,
+                                notes=f"ربط تلقائي من المسح"
+                            )
+                            notifications.append(f"✅ تم ربط الملحق بالجهاز: {target_device.name}")
+                else:
+                    notifications.append("ℹ️ امسح جهاز لربط الملحق به")
+                    
+            except apps.get_model('maintenance', 'DeviceAccessory').DoesNotExist:
+                warnings.append(f"⚠️ الملحق رقم {entity_id} غير موجود في قاعدة البيانات")
+                notifications.append(f"ℹ️ تم مسح كود ملحق: accessory:{entity_id}")
+        
         elif entity_type == 'patient':
             notifications.append(f"👤 تم مسح المريض: {entity_data.get('name', entity_id)}")
         
@@ -867,9 +1038,6 @@ def scan_qr_code(request):
         
         elif entity_type == 'doctor':
             notifications.append(f"👨‍⚕️ تم مسح الطبيب: {entity_data.get('name', entity_id)}")
-        
-        elif entity_type == 'accessory':
-            notifications.append(f"🔧 تم مسح ملحق الجهاز: accessory:{entity_id}")
         
         else:
             notifications.append(f"✅ تم مسح الكود: {entity_type}:{entity_id}")

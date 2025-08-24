@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Surgical Department: {{ surgical.name }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-scissors me-2"></i>{{ surgical.name }}</h2>
+    <div class="btn-group">
+      <a class="btn btn-secondary" href="{% url 'manager:surgical_operations_department_list' %}"><i class="bi bi-arrow-left"></i> Back</a>
+      <a class="btn btn-warning" href="{% url 'manager:surgical_operations_department_edit' surgical.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+      <a class="btn btn-danger" href="{% url 'manager:surgical_operations_department_delete' surgical.pk %}" onclick="return confirm('Are you sure?');"><i class="bi bi-trash"></i> Delete</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header fw-bold">General</div>
+        <div class="card-body">
+          <p><strong>Type:</strong> {{ surgical.surgical_type|default:"-" }}</p>
+          <p><strong>Status:</strong>
+            <span class="badge {% if surgical.status == 'active' %}bg-success{% elif surgical.status == 'inactive' %}bg-danger{% else %}bg-warning{% endif %}">
+              {{ surgical.status|title }}
+            </span>
+          </p>
+          <p><strong>Operating Rooms:</strong> {{ surgical.operating_rooms|default:"-" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header fw-bold">Location & Assignments</div>
+        <div class="card-body">
+          <p><strong>Department:</strong> {{ surgical.department|default:"-" }}</p>
+          <p><strong>Doctor:</strong> {{ surgical.doctor|default:"-" }}</p>
+          <p><strong>Location:</strong> {{ surgical.location|default:"-" }}</p>
+          <p><strong>Room:</strong> {{ surgical.room|default:"-" }}</p>
+          <p><strong>Bed:</strong> {{ surgical.bed|default:"-" }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

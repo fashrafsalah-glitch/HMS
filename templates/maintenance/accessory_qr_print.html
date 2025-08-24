@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}طباعة QR - {{ accessory.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">طباعة QR للملحق: {{ accessory.name }}</h3>
+    <div class="d-flex gap-2">
+      <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-outline-dark">
+        <i class="bi bi-arrow-right me-1"></i> عودة لتفاصيل الملحق
+      </a>
+      <button class="btn btn-primary" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i> طباعة
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row align-items-center g-4">
+        <div class="col-md-4 text-center">
+          {% if accessory.qr_code %}
+            <img src="{{ accessory.qr_code.url }}" alt="QR Code" class="img-fluid border p-2 bg-white" style="max-width: 250px;"/>
+          {% else %}
+            <div class="text-muted">لا يوجد رمز QR مولد</div>
+          {% endif %}
+        </div>
+        <div class="col-md-8">
+          <div class="mb-2"><strong>الملحق:</strong> {{ accessory.name }}</div>
+          <div class="mb-2"><strong>الجهاز:</strong> {{ device.name }}</div>
+          <div class="mb-2"><strong>الرمز:</strong> <code>{{ accessory.qr_token }}</code></div>
+          <div class="mb-2"><strong>الرقم التسلسلي:</strong> {{ accessory.serial_number|default:"-" }}</div>
+          <div class="small text-muted">يرجى لصق الملصق على الملحق بحيث يكون قابلاً للمسح بسهولة</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  .navbar, .sidebar, .btn, .d-flex.gap-2 { display: none !important; }
+  .card { border: none; box-shadow: none; }
+}
+</style>
+{% endblock %}

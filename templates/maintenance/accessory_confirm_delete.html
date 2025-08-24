@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}حذف الملحق - {{ object.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        تأكيد الحذف
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">هل أنت متأكد من حذف الملحق التالي؟</p>
+                    
+                    <div class="alert alert-info">
+                        <h5>{{ object.name }}</h5>
+                        <p class="mb-1"><strong>الجهاز:</strong> {{ object.device.name }}</p>
+                        {% if object.serial_number %}
+                            <p class="mb-1"><strong>الرقم التسلسلي:</strong> {{ object.serial_number }}</p>
+                        {% endif %}
+                        <p class="mb-0"><strong>الحالة:</strong> {{ object.get_status_display }}</p>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>تحذير:</strong> سيتم حذف جميع المعاملات المرتبطة بهذا الملحق نهائياً.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'maintenance:device_detail' object.device.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-1"></i>حذف نهائي
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

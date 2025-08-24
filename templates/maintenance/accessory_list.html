@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{% if device %}ملحقات الجهاز - {{ device.name }}{% else %}قائمة ملحقات الأجهزة{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-1">
+        {% if device %}
+          ملحقات الجهاز: {{ device.name }}
+        {% else %}
+          قائمة ملحقات الأجهزة
+        {% endif %}
+      </h3>
+      {% if device %}
+        <small class="text-muted">الموقع: {{ device.department }} - {{ device.room }}{% if device.bed %} - {{ device.bed }}{% endif %}</small>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      {% if device %}
+        <a href="{% url 'maintenance:accessory_create' device_id=device.id %}" class="btn btn-primary">
+          <i class="bi bi-plus-circle me-1"></i> إضافة ملحق
+        </a>
+        <a href="{% url 'maintenance:accessory_scan' device_id=device.id %}" class="btn btn-outline-secondary">
+          <i class="bi bi-upc-scan me-1"></i> مسح باركود
+        </a>
+        <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-outline-dark">
+          <i class="bi bi-arrow-right me-1"></i> عودة للجهاز
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>الاسم</th>
+              {% if not device %}<th>الجهاز</th>{% endif %}
+              <th>الحالة</th>
+              <th>الرقم التسلسلي</th>
+              <th class="text-nowrap">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in accessories %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                  <a href="{% url 'maintenance:accessory_detail' a.id %}">
+                    {{ a.name }}
+                  </a>
+                </td>
+                {% if not device %}<td>{{ a.device.name }}</td>{% endif %}
+                <td>{{ a.get_status_display }}</td>
+                <td>{{ a.serial_number|default:"-" }}</td>
+                <td class="text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'maintenance:accessory_edit' a.id %}">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'maintenance:accessory_delete' a.id %}">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                  <a class="btn btn-sm btn-outline-success" href="{% url 'maintenance:accessory_qr_print' a.id %}">
+                    <i class="bi bi-qr-code"></i>
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                  {% if device %}
+                    لا توجد ملحقات لهذا الجهاز بعد.
+                  {% else %}
+                    لا توجد ملحقات مسجلة.
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if is_paginated %}
+      <div class="card-footer">
+        <nav>
+          <ul class="pagination justify-content-center mb-0">
+            {% if page_obj.has_previous %}
+              <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">السابق</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+              <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">التالي</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

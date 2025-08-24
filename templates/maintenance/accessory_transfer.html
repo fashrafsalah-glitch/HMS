@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}نقل الملحق - {{ accessory.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-1">نقل الملحق: {{ accessory.name }}</h3>
+      <small class="text-muted">الجهاز الحالي: {{ accessory.device.name }} - {{ accessory.device.department }}</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-outline-dark">
+        <i class="bi bi-arrow-right me-1"></i> عودة لتفاصيل الملحق
+      </a>
+      <a href="{% url 'maintenance:accessory_transfer_history' accessory.id %}" class="btn btn-outline-info">
+        <i class="bi bi-clock-history me-1"></i> سجل النقل
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">طلب نقل الملحق</h5>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="{{ form.to_device.id_for_label }}" class="form-label">{{ form.to_device.label }}</label>
+            {{ form.to_device }}
+            {% if form.to_device.errors %}
+              <div class="text-danger small">{{ form.to_device.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">اختر الجهاز المستهدف لنقل الملحق إليه</small>
+          </div>
+          
+          <div class="col-md-6">
+            <label for="{{ form.to_department.id_for_label }}" class="form-label">{{ form.to_department.label }}</label>
+            {{ form.to_department }}
+            {% if form.to_department.errors %}
+              <div class="text-danger small">{{ form.to_department.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">أو اختر القسم المستهدف</small>
+          </div>
+          
+          <div class="col-md-6">
+            <label for="{{ form.to_room.id_for_label }}" class="form-label">{{ form.to_room.label }}</label>
+            {{ form.to_room }}
+            {% if form.to_room.errors %}
+              <div class="text-danger small">{{ form.to_room.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">اختر الغرفة المستهدفة (اختياري)</small>
+          </div>
+          
+          <div class="col-12">
+            <label for="{{ form.reason.id_for_label }}" class="form-label">{{ form.reason.label }}</label>
+            {{ form.reason }}
+            {% if form.reason.errors %}
+              <div class="text-danger small">{{ form.reason.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">اشرح سبب طلب النقل</small>
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger mt-3">
+            {{ form.non_field_errors.0 }}
+          </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-secondary">إلغاء</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send me-1"></i> إرسال طلب النقل
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header">معلومات الملحق الحالية</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4"><strong>الملحق:</strong> {{ accessory.name }}</div>
+        <div class="col-md-4"><strong>الجهاز:</strong> {{ accessory.device.name }}</div>
+        <div class="col-md-4"><strong>القسم:</strong> {{ accessory.device.department }}</div>
+        <div class="col-md-4"><strong>الغرفة:</strong> {{ accessory.device.room }}</div>
+        <div class="col-md-4"><strong>الحالة:</strong> {{ accessory.get_status_display }}</div>
+        <div class="col-md-4"><strong>الرقم التسلسلي:</strong> {{ accessory.serial_number|default:"-" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Auto-filter rooms based on department selection
+document.getElementById('{{ form.to_department.id_for_label }}').addEventListener('change', function() {
+    const departmentId = this.value;
+    const roomSelect = document.getElementById('{{ form.to_room.id_for_label }}');
+    
+    if (departmentId) {
+        fetch(`/maintenance/ajax/get-rooms/?department_id=${departmentId}`)
+            .then(response => response.json())
+            .then(data => {
+                roomSelect.innerHTML = '<option value="">---------</option>';
+                if (data.html) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = data.html;
+                    const options = tempDiv.querySelectorAll('option');
+                    options.forEach(option => {
+                        if (option.value) {
+                            roomSelect.appendChild(option.cloneNode(true));
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    } else {
+        roomSelect.innerHTML = '<option value="">---------</option>';
+    }
+});
+</script>
+{% endblock %}
