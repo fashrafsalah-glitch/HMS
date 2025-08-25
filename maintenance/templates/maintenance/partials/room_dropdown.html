@@ -2,6 +2,6 @@
 <select name="room" class="form-control" id="id_room">
     <option value="">---------</option>
     {% for room in rooms %}
-        <option value="{{ room.id }}">{{ room.name }}</option>
+        <option value="{{ room.id }}">{{ room.number }}</option>
     {% endfor %}
 </select>

@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if job_plan %}تعديل خطة صيانة{% else %}إضافة خطة صيانة جديدة{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">
+        {% if job_plan %}تعديل خطة صيانة{% else %}إضافة خطة صيانة جديدة{% endif %}
+    </h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'job_plan_list' %}">خطط الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item active">
+            {% if job_plan %}تعديل خطة صيانة{% else %}إضافة خطة صيانة جديدة{% endif %}
+        </li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-clipboard-list me-1"></i>
+                    بيانات خطة الصيانة
+                </div>
+                <div class="card-body">
+                    <form method="post" id="job-plan-form">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">اسم الخطة <span class="text-danger">*</span></label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div class="text-danger">
+                                {{ form.name.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.device_type.id_for_label }}" class="form-label">نوع الجهاز <span class="text-danger">*</span></label>
+                            {{ form.device_type }}
+                            {% if form.device_type.errors %}
+                            <div class="text-danger">
+                                {{ form.device_type.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">وصف الخطة</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="text-danger">
+                                {{ form.description.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.estimated_hours.id_for_label }}" class="form-label">الوقت المقدر (ساعات) <span class="text-danger">*</span></label>
+                            {{ form.estimated_hours }}
+                            {% if form.estimated_hours.errors %}
+                            <div class="text-danger">
+                                {{ form.estimated_hours.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'job_plan_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                {% if job_plan %}حفظ التعديلات{% else %}إضافة الخطة{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        {% if job_plan %}
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-list-ol me-1"></i>
+                        خطوات العمل
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addStepModal">
+                            <i class="fas fa-plus"></i> إضافة خطوة
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if job_plan.steps.all %}
+                    <div class="list-group">
+                        {% for step in job_plan.steps.all %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ step.step_number }}. {{ step.description|truncatechars:30 }}</h5>
+                                <div>
+                                    <button type="button" class="btn btn-warning btn-sm edit-step" 
+                                            data-id="{{ step.id }}" 
+                                            data-number="{{ step.step_number }}" 
+                                            data-description="{{ step.description }}" 
+                                            data-minutes="{{ step.estimated_minutes }}" 
+                                            data-tools="{{ step.tools_required }}" 
+                                            data-safety="{{ step.safety_instructions }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a href="{% url 'job_plan_step_delete' step.id %}" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            <p class="mb-1">الوقت المقدر: {{ step.estimated_minutes }} دقيقة</p>
+                            {% if step.tools_required %}
+                            <small>الأدوات المطلوبة: {{ step.tools_required|truncatechars:50 }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        لا توجد خطوات مضافة لهذه الخطة بعد. قم بإضافة خطوات العمل باستخدام زر "إضافة خطوة".
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if job_plan %}
+<!-- Modal for adding/editing steps -->
+<div class="modal fade" id="addStepModal" tabindex="-1" aria-labelledby="addStepModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addStepModalLabel">إضافة خطوة عمل جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'job_plan_add_step' job_plan.id %}" id="step-form">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <input type="hidden" name="step_id" id="step_id" value="">
+                    
+                    <div class="mb-3">
+                        <label for="id_step_number" class="form-label">رقم الخطوة <span class="text-danger">*</span></label>
+                        <input type="number" name="step_number" id="id_step_number" class="form-control" required min="1">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">وصف الخطوة <span class="text-danger">*</span></label>
+                        <textarea name="description" id="id_description" class="form-control" rows="2" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_estimated_minutes" class="form-label">الوقت المقدر (دقائق) <span class="text-danger">*</span></label>
+                        <input type="number" name="estimated_minutes" id="id_estimated_minutes" class="form-control" required min="1">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_tools_required" class="form-label">الأدوات المطلوبة</label>
+                        <textarea name="tools_required" id="id_tools_required" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_safety_instructions" class="form-label">تعليمات السلامة</label>
+                        <textarea name="safety_instructions" id="id_safety_instructions" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ الخطوة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if job_plan %}
+<script>
+    $(document).ready(function() {
+        // Edit step button click
+        $('.edit-step').click(function() {
+            var id = $(this).data('id');
+            var number = $(this).data('number');
+            var description = $(this).data('description');
+            var minutes = $(this).data('minutes');
+            var tools = $(this).data('tools');
+            var safety = $(this).data('safety');
+            
+            $('#step_id').val(id);
+            $('#id_step_number').val(number);
+            $('#id_description').val(description);
+            $('#id_estimated_minutes').val(minutes);
+            $('#id_tools_required').val(tools);
+            $('#id_safety_instructions').val(safety);
+            
+            $('#addStepModalLabel').text('تعديل خطوة العمل');
+            $('#addStepModal').modal('show');
+        });
+        
+        // Reset modal when closed
+        $('#addStepModal').on('hidden.bs.modal', function () {
+            $('#step_id').val('');
+            $('#step-form')[0].reset();
+            $('#addStepModalLabel').text('إضافة خطوة عمل جديدة');
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

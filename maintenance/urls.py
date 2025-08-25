@@ -1,6 +1,7 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 from . import views_accessory
+from . import views_cmms
 
 urlpatterns = [
     
@@ -96,4 +97,10 @@ path('api/devices/<int:device_id>/verify-accessories/', views_accessory.verify_d
 path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
 path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
 path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
+
+    # CMMS URLs - نظام إدارة الصيانة
+    path('cmms/', include('maintenance.urls_cmms')),
+    
+    # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
+    path('spare-parts/', include('maintenance.urls_spare_parts')),
 ]

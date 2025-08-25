@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}قائمة أوقات توقف الأجهزة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قائمة أوقات توقف الأجهزة</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'downtime_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> تسجيل توقف جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- فلاتر البحث -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" class="form-inline">
+                                <div class="input-group mr-2">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+                                </div>
+                                <div class="input-group mr-2">
+                                    <select name="status" class="form-control">
+                                        <option value="">-- الحالة --</option>
+                                        <option value="ACTIVE" {% if request.GET.status == 'ACTIVE' %}selected{% endif %}>نشط</option>
+                                        <option value="RESOLVED" {% if request.GET.status == 'RESOLVED' %}selected{% endif %}>تم الحل</option>
+                                    </select>
+                                </div>
+                                <div class="input-group mr-2">
+                                    <select name="reason" class="form-control">
+                                        <option value="">-- سبب التوقف --</option>
+                                        <option value="BREAKDOWN" {% if request.GET.reason == 'BREAKDOWN' %}selected{% endif %}>عطل</option>
+                                        <option value="MAINTENANCE" {% if request.GET.reason == 'MAINTENANCE' %}selected{% endif %}>صيانة</option>
+                                        <option value="CALIBRATION" {% if request.GET.reason == 'CALIBRATION' %}selected{% endif %}>معايرة</option>
+                                        <option value="POWER" {% if request.GET.reason == 'POWER' %}selected{% endif %}>مشكلة كهرباء</option>
+                                        <option value="OTHER" {% if request.GET.reason == 'OTHER' %}selected{% endif %}>أخرى</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> بحث
+                                </button>
+                                <a href="{% url 'downtime_list' %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-sync"></i> إعادة تعيين
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- جدول أوقات التوقف -->
+                    {% if downtimes %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>بداية التوقف</th>
+                                    <th>نهاية التوقف</th>
+                                    <th>المدة</th>
+                                    <th>السبب</th>
+                                    <th>الحالة</th>
+                                    <th>أمر العمل</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for downtime in downtimes %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'device_detail' downtime.device.id %}">
+                                            {{ downtime.device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ downtime.start_time|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if downtime.end_time %}
+                                        {{ downtime.end_time|date:"Y-m-d H:i" }}
+                                        {% else %}
+                                        <span class="badge badge-warning">مستمر</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if downtime.duration_hours %}
+                                        {{ downtime.duration_hours }} ساعة
+                                        {% else %}
+                                        <span class="badge badge-warning">مستمر</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if downtime.reason == 'BREAKDOWN' %}
+                                        <span class="badge badge-danger">عطل</span>
+                                        {% elif downtime.reason == 'MAINTENANCE' %}
+                                        <span class="badge badge-info">صيانة</span>
+                                        {% elif downtime.reason == 'CALIBRATION' %}
+                                        <span class="badge badge-primary">معايرة</span>
+                                        {% elif downtime.reason == 'POWER' %}
+                                        <span class="badge badge-warning">مشكلة كهرباء</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">أخرى</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if downtime.status == 'ACTIVE' %}
+                                        <span class="badge badge-danger">نشط</span>
+                                        {% else %}
+                                        <span class="badge badge-success">تم الحل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if downtime.work_order %}
+                                        <a href="{% url 'work_order_detail' downtime.work_order.id %}">
+                                            {{ downtime.work_order.wo_number }}
+                                        </a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'downtime_detail' downtime.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'downtime_update' downtime.id %}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if downtime.status == 'ACTIVE' %}
+                                            <a href="{% url 'downtime_resolve' downtime.id %}" class="btn btn-success btn-sm">
+                                                <i class="fas fa-check"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- ترقيم الصفحات -->
+                    {% include 'pagination.html' with page_obj=page_obj %}
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        لا توجد أوقات توقف مسجلة تطابق معايير البحث
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات التوقف -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات التوقف</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="info-box bg-danger">
+                                <span class="info-box-icon"><i class="fas fa-exclamation-circle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">أجهزة متوقفة حالياً</span>
+                                    <span class="info-box-number">{{ stats.active_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-warning">
+                                <span class="info-box-icon"><i class="fas fa-clock"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">متوسط وقت التوقف</span>
+                                    <span class="info-box-number">{{ stats.avg_downtime_hours }} ساعة</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-info">
+                                <span class="info-box-icon"><i class="fas fa-tools"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">توقف بسبب الصيانة</span>
+                                    <span class="info-box-number">{{ stats.maintenance_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-success">
+                                <span class="info-box-icon"><i class="fas fa-chart-line"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">نسبة التوافر</span>
+                                    <span class="info-box-number">{{ stats.availability_rate }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- رسم بياني لأسباب التوقف -->
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">توزيع أسباب التوقف</h3>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="downtimeReasonsChart" style="height: 250px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">الأجهزة الأكثر توقفاً</h3>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="topDevicesChart" style="height: 250px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    $(document).ready(function() {
+        // رسم بياني لأسباب التوقف
+        var reasonsCtx = document.getElementById('downtimeReasonsChart').getContext('2d');
+        var reasonsChart = new Chart(reasonsCtx, {
+            type: 'pie',
+            data: {
+                labels: ['عطل', 'صيانة', 'معايرة', 'مشكلة كهرباء', 'أخرى'],
+                datasets: [{
+                    data: [
+                        {{ stats.breakdown_count }},
+                        {{ stats.maintenance_count }},
+                        {{ stats.calibration_count }},
+                        {{ stats.power_count }},
+                        {{ stats.other_count }}
+                    ],
+                    backgroundColor: [
+                        '#dc3545',
+                        '#17a2b8',
+                        '#007bff',
+                        '#ffc107',
+                        '#6c757d'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // رسم بياني للأجهزة الأكثر توقفاً
+        var devicesCtx = document.getElementById('topDevicesChart').getContext('2d');
+        var devicesChart = new Chart(devicesCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ top_devices_names|safe }},
+                datasets: [{
+                    label: 'عدد مرات التوقف',
+                    data: {{ top_devices_counts|safe }},
+                    backgroundColor: '#007bff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

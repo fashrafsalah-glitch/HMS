@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل خطة الصيانة: {{ job_plan.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">تفاصيل خطة الصيانة</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'job_plan_list' %}">خطط الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item active">{{ job_plan.name }}</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-clipboard-list me-1"></i>
+                        معلومات الخطة
+                    </div>
+                    <div>
+                        <a href="{% url 'job_plan_update' job_plan.id %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'job_plan_delete' job_plan.id %}" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash"></i> حذف
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">اسم الخطة:</div>
+                        <div class="col-md-9">{{ job_plan.name }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">نوع الجهاز:</div>
+                        <div class="col-md-9">{{ job_plan.device_type }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">الوقت المقدر:</div>
+                        <div class="col-md-9">{{ job_plan.estimated_hours }} ساعة</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">الوصف:</div>
+                        <div class="col-md-9">{{ job_plan.description|linebreaks }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">تاريخ الإنشاء:</div>
+                        <div class="col-md-9">{{ job_plan.created_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">آخر تحديث:</div>
+                        <div class="col-md-9">{{ job_plan.updated_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Schedules using this job plan -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    جداول الصيانة المرتبطة
+                </div>
+                <div class="card-body">
+                    {% if schedules %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>التكرار</th>
+                                    <th>تاريخ البدء</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedules %}
+                                <tr>
+                                    <td>{{ schedule.device.name }}</td>
+                                    <td>{{ schedule.get_frequency_display }}</td>
+                                    <td>{{ schedule.start_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if schedule.status == 'active' %}
+                                        <span class="badge bg-success">نشط</span>
+                                        {% elif schedule.status == 'inactive' %}
+                                        <span class="badge bg-secondary">غير نشط</span>
+                                        {% elif schedule.status == 'completed' %}
+                                        <span class="badge bg-info">مكتمل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'pm_schedule_detail' schedule.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        لا توجد جداول صيانة مرتبطة بهذه الخطة حتى الآن.
+                        <a href="{% url 'pm_schedule_create' %}?job_plan={{ job_plan.id }}" class="alert-link">إنشاء جدول صيانة جديد</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-list-ol me-1"></i>
+                        خطوات العمل
+                    </div>
+                    <div>
+                        <a href="{% url 'job_plan_update' job_plan.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> إدارة الخطوات
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if job_plan.steps.all %}
+                    <div class="accordion" id="stepsAccordion">
+                        {% for step in job_plan.steps.all %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ step.id }}">
+                                <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ step.id }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ step.id }}">
+                                    <strong>{{ step.step_number }}. {{ step.description|truncatechars:40 }}</strong>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ step.id }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ step.id }}" data-bs-parent="#stepsAccordion">
+                                <div class="accordion-body">
+                                    <p><strong>الوصف:</strong> {{ step.description }}</p>
+                                    <p><strong>الوقت المقدر:</strong> {{ step.estimated_minutes }} دقيقة</p>
+                                    
+                                    {% if step.tools_required %}
+                                    <p><strong>الأدوات المطلوبة:</strong> {{ step.tools_required|linebreaks }}</p>
+                                    {% endif %}
+                                    
+                                    {% if step.safety_instructions %}
+                                    <p><strong>تعليمات السلامة:</strong> {{ step.safety_instructions|linebreaks }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        لا توجد خطوات مضافة لهذه الخطة بعد. 
+                        <a href="{% url 'job_plan_update' job_plan.id %}" class="alert-link">إضافة خطوات العمل</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

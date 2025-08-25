@@ -1,4 +1,89 @@
 {% extends 'base.html' %}
+{% load static %}
+
 {% block content %}
-<h3>📆 جدول الصيانة للجهاز ID: {{ device_id }}</h3>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-alt"></i>
+                        جدول الصيانة الدورية
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        جدول الصيانة للجهاز رقم: <strong>{{ device_id }}</strong>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">الصيانة الوقائية</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>التكرار:</strong> شهرياً</p>
+                                    <p><strong>آخر صيانة:</strong> غير محدد</p>
+                                    <p><strong>الصيانة القادمة:</strong> غير محدد</p>
+                                    <button class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus"></i> جدولة صيانة
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0">المعايرة</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>التكرار:</strong> سنوياً</p>
+                                    <p><strong>آخر معايرة:</strong> غير محدد</p>
+                                    <p><strong>المعايرة القادمة:</strong> غير محدد</p>
+                                    <button class="btn btn-warning btn-sm">
+                                        <i class="fas fa-plus"></i> جدولة معايرة
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>سجل الصيانة</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>النوع</th>
+                                        <th>التاريخ</th>
+                                        <th>المسؤول</th>
+                                        <th>الحالة</th>
+                                        <th>الملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            لا توجد سجلات صيانة حتى الآن
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> العودة لقائمة الأجهزة
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

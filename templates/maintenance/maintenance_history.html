@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load lab_filters %}
+
+{% block title %}سجل الصيانة{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/maintenance.css' %}">
+<style>
+    .maintenance-card {
+        border-left: 4px solid #007bff;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    .maintenance-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .status-badge {
+        font-size: 0.85em;
+        padding: 4px 8px;
+        border-radius: 12px;
+    }
+    .priority-high { border-left-color: #dc3545; }
+    .priority-medium { border-left-color: #ffc107; }
+    .priority-low { border-left-color: #28a745; }
+    .priority-critical { border-left-color: #6f42c1; }
+    .filter-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 30px;
+        margin-bottom: 20px;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+    .timeline-line {
+        position: absolute;
+        left: 13px;
+        top: 20px;
+        width: 2px;
+        height: calc(100% - 20px);
+        background: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-history"></i> سجل الصيانة</h2>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" id="exportBtn">
+                        <i class="fas fa-download"></i> تصدير
+                    </button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                        <i class="fas fa-filter"></i> فلترة
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ total_requests }}</h4>
+                                    <p class="mb-0">إجمالي البلاغات</p>
+                                </div>
+                                <i class="fas fa-clipboard-list fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ completed_requests }}</h4>
+                                    <p class="mb-0">مكتملة</p>
+                                </div>
+                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ pending_requests }}</h4>
+                                    <p class="mb-0">قيد التنفيذ</p>
+                                </div>
+                                <i class="fas fa-clock fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ overdue_requests }}</h4>
+                                    <p class="mb-0">متأخرة</p>
+                                </div>
+                                <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            {% if request.GET %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                تم تطبيق فلاتر البحث. 
+                <a href="{% url 'maintenance:maintenance_history' %}" class="alert-link">إزالة الفلاتر</a>
+            </div>
+            {% endif %}
+
+            <!-- Maintenance History List -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> سجل البلاغات وأوامر الشغل
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if service_requests %}
+                        {% for request in service_requests %}
+                        <div class="maintenance-card card priority-{{ request.priority }}">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h6 class="card-title">
+                                            <a href="{% url 'maintenance:service_request_detail' request.id %}" class="text-decoration-none">
+                                                {{ request.title }}
+                                            </a>
+                                        </h6>
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-desktop"></i> {{ request.device.name }}
+                                            {% if request.device.department %}
+                                                - {{ request.device.department.name }}
+                                            {% endif %}
+                                        </p>
+                                        <p class="card-text">{{ request.description|truncatechars:100 }}</p>
+                                        
+                                        <!-- Work Orders Timeline -->
+                                        {% if request.work_orders.all %}
+                                        <div class="timeline mt-3">
+                                            {% for wo in request.work_orders.all %}
+                                            <div class="timeline-item">
+                                                {% if not forloop.last %}<div class="timeline-line"></div>{% endif %}
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <strong>{{ wo.wo_number }}</strong>
+                                                        <span class="badge status-badge bg-{{ wo.status|get_status_color }}">
+                                                            {{ wo.get_status_display }}
+                                                        </span>
+                                                    </div>
+                                                    <small class="text-muted">{{ wo.created_at|date:"d/m/Y H:i" }}</small>
+                                                </div>
+                                                {% if wo.assignee %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user"></i> {{ wo.assignee.get_full_name }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 text-end">
+                                        <div class="mb-2">
+                                            <span class="badge status-badge bg-{{ request.status|get_status_color }}">
+                                                {{ request.get_status_display }}
+                                            </span>
+                                            <span class="badge bg-{{ request.priority|get_priority_color }} ms-1">
+                                                {{ request.get_priority_display }}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="text-muted small">
+                                            <div><i class="fas fa-calendar-plus"></i> {{ request.created_at|date:"d/m/Y H:i" }}</div>
+                                            {% if request.resolved_at %}
+                                            <div><i class="fas fa-check"></i> {{ request.resolved_at|date:"d/m/Y H:i" }}</div>
+                                            {% endif %}
+                                            {% if request.reporter %}
+                                            <div><i class="fas fa-user"></i> {{ request.reporter.get_full_name }}</div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- SLA Status -->
+                                        {% if request.resolution_due %}
+                                        <div class="mt-2">
+                                            {% if request.is_overdue_resolution %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-exclamation-triangle"></i> متأخر
+                                                </span>
+                                            {% else %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock"></i> 
+                                                    مستحق: {{ request.resolution_due|date:"d/m H:i" }}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- Action Buttons -->
+                                        <div class="mt-3">
+                                            <a href="{% url 'maintenance:service_request_detail' request.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i> عرض
+                                            </a>
+                                            {% if request.status != 'closed' and perms.maintenance.change_servicerequest %}
+                                            <a href="{% url 'maintenance:service_request_edit' request.id %}" 
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-edit"></i> تعديل
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Pagination -->
+                        {% if is_paginated %}
+                        <nav aria-label="صفحات سجل الصيانة">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if request.GET.device %}&device={{ request.GET.device }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">الأولى</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.device %}&device={{ request.GET.device }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">السابقة</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.device %}&device={{ request.GET.device }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">التالية</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.device %}&device={{ request.GET.device }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">الأخيرة</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                        
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">لا توجد بلاغات صيانة</h5>
+                            <p class="text-muted">لم يتم العثور على أي بلاغات صيانة بالفلاتر المحددة.</p>
+                            <a href="{% url 'maintenance:add_emergency_request' 0 %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> إنشاء بلاغ جديد
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">فلترة سجل الصيانة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="get">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">الجهاز</label>
+                            <select name="device" class="form-select">
+                                <option value="">جميع الأجهزة</option>
+                                {% for device in devices %}
+                                <option value="{{ device.id }}" {% if request.GET.device == device.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ device.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">الحالة</label>
+                            <select name="status" class="form-select">
+                                <option value="">جميع الحالات</option>
+                                <option value="new" {% if request.GET.status == 'new' %}selected{% endif %}>جديد</option>
+                                <option value="assigned" {% if request.GET.status == 'assigned' %}selected{% endif %}>معين</option>
+                                <option value="in_progress" {% if request.GET.status == 'in_progress' %}selected{% endif %}>قيد التنفيذ</option>
+                                <option value="resolved" {% if request.GET.status == 'resolved' %}selected{% endif %}>محلول</option>
+                                <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>مغلق</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">الأولوية</label>
+                            <select name="priority" class="form-select">
+                                <option value="">جميع الأولويات</option>
+                                <option value="low" {% if request.GET.priority == 'low' %}selected{% endif %}>منخفضة</option>
+                                <option value="medium" {% if request.GET.priority == 'medium' %}selected{% endif %}>متوسطة</option>
+                                <option value="high" {% if request.GET.priority == 'high' %}selected{% endif %}>عالية</option>
+                                <option value="critical" {% if request.GET.priority == 'critical' %}selected{% endif %}>حرجة</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">نوع البلاغ</label>
+                            <select name="request_type" class="form-select">
+                                <option value="">جميع الأنواع</option>
+                                <option value="breakdown" {% if request.GET.request_type == 'breakdown' %}selected{% endif %}>عطل</option>
+                                <option value="preventive" {% if request.GET.request_type == 'preventive' %}selected{% endif %}>صيانة وقائية</option>
+                                <option value="calibration" {% if request.GET.request_type == 'calibration' %}selected{% endif %}>معايرة</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">من تاريخ</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تطبيق الفلتر</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Export functionality
+    document.getElementById('exportBtn').addEventListener('click', function() {
+        // هنا ممكن نضيف وظيفة التصدير للـ Excel أو PDF
+        alert('وظيفة التصدير قيد التطوير');
+    });
+    
+    // Auto-refresh every 5 minutes for active requests
+    if ({{ pending_requests }} > 0) {
+        setTimeout(function() {
+            location.reload();
+        }, 300000); // 5 minutes
+    }
+});
+</script>
+{% endblock %}

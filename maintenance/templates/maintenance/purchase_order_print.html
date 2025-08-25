@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أمر شراء - {{ purchase_order.po_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            font-size: 12pt;
+            direction: rtl;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #333;
+            font-size: 24pt;
+        }
+        .header p {
+            margin: 5px 0;
+            color: #666;
+        }
+        .company-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .company-details, .supplier-details {
+            width: 48%;
+        }
+        .section-title {
+            background-color: #f0f0f0;
+            padding: 5px 10px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .po-details {
+            margin-bottom: 20px;
+        }
+        .po-details table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .po-details table td {
+            padding: 5px;
+        }
+        .po-details table td:first-child {
+            font-weight: bold;
+            width: 30%;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        .items-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .total-row td {
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+            font-size: 10pt;
+            color: #666;
+        }
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+        }
+        .signature-box {
+            width: 30%;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            text-align: center;
+        }
+        .status-stamp {
+            position: absolute;
+            top: 200px;
+            right: 100px;
+            transform: rotate(-30deg);
+            font-size: 36pt;
+            font-weight: bold;
+            color: rgba(220, 53, 69, 0.5);
+            border: 5px solid rgba(220, 53, 69, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            طباعة أمر الشراء
+        </button>
+        <button onclick="window.close()" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">
+            إغلاق
+        </button>
+    </div>
+    
+    <div class="header">
+        <h1>أمر شراء</h1>
+        <p>{{ company.name }}</p>
+        <p>{{ company.address }}</p>
+        <p>هاتف: {{ company.phone }} | بريد إلكتروني: {{ company.email }}</p>
+    </div>
+    
+    {% if purchase_order.status == 'CANCELLED' %}
+    <div class="status-stamp">ملغي</div>
+    {% elif purchase_order.status == 'RECEIVED' %}
+    <div class="status-stamp" style="color: rgba(40, 167, 69, 0.5); border-color: rgba(40, 167, 69, 0.5);">تم الاستلام</div>
+    {% endif %}
+    
+    <div class="company-info">
+        <div class="company-details">
+            <div class="section-title">معلومات الشركة</div>
+            <p><strong>الشركة:</strong> {{ company.name }}</p>
+            <p><strong>العنوان:</strong> {{ company.address }}</p>
+            <p><strong>هاتف:</strong> {{ company.phone }}</p>
+            <p><strong>بريد إلكتروني:</strong> {{ company.email }}</p>
+        </div>
+        
+        <div class="supplier-details">
+            <div class="section-title">معلومات المورد</div>
+            <p><strong>المورد:</strong> {{ purchase_order.supplier.name }}</p>
+            <p><strong>العنوان:</strong> {{ purchase_order.supplier.address|default:"غير متوفر" }}</p>
+            <p><strong>جهة الاتصال:</strong> {{ purchase_order.supplier.contact_person|default:"غير متوفر" }}</p>
+            <p><strong>هاتف:</strong> {{ purchase_order.supplier.phone|default:"غير متوفر" }}</p>
+            <p><strong>بريد إلكتروني:</strong> {{ purchase_order.supplier.email|default:"غير متوفر" }}</p>
+        </div>
+    </div>
+    
+    <div class="po-details">
+        <div class="section-title">تفاصيل أمر الشراء</div>
+        <table>
+            <tr>
+                <td>رقم أمر الشراء:</td>
+                <td>{{ purchase_order.po_number }}</td>
+            </tr>
+            <tr>
+                <td>تاريخ الطلب:</td>
+                <td>{{ purchase_order.order_date|date:"Y-m-d" }}</td>
+            </tr>
+            <tr>
+                <td>تاريخ التسليم المتوقع:</td>
+                <td>{{ purchase_order.expected_delivery|date:"Y-m-d"|default:"غير محدد" }}</td>
+            </tr>
+            <tr>
+                <td>شروط الدفع:</td>
+                <td>{{ purchase_order.payment_terms|default:"غير محدد" }}</td>
+            </tr>
+            <tr>
+                <td>حالة الطلب:</td>
+                <td>
+                    {% if purchase_order.status == 'PENDING' %}
+                    قيد الانتظار
+                    {% elif purchase_order.status == 'APPROVED' %}
+                    معتمد
+                    {% elif purchase_order.status == 'RECEIVED' %}
+                    تم الاستلام
+                    {% elif purchase_order.status == 'CANCELLED' %}
+                    ملغي
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="section-title">عناصر أمر الشراء</div>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>قطعة الغيار</th>
+                <th>رقم القطعة</th>
+                <th>الكمية</th>
+                <th>الوحدة</th>
+                <th>سعر الوحدة</th>
+                <th>المجموع</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in purchase_order.purchaseorderitem_set.all %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.spare_part.name }}</td>
+                <td>{{ item.spare_part.part_number }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.spare_part.get_unit_display }}</td>
+                <td>{{ item.unit_price }}</td>
+                <td>{{ item.total_price }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="6" style="text-align: left;">إجمالي المبلغ:</td>
+                <td>{{ purchase_order.total_amount }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    {% if purchase_order.notes %}
+    <div class="section-title">ملاحظات</div>
+    <p>{{ purchase_order.notes|linebreaks }}</p>
+    {% endif %}
+    
+    <div class="signatures">
+        <div class="signature-box">
+            <p>إعداد</p>
+            <p>{{ purchase_order.created_by.get_full_name }}</p>
+        </div>
+        
+        <div class="signature-box">
+            <p>اعتماد</p>
+            <p>_________________</p>
+        </div>
+        
+        <div class="signature-box">
+            <p>استلام</p>
+            <p>_________________</p>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>تم إنشاء هذا المستند بواسطة نظام إدارة الصيانة الشاملة (CMMS) بتاريخ {{ now|date:"Y-m-d H:i" }}</p>
+    </div>
+</body>
+</html>

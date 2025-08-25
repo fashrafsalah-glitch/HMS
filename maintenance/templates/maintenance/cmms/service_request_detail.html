@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل البلاغ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- بطاقة تفاصيل البلاغ -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">بلاغ #SR-{{ service_request.id }}: {{ service_request.title }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'service_request_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">الجهاز:</dt>
+                                <dd class="col-sm-8">
+                                    <a href="{% url 'device_detail' service_request.device.id %}">
+                                        {{ service_request.device.name }} ({{ service_request.device.serial_number }})
+                                    </a>
+                                </dd>
+                                
+                                <dt class="col-sm-4">القسم:</dt>
+                                <dd class="col-sm-8">{{ service_request.device.department.name }}</dd>
+                                
+                                <dt class="col-sm-4">الموقع:</dt>
+                                <dd class="col-sm-8">{{ service_request.device.room }}</dd>
+                                
+                                <dt class="col-sm-4">نوع البلاغ:</dt>
+                                <dd class="col-sm-8">{{ service_request.get_request_type_display }}</dd>
+                                
+                                <dt class="col-sm-4">الشدة:</dt>
+                                <dd class="col-sm-8">
+                                    {% if service_request.severity == 'critical' %}
+                                        <span class="badge badge-danger">{{ service_request.get_severity_display }}</span>
+                                    {% elif service_request.severity == 'high' %}
+                                        <span class="badge badge-warning">{{ service_request.get_severity_display }}</span>
+                                    {% elif service_request.severity == 'medium' %}
+                                        <span class="badge badge-info">{{ service_request.get_severity_display }}</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">{{ service_request.get_severity_display }}</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">التأثير:</dt>
+                                <dd class="col-sm-8">
+                                    {% if service_request.impact == 'high' %}
+                                        <span class="badge badge-danger">{{ service_request.get_impact_display }}</span>
+                                    {% elif service_request.impact == 'medium' %}
+                                        <span class="badge badge-warning">{{ service_request.get_impact_display }}</span>
+                                    {% else %}
+                                        <span class="badge badge-info">{{ service_request.get_impact_display }}</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">الحالة:</dt>
+                                <dd class="col-sm-8">
+                                    {% if service_request.status == 'new' %}
+                                        <span class="badge badge-primary">{{ service_request.get_status_display }}</span>
+                                    {% elif service_request.status == 'in_progress' %}
+                                        <span class="badge badge-info">{{ service_request.get_status_display }}</span>
+                                    {% elif service_request.status == 'on_hold' %}
+                                        <span class="badge badge-warning">{{ service_request.get_status_display }}</span>
+                                    {% elif service_request.status == 'resolved' %}
+                                        <span class="badge badge-success">{{ service_request.get_status_display }}</span>
+                                    {% elif service_request.status == 'closed' %}
+                                        <span class="badge badge-secondary">{{ service_request.get_status_display }}</span>
+                                    {% elif service_request.status == 'cancelled' %}
+                                        <span class="badge badge-danger">{{ service_request.get_status_display }}</span>
+                                    {% endif %}
+                                    
+                                    {% if service_request.is_overdue_response %}
+                                        <span class="badge badge-danger">تأخر الاستجابة</span>
+                                    {% endif %}
+                                    
+                                    {% if service_request.is_overdue_resolution %}
+                                        <span class="badge badge-danger">تأخر الحل</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">مقدم البلاغ:</dt>
+                                <dd class="col-sm-8">{{ service_request.reporter.get_full_name }}</dd>
+                                
+                                <dt class="col-sm-4">تاريخ الإنشاء:</dt>
+                                <dd class="col-sm-8">{{ service_request.created_at|date:"Y-m-d H:i" }}</dd>
+                                
+                                <dt class="col-sm-4">آخر تحديث:</dt>
+                                <dd class="col-sm-8">{{ service_request.updated_at|date:"Y-m-d H:i" }}</dd>
+                                
+                                <dt class="col-sm-4">موعد الاستجابة:</dt>
+                                <dd class="col-sm-8">
+                                    {{ service_request.response_due|date:"Y-m-d H:i" }}
+                                    {% if service_request.is_overdue_response %}
+                                        <span class="badge badge-danger">متأخر</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">موعد الحل:</dt>
+                                <dd class="col-sm-8">
+                                    {{ service_request.resolution_due|date:"Y-m-d H:i" }}
+                                    {% if service_request.is_overdue_resolution %}
+                                        <span class="badge badge-danger">متأخر</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h5>وصف المشكلة:</h5>
+                            <div class="p-3 bg-light rounded">
+                                {{ service_request.description|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- أزرار الإجراءات -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="btn-group">
+                                <a href="{% url 'service_request_update' service_request.id %}" class="btn btn-warning">
+                                    <i class="fas fa-edit"></i> تعديل البلاغ
+                                </a>
+                                
+                                {% if service_request.status != 'closed' and service_request.status != 'cancelled' %}
+                                    <a href="{% url 'service_request_close' service_request.id %}" class="btn btn-secondary" onclick="return confirm('هل أنت متأكد من إغلاق هذا البلاغ؟')">
+                                        <i class="fas fa-check"></i> إغلاق البلاغ
+                                    </a>
+                                {% endif %}
+                                
+                                {% if perms.maintenance.add_workorder and service_request.status != 'closed' and service_request.status != 'cancelled' %}
+                                    <a href="{% url 'work_order_create' %}?service_request={{ service_request.id }}" class="btn btn-primary">
+                                        <i class="fas fa-tools"></i> إنشاء أمر شغل
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- بطاقة أوامر الشغل المرتبطة -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">أوامر الشغل المرتبطة</h3>
+                </div>
+                <div class="card-body">
+                    {% if work_orders %}
+                        <div class="list-group">
+                            {% for wo in work_orders %}
+                                <a href="{% url 'work_order_detail' wo.id %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1">WO-{{ wo.id }}</h5>
+                                        <small>
+                                            {% if wo.status == 'new' %}
+                                                <span class="badge badge-primary">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'assigned' %}
+                                                <span class="badge badge-info">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'in_progress' %}
+                                                <span class="badge badge-warning">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'on_hold' or wo.status == 'wait_parts' %}
+                                                <span class="badge badge-secondary">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'resolved' or wo.status == 'qa_verified' %}
+                                                <span class="badge badge-success">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'closed' %}
+                                                <span class="badge badge-dark">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'cancelled' %}
+                                                <span class="badge badge-danger">{{ wo.get_status_display }}</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <p class="mb-1">{{ wo.description|truncatechars:100 }}</p>
+                                    <small>
+                                        <i class="fas fa-user"></i> {{ wo.assignee.get_full_name|default:"غير معين" }} | 
+                                        <i class="fas fa-calendar"></i> {{ wo.created_at|date:"Y-m-d" }}
+                                    </small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            لا توجد أوامر شغل مرتبطة بهذا البلاغ
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

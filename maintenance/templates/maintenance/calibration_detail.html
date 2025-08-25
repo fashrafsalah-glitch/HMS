@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل المعايرة - {{ calibration.device.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">تفاصيل المعايرة - {{ calibration.device.name }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'calibration_update' calibration.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'calibration_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-list"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info"><i class="fas fa-microscope"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">الجهاز</span>
+                                    <span class="info-box-number">
+                                        <a href="{% url 'device_detail' calibration.device.id %}">
+                                            {{ calibration.device.name }}
+                                        </a>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon {% if calibration.status == 'PASS' %}bg-success{% elif calibration.status == 'FAIL' %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {% if calibration.status == 'PASS' %}
+                                    <i class="fas fa-check"></i>
+                                    {% elif calibration.status == 'FAIL' %}
+                                    <i class="fas fa-times"></i>
+                                    {% else %}
+                                    <i class="fas fa-clock"></i>
+                                    {% endif %}
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">حالة المعايرة</span>
+                                    <span class="info-box-number">
+                                        {% if calibration.status == 'PASS' %}
+                                        ناجح
+                                        {% elif calibration.status == 'FAIL' %}
+                                        راسب
+                                        {% else %}
+                                        معلق
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 30%">تاريخ المعايرة</th>
+                                    <td>{{ calibration.calibration_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الاستحقاق التالي</th>
+                                    <td>
+                                        {% if calibration.is_overdue %}
+                                        <span class="badge badge-danger">{{ calibration.next_due_date|date:"Y-m-d" }} (متأخر)</span>
+                                        {% elif calibration.is_due_soon %}
+                                        <span class="badge badge-warning">{{ calibration.next_due_date|date:"Y-m-d" }} (قريب)</span>
+                                        {% else %}
+                                        <span class="badge badge-success">{{ calibration.next_due_date|date:"Y-m-d" }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>تم بواسطة</th>
+                                    <td>{{ calibration.performed_by }}</td>
+                                </tr>
+                                <tr>
+                                    <th>رقم الشهادة</th>
+                                    <td>{{ calibration.certificate_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تم إنشاؤها بواسطة</th>
+                                    <td>{{ calibration.created_by.get_full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الإنشاء</th>
+                                    <td>{{ calibration.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>آخر تحديث</th>
+                                    <td>{{ calibration.updated_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if calibration.results %}
+                    <div class="mt-4">
+                        <h5>نتائج المعايرة</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                {{ calibration.results|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if calibration.notes %}
+                    <div class="mt-4">
+                        <h5>ملاحظات</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                {{ calibration.notes|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if calibration.certificate_file %}
+                    <div class="mt-4 text-center">
+                        <a href="{{ calibration.certificate_file.url }}" target="_blank" class="btn btn-info">
+                            <i class="fas fa-file-pdf"></i> عرض شهادة المعايرة
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{% url 'calibration_create' %}?device={{ calibration.device.id }}" class="btn btn-success btn-block">
+                                <i class="fas fa-plus"></i> إنشاء معايرة جديدة لنفس الجهاز
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'device_detail' calibration.device.id %}" class="btn btn-info btn-block">
+                                <i class="fas fa-microscope"></i> عرض تفاصيل الجهاز
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- سجل المعايرات السابقة -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">سجل المعايرات السابقة للجهاز</h3>
+                </div>
+                <div class="card-body">
+                    {% if previous_calibrations %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>تاريخ المعايرة</th>
+                                    <th>الحالة</th>
+                                    <th>تم بواسطة</th>
+                                    <th>رقم الشهادة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prev_cal in previous_calibrations %}
+                                <tr {% if prev_cal.id == calibration.id %}class="table-primary"{% endif %}>
+                                    <td>{{ prev_cal.calibration_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if prev_cal.status == 'PASS' %}
+                                        <span class="badge badge-success">ناجح</span>
+                                        {% elif prev_cal.status == 'FAIL' %}
+                                        <span class="badge badge-danger">راسب</span>
+                                        {% else %}
+                                        <span class="badge badge-warning">معلق</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ prev_cal.performed_by }}</td>
+                                    <td>{{ prev_cal.certificate_number|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'calibration_detail' prev_cal.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if prev_cal.certificate_file %}
+                                        <a href="{{ prev_cal.certificate_file.url }}" target="_blank" class="btn btn-secondary btn-sm">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center">لا توجد معايرات سابقة لهذا الجهاز</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

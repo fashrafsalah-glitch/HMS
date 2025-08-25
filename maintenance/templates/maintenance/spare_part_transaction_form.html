@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.id %}تعديل{% else %}إضافة{% endif %} معاملة قطع غيار{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{% if form.instance.id %}تعديل{% else %}إضافة{% endif %} معاملة قطع غيار</h3>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5><i class="icon fas fa-ban"></i> يوجد أخطاء في النموذج!</h5>
+                            {{ form.errors }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if spare_part %}
+                        <div class="info-box mb-3">
+                            <span class="info-box-icon bg-info"><i class="fas fa-cogs"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">قطعة الغيار</span>
+                                <span class="info-box-number">{{ spare_part.name }}</span>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: {{ spare_part.stock_percentage }}%"></div>
+                                </div>
+                                <span class="progress-description">
+                                    الكمية الحالية: {{ spare_part.quantity }} {{ spare_part.get_unit_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <input type="hidden" name="spare_part" value="{{ spare_part.id }}">
+                        {% else %}
+                        <div class="form-group">
+                            <label for="{{ form.spare_part.id_for_label }}">قطعة الغيار*</label>
+                            {{ form.spare_part }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.transaction_type.id_for_label }}">نوع المعاملة*</label>
+                                    {{ form.transaction_type }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.quantity.id_for_label }}">الكمية*</label>
+                                    {{ form.quantity }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.transaction_date.id_for_label }}">تاريخ المعاملة*</label>
+                                    {{ form.transaction_date }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.reference_number.id_for_label }}">رقم المرجع</label>
+                                    {{ form.reference_number }}
+                                    <small class="form-text text-muted">رقم أمر الشراء أو أمر العمل أو أي مرجع آخر</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.work_order.id_for_label }}">أمر العمل</label>
+                                    {{ form.work_order }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.device.id_for_label }}">الجهاز</label>
+                                    {{ form.device }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+                            {{ form.notes }}
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">حفظ</button>
+                        {% if spare_part %}
+                        <a href="{% url 'spare_part_detail' spare_part.id %}" class="btn btn-secondary">إلغاء</a>
+                        {% else %}
+                        <a href="{% url 'spare_part_list' %}" class="btn btn-secondary">إلغاء</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    $(document).ready(function() {
+        // تفعيل Select2 للحقول
+        $('#{{ form.spare_part.id_for_label }}').select2({
+            placeholder: "اختر قطعة الغيار",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        $('#{{ form.work_order.id_for_label }}').select2({
+            placeholder: "اختر أمر العمل",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        $('#{{ form.device.id_for_label }}').select2({
+            placeholder: "اختر الجهاز",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // تفعيل Flatpickr لحقل التاريخ
+        flatpickr("#{{ form.transaction_date.id_for_label }}", {
+            dateFormat: "Y-m-d",
+            defaultDate: "today"
+        });
+        
+        // تحديث حقل الجهاز عند اختيار أمر عمل
+        $('#{{ form.work_order.id_for_label }}').on('change', function() {
+            var workOrderId = $(this).val();
+            if (workOrderId) {
+                $.ajax({
+                    url: '{% url "api_work_order_device" %}',
+                    data: {
+                        'work_order_id': workOrderId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.device_id) {
+                            $('#{{ form.device.id_for_label }}').val(data.device_id).trigger('change');
+                        }
+                    }
+                });
+            }
+        });
+        
+        // تحديث أوامر العمل عند اختيار جهاز
+        $('#{{ form.device.id_for_label }}').on('change', function() {
+            var deviceId = $(this).val();
+            if (deviceId) {
+                $.ajax({
+                    url: '{% url "api_device_work_orders" %}',
+                    data: {
+                        'device_id': deviceId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        var workOrderSelect = $('#{{ form.work_order.id_for_label }}');
+                        var currentValue = workOrderSelect.val();
+                        
+                        workOrderSelect.empty();
+                        workOrderSelect.append('<option value="">---------</option>');
+                        
+                        $.each(data, function(index, workOrder) {
+                            workOrderSelect.append('<option value="' + workOrder.id + '">' + 
+                                                 workOrder.wo_number + ' - ' + workOrder.description + '</option>');
+                        });
+                        
+                        // إعادة تحديد القيمة السابقة إذا كانت موجودة
+                        if (currentValue) {
+                            workOrderSelect.val(currentValue);
+                        }
+                        
+                        workOrderSelect.trigger('change');
+                    }
+                });
+            }
+        });
+        
+        // التحقق من الكمية المتاحة عند تغيير نوع المعاملة أو الكمية
+        function validateQuantity() {
+            var transactionType = $('#{{ form.transaction_type.id_for_label }}').val();
+            var quantity = parseFloat($('#{{ form.quantity.id_for_label }}').val()) || 0;
+            
+            if (transactionType === 'ISSUE' || transactionType === 'ADJUST_DOWN') {
+                {% if spare_part %}
+                var currentQuantity = {{ spare_part.quantity }};
+                {% else %}
+                var sparePartId = $('#{{ form.spare_part.id_for_label }}').val();
+                if (!sparePartId) return;
+                
+                $.ajax({
+                    url: '{% url "api_spare_part_quantity" %}',
+                    data: {
+                        'spare_part_id': sparePartId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        var currentQuantity = data.quantity;
+                        checkQuantity(currentQuantity, quantity);
+                    }
+                });
+                return;
+                {% endif %}
+                
+                checkQuantity(currentQuantity, quantity);
+            } else {
+                // إزالة أي تحذيرات سابقة
+                $('#quantity-warning').remove();
+            }
+        }
+        
+        function checkQuantity(currentQuantity, requestedQuantity) {
+            if (requestedQuantity > currentQuantity) {
+                // إضافة تحذير إذا كانت الكمية المطلوبة أكبر من المتاحة
+                if ($('#quantity-warning').length === 0) {
+                    $('<div id="quantity-warning" class="alert alert-warning">' +
+                      '<i class="icon fas fa-exclamation-triangle"></i> ' +
+                      'تحذير: الكمية المطلوبة (' + requestedQuantity + ') أكبر من الكمية المتاحة (' + currentQuantity + ')' +
+                      '</div>').insertAfter('#{{ form.quantity.id_for_label }}');
+                }
+            } else {
+                // إزالة التحذير إذا كانت الكمية مناسبة
+                $('#quantity-warning').remove();
+            }
+        }
+        
+        $('#{{ form.transaction_type.id_for_label }}, #{{ form.quantity.id_for_label }}').on('change', validateQuantity);
+        $('#{{ form.spare_part.id_for_label }}').on('change', function() {
+            setTimeout(validateQuantity, 500); // تأخير للسماح بتحميل البيانات
+        });
+        
+        // التحقق من الكمية عند تحميل الصفحة
+        validateQuantity();
+    });
+</script>
+{% endblock %}

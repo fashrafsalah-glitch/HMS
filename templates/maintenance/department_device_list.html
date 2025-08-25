@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load lab_filters %}
+
+{% block title %}أجهزة القسم - {{ department.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/maintenance.css' %}">
+<style>
+    .department-header {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    .device-card {
+        transition: all 0.3s ease;
+        border: 1px solid #dee2e6;
+        margin-bottom: 15px;
+        position: relative;
+    }
+    .device-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    .device-status-indicator {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid white;
+        z-index: 10;
+    }
+    .status-working { background-color: #28a745; }
+    .status-needs_maintenance { background-color: #ffc107; }
+    .status-out_of_order { background-color: #dc3545; }
+    .status-needs_check { background-color: #17a2b8; }
+    
+    .room-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    .room-header {
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .device-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .usage-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+    }
+    .maintenance-alert {
+        border-left: 4px solid #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .performance-meter {
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .performance-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Department Header -->
+    <div class="department-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-building"></i> {{ department.name }}
+                </h1>
+                <p class="mb-0 opacity-75">{{ department.description|default:"" }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h3 class="mb-0">{{ total_devices }}</h3>
+                        <small>إجمالي الأجهزة</small>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="mb-0">{{ active_devices }}</h3>
+                        <small>أجهزة نشطة</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="refreshDevices()">
+                <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                <i class="fas fa-filter"></i> فلترة
+            </button>
+            <button class="btn btn-outline-info" onclick="exportReport()">
+                <i class="fas fa-download"></i> تقرير
+            </button>
+        </div>
+        <div class="btn-group">
+            {% if perms.maintenance.add_device %}
+            <a href="{% url 'maintenance:add_device' %}?department={{ department.id }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> إضافة جهاز
+            </a>
+            {% endif %}
+            {% if perms.maintenance.add_servicerequest %}
+            <a href="{% url 'maintenance:add_emergency_request' department.id %}" class="btn btn-warning">
+                <i class="fas fa-exclamation-triangle"></i> بلاغ عطل
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Department Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.working }}</h4>
+                    <p class="mb-0">أجهزة تعمل</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.needs_maintenance }}</h4>
+                    <p class="mb-0">تحتاج صيانة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.out_of_order }}</h4>
+                    <p class="mb-0">خارج الخدمة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.in_use }}</h4>
+                    <p class="mb-0">قيد الاستخدام</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Critical Alerts -->
+    {% if critical_devices %}
+    <div class="alert maintenance-alert mb-4">
+        <h6><i class="fas fa-exclamation-triangle"></i> تنبيهات عاجلة</h6>
+        <div class="row">
+            {% for device in critical_devices %}
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ device.name }}</strong>
+                        <small class="d-block text-muted">{{ device.room.name|default:"غير محدد" }}</small>
+                    </div>
+                    <div class="text-end">
+                        {% if device.status == 'out_of_order' %}
+                        <span class="badge bg-danger">عطل</span>
+                        {% elif device.calibration_overdue %}
+                        <span class="badge bg-warning">معايرة متأخرة</span>
+                        {% elif device.maintenance_overdue %}
+                        <span class="badge bg-info">صيانة متأخرة</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Devices by Room -->
+    {% if devices_by_room %}
+        {% for room, room_devices in devices_by_room.items %}
+        <div class="room-section">
+            <div class="room-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-door-open"></i> 
+                        {% if room %}{{ room.name }}{% else %}أجهزة غير مخصصة لغرفة{% endif %}
+                    </h4>
+                    <span class="badge bg-primary">{{ room_devices|length }} جهاز</span>
+                </div>
+            </div>
+            
+            <div class="device-grid">
+                {% for device in room_devices %}
+                <div class="card device-card">
+                    <div class="device-status-indicator status-{{ device.status }}"></div>
+                    
+                    {% if device.in_use %}
+                    <div class="usage-indicator">
+                        <span class="badge bg-warning">
+                            <i class="fas fa-user"></i> قيد الاستخدام
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <a href="{% url 'maintenance:device_detail' device.id %}" class="text-decoration-none">
+                                {{ device.name }}
+                            </a>
+                        </h6>
+                        
+                        <div class="text-muted small mb-2">
+                            <div><i class="fas fa-barcode"></i> {{ device.serial_number|default:"غير محدد" }}</div>
+                            <div><i class="fas fa-industry"></i> {{ device.manufacturer|default:"غير محدد" }}</div>
+                            {% if device.model %}
+                            <div><i class="fas fa-tag"></i> {{ device.model }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Current Patient -->
+                        {% if device.current_patient %}
+                        <div class="alert alert-info py-1 mb-2">
+                            <small>
+                                <i class="fas fa-user-injured"></i> 
+                                {{ device.current_patient.get_full_name }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Performance Indicator -->
+                        {% if device.performance_score %}
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted">الأداء</small>
+                                <small class="text-muted">{{ device.performance_score }}%</small>
+                            </div>
+                            <div class="performance-meter">
+                                <div class="performance-fill 
+                                    {% if device.performance_score >= 80 %}bg-success
+                                    {% elif device.performance_score >= 60 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ device.performance_score }}%">
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Status and Last Maintenance -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-{{ device.status|get_status_color }}">
+                                {% if device.status == 'working' %}يعمل
+                                {% elif device.status == 'needs_maintenance' %}يحتاج صيانة
+                                {% elif device.status == 'out_of_order' %}خارج الخدمة
+                                {% elif device.status == 'needs_check' %}يحتاج فحص
+                                {% endif %}
+                            </span>
+                            {% if device.last_maintenance %}
+                            <small class="text-muted">
+                                آخر صيانة: {{ device.last_maintenance|timesince }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'maintenance:device_detail' device.id %}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            
+                            {% if device.status != 'out_of_order' and not device.in_use %}
+                            <button class="btn btn-outline-success btn-sm" onclick="useDevice({{ device.id }})">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            {% elif device.in_use %}
+                            <button class="btn btn-outline-warning btn-sm" onclick="releaseDevice({{ device.id }})">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            {% endif %}
+                            
+                            {% if perms.maintenance.add_servicerequest %}
+                            <a href="{% url 'maintenance:add_emergency_request' device.id %}" 
+                               class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </a>
+                            {% endif %}
+                            
+                            {% if perms.maintenance.change_device %}
+                            <a href="{% url 'maintenance:device_edit' device.id %}" 
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-desktop fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">لا توجد أجهزة في هذا القسم</h5>
+            <p class="text-muted">لم يتم تسجيل أي أجهزة في قسم {{ department.name }} بعد.</p>
+            {% if perms.maintenance.add_device %}
+            <a href="{% url 'maintenance:add_device' %}?department={{ department.id }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> إضافة أول جهاز
+            </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">فلترة الأجهزة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="get">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">الغرفة</label>
+                            <select name="room" class="form-select">
+                                <option value="">جميع الغرف</option>
+                                {% for room in rooms %}
+                                <option value="{{ room.id }}" {% if request.GET.room == room.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ room.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">الحالة</label>
+                            <select name="status" class="form-select">
+                                <option value="">جميع الحالات</option>
+                                <option value="working" {% if request.GET.status == 'working' %}selected{% endif %}>يعمل</option>
+                                <option value="needs_maintenance" {% if request.GET.status == 'needs_maintenance' %}selected{% endif %}>يحتاج صيانة</option>
+                                <option value="out_of_order" {% if request.GET.status == 'out_of_order' %}selected{% endif %}>عطل دائم</option>
+                                <option value="needs_check" {% if request.GET.status == 'needs_check' %}selected{% endif %}>يحتاج تفقد</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">التوفر</label>
+                            <select name="availability" class="form-select">
+                                <option value="">الكل</option>
+                                <option value="available" {% if request.GET.availability == 'available' %}selected{% endif %}>متوفر</option>
+                                <option value="in_use" {% if request.GET.availability == 'in_use' %}selected{% endif %}>قيد الاستخدام</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">البحث</label>
+                            <input type="text" name="search" class="form-control" placeholder="اسم الجهاز أو الرقم التسلسلي" value="{{ request.GET.search }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تطبيق الفلتر</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Device Usage Modal -->
+<div class="modal fade" id="deviceUsageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">بدء استخدام الجهاز</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deviceUsageForm">
+                    <div class="mb-3">
+                        <label class="form-label">المريض</label>
+                        <select class="form-select" name="patient_id" required>
+                            <option value="">اختر المريض</option>
+                            {% for patient in department_patients %}
+                            <option value="{{ patient.id }}">{{ patient.get_full_name }} - {{ patient.mrn }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الغرض من الاستخدام</label>
+                        <select class="form-select" name="usage_purpose">
+                            <option value="treatment">علاج</option>
+                            <option value="diagnosis">تشخيص</option>
+                            <option value="monitoring">مراقبة</option>
+                            <option value="emergency">طوارئ</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ملاحظات</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-success" onclick="confirmDeviceUsage()">بدء الاستخدام</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentDeviceId = null;
+
+function refreshDevices() {
+    location.reload();
+}
+
+function exportReport() {
+    window.open(`/maintenance/department/${{{ department.id }}}/report/`, '_blank');
+}
+
+function useDevice(deviceId) {
+    currentDeviceId = deviceId;
+    const modal = new bootstrap.Modal(document.getElementById('deviceUsageModal'));
+    modal.show();
+}
+
+function confirmDeviceUsage() {
+    const form = document.getElementById('deviceUsageForm');
+    const formData = new FormData(form);
+    
+    fetch(`/maintenance/device/${currentDeviceId}/use/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('deviceUsageModal')).hide();
+            // Update the device card
+            location.reload();
+        } else {
+            alert('حدث خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('حدث خطأ في الاتصال');
+    });
+}
+
+function releaseDevice(deviceId) {
+    if (confirm('هل أنت متأكد من إنهاء استخدام الجهاز؟')) {
+        fetch(`/maintenance/device/${deviceId}/release/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('حدث خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('حدث خطأ في الاتصال');
+        });
+    }
+}
+
+// Real-time updates for devices in use
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh every 2 minutes if there are devices in use
+    if (document.querySelector('.usage-indicator')) {
+        setInterval(function() {
+            refreshDevices();
+        }, 120000); // 2 minutes
+    }
+});
+</script>
+{% endblock %}

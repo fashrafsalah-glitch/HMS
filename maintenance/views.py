@@ -147,7 +147,7 @@ def approve_transfer(request, transfer_id):
 @require_GET
 def load_rooms(request):
     department_id = request.GET.get('department_id')
-    rooms = Room.objects.filter(department_id=department_id).values('id', 'name')
+    rooms = Room.objects.filter(department_id=department_id).values('id', 'number')
     return JsonResponse(list(rooms), safe=False)
 
 def device_list(request):
@@ -191,31 +191,34 @@ def load_subcategories(request):
     subcategories = DeviceSubCategory.objects.filter(category_id=category_id).values('id', 'name')
     return JsonResponse(list(subcategories), safe=False)
 
-def device_list(request):
-    category_id = request.GET.get('category')
-    subcategory_id = request.GET.get('subcategory')
-    department_id = request.GET.get('department')
-    room_id = request.GET.get('room')
+# تم دمج هذه الوظيفة مع الوظيفة السابقة
+# def device_list(request):
+#    category_id = request.GET.get('category')
+#    subcategory_id = request.GET.get('subcategory')
+#    department_id = request.GET.get('department')
+#    room_id = request.GET.get('room')
+#
+#    devices = Device.objects.all()
 
-    devices = Device.objects.all()
+# تم تعليق الكود المتبقي من الوظيفة المكررة
+#    if category_id:
+#        devices = devices.filter(category_id=category_id)
+#    if subcategory_id:
+#        devices = devices.filter(subcategory_id=subcategory_id)
+#    if department_id:
+#        devices = devices.filter(department_id=department_id)
+#    if room_id:
+#        devices = devices.filter(room_id=room_id)
 
-    if category_id:
-        devices = devices.filter(category_id=category_id)
-    if subcategory_id:
-        devices = devices.filter(subcategory_id=subcategory_id)
-    if department_id:
-        devices = devices.filter(department_id=department_id)
-    if room_id:
-        devices = devices.filter(room_id=room_id)
-
-    context = {
-        'devices': devices,
-        'categories': DeviceCategory.objects.all(),
-        'subcategories': DeviceSubCategory.objects.all(),
-        'departments': Department.objects.all(),
-        'rooms': Room.objects.all(),
-    }
-    return render(request, 'maintenance/device_list.html', context)
+# تم تعليق الكود المتبقي من الوظيفة المكررة
+#    context = {
+#        'devices': devices,
+#        'categories': DeviceCategory.objects.all(),
+#        'subcategories': DeviceSubCategory.objects.all(),
+#        'departments': Department.objects.all(),
+#        'rooms': Room.objects.all(),
+#    }
+#    return render(request, 'maintenance/device_list.html', context)
 
 def add_device_category(request):
     if request.method == 'POST':
@@ -446,14 +449,14 @@ def device_transfer_history(request, device_id):
 
 def get_rooms(request):
     department_id = request.GET.get('department_id')
-    rooms = Room.objects.filter(department_id=department_id).order_by('name')
-    html = render_to_string('partials/room_dropdown.html', {'rooms': rooms})
+    rooms = Room.objects.filter(department_id=department_id).order_by('number')
+    html = render_to_string('maintenance/partials/room_dropdown.html', {'rooms': rooms})
     return JsonResponse({'html': html})
 
 def get_beds(request):
     room_id = request.GET.get('room_id')
-    beds = Bed.objects.filter(room_id=room_id).order_by('name')
-    html = render_to_string('partials/bed_dropdown.html', {'beds': beds})
+    beds = Bed.objects.filter(room_id=room_id).order_by('bed_number')
+    html = render_to_string('maintenance/partials/bed_dropdown.html', {'beds': beds})
     return JsonResponse({'html': html})
 
 
@@ -461,21 +464,21 @@ def add_company(request):
     form = CompanyForm(request.POST or None)
     if form.is_valid():
         form.save()
-        return redirect('device_list')
+        return redirect('maintenance:device_list')
     return render(request, 'maintenance/add_company.html', {'form': form})
 
 def add_device_type(request):
     form = DeviceTypeForm(request.POST or None)
     if form.is_valid():
         form.save()
-        return redirect('device_list')
+        return redirect('maintenance:device_list')
     return render(request, 'maintenance/add_device_type.html', {'form': form})
 
 def add_device_usage(request):
     form = DeviceUsageForm(request.POST or None)
     if form.is_valid():
         form.save()
-        return redirect('device_list')
+        return redirect('maintenance:device_list')
     return render(request, 'maintenance/add_device_usage.html', {'form': form})
 
 
@@ -550,7 +553,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
 from .models import (
-    ScanSession, ScanHistory, DeviceUsageLog, DeviceUsageLogItem,
+    ScanSession, ScanHistory, DeviceDailyUsageLog, DeviceUsageLogItem,
     DeviceTransferLog, PatientTransferLog, DeviceHandoverLog, DeviceAccessory, DeviceAccessoryUsageLog
 )
 from django.contrib.auth import get_user_model
@@ -1125,8 +1128,8 @@ def save_scan_session(request):
         
         # Handle different operation types
         if operation_type == 'usage':
-            # Create DeviceUsageLog
-            usage_log = DeviceUsageLog.objects.create(
+            # Create DeviceDailyUsageLog
+            usage_log = DeviceDailyUsageLog.objects.create(
                 user=scan_session.user or request.user,
                 patient=scan_session.patient,
                 bed=scan_session.bed,
@@ -1358,7 +1361,7 @@ def device_usage_logs(request):
     """
     View device usage logs with filtering and export options
     """
-    logs = DeviceUsageLog.objects.all().select_related(
+    logs = DeviceDailyUsageLog.objects.all().select_related(
         'user', 'patient', 'bed', 'department'
     ).prefetch_related('items__device')
     
@@ -1384,16 +1387,16 @@ def device_usage_logs(request):
         logs = logs.filter(created_at__date__lte=date_to)
     
     # Get filter options
-    users = User.objects.filter(deviceusagelog__isnull=False).distinct()
-    patients = Patient.objects.filter(deviceusagelog__isnull=False).distinct()
-    departments = Department.objects.filter(deviceusagelog__isnull=False).distinct()
+    users = User.objects.filter(devicedailyusagelog__isnull=False).distinct()
+    patients = Patient.objects.filter(devicedailyusagelog__isnull=False).distinct()
+    departments = Department.objects.filter(devicedailyusagelog__isnull=False).distinct()
     
     context = {
         'logs': logs.order_by('-created_at'),
         'users': users,
         'patients': patients,
         'departments': departments,
-        'operation_choices': DeviceUsageLog.OPERATION_CHOICES,
+        'operation_choices': DeviceDailyUsageLog.OPERATION_CHOICES,
         'filters': {
             'user': user_filter,
             'patient': patient_filter,

@@ -2,6 +2,6 @@
 <select name="bed" class="form-control" id="id_bed">
     <option value="">---------</option>
     {% for bed in beds %}
-        <option value="{{ bed.id }}">{{ bed.name }}</option>
+        <option value="{{ bed.id }}">{{ bed.bed_number }}</option>
     {% endfor %}
 </select>

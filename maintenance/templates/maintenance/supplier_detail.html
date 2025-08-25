@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل المورد - {{ supplier.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">معلومات المورد</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'supplier_update' supplier.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-building fa-5x text-primary"></i>
+                        <h3 class="mt-2">{{ supplier.name }}</h3>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 40%">جهة الاتصال</th>
+                                    <td>{{ supplier.contact_person|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>البريد الإلكتروني</th>
+                                    <td>
+                                        {% if supplier.email %}
+                                        <a href="mailto:{{ supplier.email }}">{{ supplier.email }}</a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>رقم الهاتف</th>
+                                    <td>
+                                        {% if supplier.phone %}
+                                        <a href="tel:{{ supplier.phone }}">{{ supplier.phone }}</a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>العنوان</th>
+                                    <td>{{ supplier.address|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>الموقع الإلكتروني</th>
+                                    <td>
+                                        {% if supplier.website %}
+                                        <a href="{{ supplier.website }}" target="_blank">{{ supplier.website }}</a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>تم إنشاؤه بواسطة</th>
+                                    <td>{{ supplier.created_by.get_full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الإنشاء</th>
+                                    <td>{{ supplier.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if supplier.notes %}
+                    <div class="mt-3">
+                        <h5>ملاحظات</h5>
+                        <p>{{ supplier.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-6">
+                            <a href="{% url 'spare_part_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-block">
+                                <i class="fas fa-plus"></i> إضافة قطعة غيار
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-info btn-block">
+                                <i class="fas fa-shopping-cart"></i> أمر شراء جديد
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- إحصائيات المورد -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات المورد</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="info-box bg-info">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">قطع الغيار</span>
+                                    <span class="info-box-number">{{ supplier.sparepart_set.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="info-box bg-warning">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">أوامر الشراء</span>
+                                    <span class="info-box-number">{{ supplier.purchaseorder_set.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <div class="info-box bg-danger">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">منخفضة المخزون</span>
+                                    <span class="info-box-number">{{ low_stock_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="info-box bg-success">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">قيمة المخزون</span>
+                                    <span class="info-box-number">{{ inventory_value }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <!-- قطع الغيار -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قطع الغيار</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'spare_part_list' %}?supplier={{ supplier.id }}" class="btn btn-info btn-sm">
+                            <i class="fas fa-list"></i> عرض الكل
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if spare_parts %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>رقم القطعة</th>
+                                    <th>الكمية</th>
+                                    <th>الحد الأدنى</th>
+                                    <th>التكلفة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for part in spare_parts %}
+                                <tr>
+                                    <td>{{ part.name }}</td>
+                                    <td>{{ part.part_number }}</td>
+                                    <td>
+                                        <span class="badge {% if part.quantity <= part.min_quantity %}badge-danger{% else %}badge-success{% endif %}">
+                                            {{ part.quantity }} {{ part.unit }}
+                                        </span>
+                                    </td>
+                                    <td>{{ part.min_quantity }} {{ part.unit }}</td>
+                                    <td>{{ part.cost|default:"-" }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'spare_part_detail' part.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'spare_part_transaction_create_for_part' part.id %}" class="btn btn-success btn-sm">
+                                                <i class="fas fa-exchange-alt"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        لا توجد قطع غيار مسجلة لهذا المورد
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- أوامر الشراء -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">أوامر الشراء</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> أمر شراء جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if purchase_orders %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>رقم أمر الشراء</th>
+                                    <th>التاريخ</th>
+                                    <th>تاريخ التسليم المتوقع</th>
+                                    <th>الحالة</th>
+                                    <th>إجمالي العناصر</th>
+                                    <th>الإجمالي</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in purchase_orders %}
+                                <tr>
+                                    <td>{{ order.po_number }}</td>
+                                    <td>{{ order.order_date|date:"Y-m-d" }}</td>
+                                    <td>{{ order.expected_delivery|date:"Y-m-d"|default:"-" }}</td>
+                                    <td>
+                                        {% if order.status == 'DRAFT' %}
+                                        <span class="badge badge-secondary">مسودة</span>
+                                        {% elif order.status == 'ORDERED' %}
+                                        <span class="badge badge-primary">تم الطلب</span>
+                                        {% elif order.status == 'PARTIAL' %}
+                                        <span class="badge badge-warning">استلام جزئي</span>
+                                        {% elif order.status == 'RECEIVED' %}
+                                        <span class="badge badge-success">تم الاستلام</span>
+                                        {% elif order.status == 'CANCELLED' %}
+                                        <span class="badge badge-danger">ملغي</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ order.purchaseorderitem_set.count }}</td>
+                                    <td>{{ order.total_cost }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'purchase_order_detail' order.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if order.status == 'DRAFT' %}
+                                            <a href="{% url 'purchase_order_update' order.id %}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        لا توجد أوامر شراء مسجلة لهذا المورد
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إدارة اتفاقيات مستوى الخدمة (SLA){% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">اتفاقيات مستوى الخدمة (SLA)</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'sla_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> إضافة SLA جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>الوصف</th>
+                                    <th>وقت الاستجابة (ساعة)</th>
+                                    <th>وقت الحل (ساعة)</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sla in slas %}
+                                <tr>
+                                    <td>{{ sla.name }}</td>
+                                    <td>{{ sla.description }}</td>
+                                    <td>{{ sla.response_time }}</td>
+                                    <td>{{ sla.resolution_time }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'sla_edit' sla.id %}" class="btn btn-warning btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'sla_delete' sla.id %}" class="btn btn-danger btn-sm" onclick="return confirm('هل أنت متأكد من حذف هذا SLA؟')">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">لا توجد اتفاقيات مستوى خدمة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- مصفوفة SLA -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">مصفوفة اتفاقيات مستوى الخدمة (SLA Matrix)</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'sla_matrix_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> إضافة عنصر للمصفوفة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th class="text-center bg-light">تأثير منخفض</th>
+                                    <th class="text-center bg-light">تأثير متوسط</th>
+                                    <th class="text-center bg-light">تأثير عالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th class="bg-light">شدة حرجة</th>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'critical' and matrix.impact == 'low' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'critical' and matrix.impact == 'medium' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-danger text-white">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'critical' and matrix.impact == 'high' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">شدة عالية</th>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'high' and matrix.impact == 'low' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-warning">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'high' and matrix.impact == 'medium' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-danger text-white">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'high' and matrix.impact == 'high' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">شدة متوسطة</th>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'medium' and matrix.impact == 'low' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-warning">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'medium' and matrix.impact == 'medium' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-warning">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'medium' and matrix.impact == 'high' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">شدة منخفضة</th>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'low' and matrix.impact == 'low' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'low' and matrix.impact == 'medium' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center bg-warning">
+                                        {% for matrix in sla_matrix %}
+                                            {% if matrix.severity == 'low' and matrix.impact == 'high' %}
+                                                <div>
+                                                    <strong>{{ matrix.sla.name }}</strong><br>
+                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
+                                                    حل: {{ matrix.sla.resolution_time }} ساعة
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

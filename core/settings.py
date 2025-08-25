@@ -61,10 +61,11 @@ INSTALLED_APPS = [
     # 3rd‑party
     "widget_tweaks",
     "common_tags",
-    'maintenance',
      'accounts',
      "rosetta",
       "activity",
+    'maintenance',
+
 ]
 
 AUTH_USER_MODEL = "hr.CustomUser"

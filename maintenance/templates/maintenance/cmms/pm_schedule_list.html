@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}جداول الصيانة الوقائية{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">جداول الصيانة الوقائية</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item active">جداول الصيانة الوقائية</li>
+    </ol>
+    
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">{{ active_count }}</h5>
+                            <div>جداول نشطة</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-calendar-check fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-secondary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">{{ inactive_count }}</h5>
+                            <div>جداول غير نشطة</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-calendar-times fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">{{ completed_count }}</h5>
+                            <div>جداول مكتملة</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-calendar-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">{{ total_count }}</h5>
+                            <div>إجمالي الجداول</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-calendar-alt me-1"></i>
+                قائمة جداول الصيانة الوقائية
+            </div>
+            <div>
+                <a href="{% url 'pm_schedule_create' %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> إضافة جدول جديد
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Filters -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">الحالة</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="">الكل</option>
+                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>نشط</option>
+                                <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>غير نشط</option>
+                                <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>مكتمل</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="device" class="form-label">الجهاز</label>
+                            <select name="device" id="device" class="form-select">
+                                <option value="">الكل</option>
+                                {% for device in devices %}
+                                <option value="{{ device.id }}" {% if request.GET.device|add:"0" == device.id %}selected{% endif %}>{{ device.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="frequency" class="form-label">التكرار</label>
+                            <select name="frequency" id="frequency" class="form-select">
+                                <option value="">الكل</option>
+                                <option value="daily" {% if request.GET.frequency == 'daily' %}selected{% endif %}>يومي</option>
+                                <option value="weekly" {% if request.GET.frequency == 'weekly' %}selected{% endif %}>أسبوعي</option>
+                                <option value="monthly" {% if request.GET.frequency == 'monthly' %}selected{% endif %}>شهري</option>
+                                <option value="quarterly" {% if request.GET.frequency == 'quarterly' %}selected{% endif %}>ربع سنوي</option>
+                                <option value="semi_annual" {% if request.GET.frequency == 'semi_annual' %}selected{% endif %}>نصف سنوي</option>
+                                <option value="annual" {% if request.GET.frequency == 'annual' %}selected{% endif %}>سنوي</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">تصفية</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if schedules %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="schedules-table">
+                    <thead>
+                        <tr>
+                            <th>الجهاز</th>
+                            <th>خطة العمل</th>
+                            <th>التكرار</th>
+                            <th>تاريخ البدء</th>
+                            <th>تاريخ الانتهاء</th>
+                            <th>الفني المسؤول</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for schedule in schedules %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'device_detail' schedule.device.id %}">
+                                    {{ schedule.device.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="{% url 'job_plan_detail' schedule.job_plan.id %}">
+                                    {{ schedule.job_plan.name }}
+                                </a>
+                            </td>
+                            <td>{{ schedule.get_frequency_display }}</td>
+                            <td>{{ schedule.start_date|date:"Y-m-d" }}</td>
+                            <td>{{ schedule.end_date|date:"Y-m-d"|default:"-" }}</td>
+                            <td>{{ schedule.assignee|default:"-" }}</td>
+                            <td>
+                                {% if schedule.status == 'active' %}
+                                <span class="badge bg-success">نشط</span>
+                                {% elif schedule.status == 'inactive' %}
+                                <span class="badge bg-secondary">غير نشط</span>
+                                {% elif schedule.status == 'completed' %}
+                                <span class="badge bg-info">مكتمل</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'pm_schedule_detail' schedule.id %}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'pm_schedule_update' schedule.id %}" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% if schedule.status == 'active' %}
+                                    <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm" title="إيقاف">
+                                        <i class="fas fa-pause"></i>
+                                    </a>
+                                    <a href="{% url 'pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm" title="إنشاء أمر شغل">
+                                        <i class="fas fa-tools"></i>
+                                    </a>
+                                    {% elif schedule.status == 'inactive' %}
+                                    <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm" title="تنشيط">
+                                        <i class="fas fa-play"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if schedules.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if schedules.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ schedules.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for i in schedules.paginator.page_range %}
+                        {% if schedules.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if schedules.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ schedules.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="alert alert-info">
+                لا توجد جداول صيانة وقائية مسجلة حتى الآن. <a href="{% url 'pm_schedule_create' %}">إضافة جدول جديد</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize select2 for device dropdown
+        $('#device').select2({
+            placeholder: "اختر الجهاز",
+            allowClear: true,
+            width: '100%'
+        });
+    });
+</script>
+{% endblock %}

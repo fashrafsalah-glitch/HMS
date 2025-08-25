@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}قائمة الموردين{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قائمة الموردين</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'supplier_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> إضافة مورد جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- فلاتر البحث -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" class="form-inline">
+                                <div class="input-group mr-2">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> بحث
+                                </button>
+                                <a href="{% url 'supplier_list' %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-sync"></i> إعادة تعيين
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- جدول الموردين -->
+                    {% if suppliers %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>جهة الاتصال</th>
+                                    <th>البريد الإلكتروني</th>
+                                    <th>رقم الهاتف</th>
+                                    <th>العنوان</th>
+                                    <th>عدد قطع الغيار</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for supplier in suppliers %}
+                                <tr>
+                                    <td>{{ supplier.name }}</td>
+                                    <td>{{ supplier.contact_person|default:"-" }}</td>
+                                    <td>{{ supplier.email|default:"-" }}</td>
+                                    <td>{{ supplier.phone|default:"-" }}</td>
+                                    <td>{{ supplier.address|default:"-" }}</td>
+                                    <td>{{ supplier.sparepart_set.count }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'supplier_detail' supplier.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'supplier_update' supplier.id %}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'spare_part_list' %}?supplier={{ supplier.id }}" class="btn btn-secondary btn-sm">
+                                                <i class="fas fa-tools"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- ترقيم الصفحات -->
+                    {% include 'pagination.html' with page_obj=page_obj %}
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        لا يوجد موردين مسجلين تطابق معايير البحث
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات الموردين -->
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات الموردين</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="info-box bg-info">
+                                <span class="info-box-icon"><i class="fas fa-building"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي الموردين</span>
+                                    <span class="info-box-number">{{ stats.total_suppliers }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-success">
+                                <span class="info-box-icon"><i class="fas fa-tools"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي قطع الغيار</span>
+                                    <span class="info-box-number">{{ stats.total_parts }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-warning">
+                                <span class="info-box-icon"><i class="fas fa-shopping-cart"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي أوامر الشراء</span>
+                                    <span class="info-box-number">{{ stats.total_purchase_orders }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-danger">
+                                <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">قطع غيار منخفضة المخزون</span>
+                                    <span class="info-box-number">{{ stats.low_stock_parts }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // يمكن إضافة أي سكربت خاص بالصفحة هنا
+    });
+</script>
+{% endblock %}

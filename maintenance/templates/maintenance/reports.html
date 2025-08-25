@@ -1,0 +1,698 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "تقارير الصيانة" %}{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'vendor/datatables/dataTables.bootstrap4.min.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/select2/select2.min.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/flatpickr/flatpickr.min.css' %}" rel="stylesheet">
+<style>
+    .report-card {
+        transition: transform 0.3s;
+        cursor: pointer;
+    }
+    .report-card:hover {
+        transform: translateY(-5px);
+    }
+    .report-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{% trans "تقارير الصيانة" %}</h1>
+    </div>
+
+    <!-- Report Categories -->
+    <div class="row">
+        <!-- Equipment Reports -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "تقارير الأجهزة" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="equipment_inventory">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-clipboard-list text-primary"></i>
+                                    </div>
+                                    <h5>{% trans "جرد الأجهزة" %}</h5>
+                                    <p class="small text-muted">{% trans "قائمة شاملة بجميع الأجهزة وحالتها ومواقعها" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="equipment_utilization">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-chart-line text-success"></i>
+                                    </div>
+                                    <h5>{% trans "استخدام الأجهزة" %}</h5>
+                                    <p class="small text-muted">{% trans "تحليل معدلات استخدام الأجهزة وأوقات التشغيل" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="equipment_lifecycle">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-hourglass-half text-warning"></i>
+                                    </div>
+                                    <h5>{% trans "دورة حياة الأجهزة" %}</h5>
+                                    <p class="small text-muted">{% trans "تحليل عمر الأجهزة وتكاليف الصيانة والاستبدال" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Reports -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "تقارير الصيانة" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="work_order_summary">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-tools text-danger"></i>
+                                    </div>
+                                    <h5>{% trans "ملخص أوامر العمل" %}</h5>
+                                    <p class="small text-muted">{% trans "تحليل أوامر العمل حسب النوع والحالة والأولوية" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="pm_compliance">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-calendar-check text-info"></i>
+                                    </div>
+                                    <h5>{% trans "الالتزام بالصيانة الوقائية" %}</h5>
+                                    <p class="small text-muted">{% trans "تقرير عن جدولة الصيانة الوقائية ومعدلات الالتزام" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="maintenance_cost">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-dollar-sign text-success"></i>
+                                    </div>
+                                    <h5>{% trans "تكاليف الصيانة" %}</h5>
+                                    <p class="small text-muted">{% trans "تحليل تكاليف الصيانة حسب الجهاز والقسم والنوع" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Reports -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">{% trans "تقارير المخزون" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="spare_parts_inventory">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-boxes text-primary"></i>
+                                    </div>
+                                    <h5>{% trans "مخزون قطع الغيار" %}</h5>
+                                    <p class="small text-muted">{% trans "تقرير عن مستويات المخزون والقطع منخفضة المخزون" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="parts_usage">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-chart-bar text-warning"></i>
+                                    </div>
+                                    <h5>{% trans "استخدام قطع الغيار" %}</h5>
+                                    <p class="small text-muted">{% trans "تحليل استهلاك قطع الغيار حسب الجهاز ونوع الصيانة" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-12 mb-4">
+                            <div class="card bg-light report-card" data-report="purchase_orders">
+                                <div class="card-body text-center">
+                                    <div class="report-icon">
+                                        <i class="fas fa-file-invoice text-danger"></i>
+                                    </div>
+                                    <h5>{% trans "أوامر الشراء" %}</h5>
+                                    <p class="small text-muted">{% trans "تقرير عن أوامر الشراء والموردين وتكاليف الشراء" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Generator -->
+    <div class="card shadow mb-4" id="report-generator" style="display: none;">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary" id="report-title">{% trans "إنشاء تقرير" %}</h6>
+            <button type="button" class="close" id="close-report-generator">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="card-body">
+            <form id="report-form">
+                <div class="form-group row">
+                    <label for="date-range" class="col-sm-3 col-form-label">{% trans "الفترة الزمنية:" %}</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" id="date-range">
+                            <option value="last_7_days">{% trans "آخر 7 أيام" %}</option>
+                            <option value="last_30_days">{% trans "آخر 30 يوم" %}</option>
+                            <option value="last_90_days">{% trans "آخر 3 أشهر" %}</option>
+                            <option value="last_year">{% trans "آخر سنة" %}</option>
+                            <option value="custom">{% trans "فترة مخصصة" %}</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group row custom-date-range" style="display: none;">
+                    <label for="start-date" class="col-sm-3 col-form-label">{% trans "من تاريخ:" %}</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control datepicker" id="start-date">
+                    </div>
+                </div>
+                
+                <div class="form-group row custom-date-range" style="display: none;">
+                    <label for="end-date" class="col-sm-3 col-form-label">{% trans "إلى تاريخ:" %}</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control datepicker" id="end-date">
+                    </div>
+                </div>
+                
+                <!-- Dynamic filter fields will be added here based on report type -->
+                <div id="dynamic-filters"></div>
+                
+                <div class="form-group row">
+                    <label for="report-format" class="col-sm-3 col-form-label">{% trans "تنسيق التقرير:" %}</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" id="report-format">
+                            <option value="pdf">PDF</option>
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group row">
+                    <div class="col-sm-12 text-center">
+                        <button type="submit" class="btn btn-primary">{% trans "إنشاء التقرير" %}</button>
+                        <button type="button" class="btn btn-secondary" id="reset-form">{% trans "إعادة ضبط" %}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recent Reports -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "التقارير الأخيرة" %}</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="recentReportsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "اسم التقرير" %}</th>
+                            <th>{% trans "تاريخ الإنشاء" %}</th>
+                            <th>{% trans "بواسطة" %}</th>
+                            <th>{% trans "الفترة" %}</th>
+                            <th>{% trans "التنسيق" %}</th>
+                            <th>{% trans "إجراءات" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in recent_reports %}
+                        <tr>
+                            <td>{{ report.name }}</td>
+                            <td>{{ report.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ report.created_by.get_full_name }}</td>
+                            <td>{{ report.date_range }}</td>
+                            <td>{{ report.format|upper }}</td>
+                            <td>
+                                <a href="{{ report.file.url }}" class="btn btn-sm btn-primary" target="_blank">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <button class="btn btn-sm btn-info regenerate-report" data-report-id="{{ report.id }}">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">{% trans "لا توجد تقارير سابقة" %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/datatables/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'vendor/datatables/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'vendor/select2/select2.min.js' %}"></script>
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#recentReportsTable').DataTable({
+            "order": [[1, "desc"]],
+            "language": {
+                "emptyTable": "{% trans 'لا توجد بيانات متاحة في الجدول' %}",
+                "info": "{% trans 'عرض _START_ إلى _END_ من _TOTAL_ سجل' %}",
+                "infoEmpty": "{% trans 'عرض 0 إلى 0 من 0 سجل' %}",
+                "infoFiltered": "{% trans '(تمت تصفية _MAX_ سجل في المجموع)' %}",
+                "lengthMenu": "{% trans 'عرض _MENU_ سجل' %}",
+                "search": "{% trans 'بحث:' %}",
+                "zeroRecords": "{% trans 'لم يتم العثور على سجلات مطابقة' %}",
+                "paginate": {
+                    "first": "{% trans 'الأول' %}",
+                    "last": "{% trans 'الأخير' %}",
+                    "next": "{% trans 'التالي' %}",
+                    "previous": "{% trans 'السابق' %}"
+                }
+            }
+        });
+        
+        // Initialize Flatpickr for date pickers
+        $(".datepicker").flatpickr({
+            dateFormat: "Y-m-d",
+            allowInput: true
+        });
+        
+        // Report card click handler
+        $(".report-card").click(function() {
+            var reportType = $(this).data('report');
+            showReportGenerator(reportType);
+        });
+        
+        // Close report generator
+        $("#close-report-generator").click(function() {
+            $("#report-generator").hide();
+        });
+        
+        // Date range change handler
+        $("#date-range").change(function() {
+            if ($(this).val() === 'custom') {
+                $(".custom-date-range").show();
+            } else {
+                $(".custom-date-range").hide();
+            }
+        });
+        
+        // Reset form button
+        $("#reset-form").click(function() {
+            $("#report-form")[0].reset();
+            $("#date-range").val('last_30_days').trigger('change');
+            $("#dynamic-filters").empty();
+        });
+        
+        // Regenerate report button
+        $(".regenerate-report").click(function() {
+            var reportId = $(this).data('report-id');
+            regenerateReport(reportId);
+        });
+        
+        // Report form submit handler
+        $("#report-form").submit(function(e) {
+            e.preventDefault();
+            generateReport();
+        });
+    });
+    
+    function showReportGenerator(reportType) {
+        // Set report title based on type
+        var reportTitle = getReportTitle(reportType);
+        $("#report-title").text(reportTitle);
+        
+        // Clear previous dynamic filters
+        $("#dynamic-filters").empty();
+        
+        // Add dynamic filters based on report type
+        addDynamicFilters(reportType);
+        
+        // Reset form
+        $("#reset-form").click();
+        
+        // Store report type in a data attribute
+        $("#report-form").data('report-type', reportType);
+        
+        // Show report generator
+        $("#report-generator").show();
+        
+        // Scroll to report generator
+        $('html, body').animate({
+            scrollTop: $("#report-generator").offset().top - 100
+        }, 500);
+    }
+    
+    function getReportTitle(reportType) {
+        var titles = {
+            'equipment_inventory': '{% trans "تقرير جرد الأجهزة" %}',
+            'equipment_utilization': '{% trans "تقرير استخدام الأجهزة" %}',
+            'equipment_lifecycle': '{% trans "تقرير دورة حياة الأجهزة" %}',
+            'work_order_summary': '{% trans "تقرير ملخص أوامر العمل" %}',
+            'pm_compliance': '{% trans "تقرير الالتزام بالصيانة الوقائية" %}',
+            'maintenance_cost': '{% trans "تقرير تكاليف الصيانة" %}',
+            'spare_parts_inventory': '{% trans "تقرير مخزون قطع الغيار" %}',
+            'parts_usage': '{% trans "تقرير استخدام قطع الغيار" %}',
+            'purchase_orders': '{% trans "تقرير أوامر الشراء" %}'
+        };
+        
+        return titles[reportType] || '{% trans "إنشاء تقرير" %}';
+    }
+    
+    function addDynamicFilters(reportType) {
+        var filtersContainer = $("#dynamic-filters");
+        
+        // Add filters based on report type
+        switch(reportType) {
+            case 'equipment_inventory':
+                // Add department filter
+                filtersContainer.append(`
+                    <div class="form-group row">
+                        <label for="department" class="col-sm-3 col-form-label">{% trans "القسم:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control select2" id="department" name="department">
+                                <option value="">{% trans "جميع الأقسام" %}</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="category" class="col-sm-3 col-form-label">{% trans "الفئة:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control select2" id="category" name="category">
+                                <option value="">{% trans "جميع الفئات" %}</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="status" class="col-sm-3 col-form-label">{% trans "الحالة:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control" id="status" name="status">
+                                <option value="">{% trans "جميع الحالات" %}</option>
+                                <option value="ACTIVE">{% trans "نشط" %}</option>
+                                <option value="INACTIVE">{% trans "غير نشط" %}</option>
+                                <option value="MAINTENANCE">{% trans "في الصيانة" %}</option>
+                                <option value="RETIRED">{% trans "متقاعد" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                `);
+                break;
+                
+            case 'work_order_summary':
+                // Add work order filters
+                filtersContainer.append(`
+                    <div class="form-group row">
+                        <label for="wo_type" class="col-sm-3 col-form-label">{% trans "نوع أمر العمل:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control" id="wo_type" name="wo_type">
+                                <option value="">{% trans "جميع الأنواع" %}</option>
+                                <option value="CORRECTIVE">{% trans "صيانة تصحيحية" %}</option>
+                                <option value="PREVENTIVE">{% trans "صيانة وقائية" %}</option>
+                                <option value="INSPECTION">{% trans "فحص" %}</option>
+                                <option value="INSTALLATION">{% trans "تركيب" %}</option>
+                                <option value="CALIBRATION">{% trans "معايرة" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="wo_status" class="col-sm-3 col-form-label">{% trans "حالة أمر العمل:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control" id="wo_status" name="wo_status">
+                                <option value="">{% trans "جميع الحالات" %}</option>
+                                <option value="OPEN">{% trans "مفتوح" %}</option>
+                                <option value="IN_PROGRESS">{% trans "قيد التنفيذ" %}</option>
+                                <option value="ON_HOLD">{% trans "معلق" %}</option>
+                                <option value="COMPLETED">{% trans "مكتمل" %}</option>
+                                <option value="CLOSED">{% trans "مغلق" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="technician" class="col-sm-3 col-form-label">{% trans "الفني:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control select2" id="technician" name="technician">
+                                <option value="">{% trans "جميع الفنيين" %}</option>
+                                {% for tech in technicians %}
+                                <option value="{{ tech.id }}">{{ tech.get_full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                `);
+                break;
+                
+            case 'spare_parts_inventory':
+                // Add spare parts filters
+                filtersContainer.append(`
+                    <div class="form-group row">
+                        <label for="supplier" class="col-sm-3 col-form-label">{% trans "المورد:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control select2" id="supplier" name="supplier">
+                                <option value="">{% trans "جميع الموردين" %}</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="stock_status" class="col-sm-3 col-form-label">{% trans "حالة المخزون:" %}</label>
+                        <div class="col-sm-9">
+                            <select class="form-control" id="stock_status" name="stock_status">
+                                <option value="">{% trans "جميع الحالات" %}</option>
+                                <option value="low">{% trans "منخفض" %}</option>
+                                <option value="normal">{% trans "طبيعي" %}</option>
+                                <option value="out">{% trans "نفذ" %}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-sm-9 offset-sm-3">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="include_transactions" name="include_transactions" value="1">
+                                <label class="custom-control-label" for="include_transactions">{% trans "تضمين معاملات قطع الغيار" %}</label>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                break;
+                
+            // Add more cases for other report types
+            // ...
+        }
+        
+        // Initialize Select2 for dynamic filters
+        $(".select2").select2({
+            placeholder: "{% trans 'اختر...' %}",
+            allowClear: true
+        });
+    }
+    
+    function generateReport() {
+        var reportType = $("#report-form").data('report-type');
+        var dateRange = $("#date-range").val();
+        var format = $("#report-format").val();
+        
+        // Build form data
+        var formData = {
+            'report_type': reportType,
+            'date_range': dateRange,
+            'format': format
+        };
+        
+        // Add custom date range if selected
+        if (dateRange === 'custom') {
+            formData['start_date'] = $("#start-date").val();
+            formData['end_date'] = $("#end-date").val();
+        }
+        
+        // Add dynamic filters based on report type
+        switch(reportType) {
+            case 'equipment_inventory':
+                formData['department'] = $("#department").val();
+                formData['category'] = $("#category").val();
+                formData['status'] = $("#status").val();
+                break;
+                
+            case 'work_order_summary':
+                formData['wo_type'] = $("#wo_type").val();
+                formData['wo_status'] = $("#wo_status").val();
+                formData['technician'] = $("#technician").val();
+                break;
+                
+            case 'spare_parts_inventory':
+                formData['supplier'] = $("#supplier").val();
+                formData['stock_status'] = $("#stock_status").val();
+                formData['include_transactions'] = $("#include_transactions").is(':checked') ? 1 : 0;
+                break;
+                
+            // Add more cases for other report types
+            // ...
+        }
+        
+        // Show loading indicator
+        Swal.fire({
+            title: '{% trans "جاري إنشاء التقرير..." %}',
+            html: '{% trans "يرجى الانتظار" %}',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Send AJAX request to generate report
+        $.ajax({
+            url: "{% url 'maintenance:generate_report' %}",
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                Swal.close();
+                
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '{% trans "تم إنشاء التقرير بنجاح" %}',
+                        text: response.message,
+                        confirmButtonText: '{% trans "تنزيل التقرير" %}',
+                        showCancelButton: true,
+                        cancelButtonText: '{% trans "إغلاق" %}'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = response.file_url;
+                        }
+                        
+                        // Reload page to update recent reports list
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '{% trans "خطأ" %}',
+                        text: response.message
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: '{% trans "خطأ" %}',
+                    text: '{% trans "حدث خطأ أثناء إنشاء التقرير. يرجى المحاولة مرة أخرى." %}'
+                });
+            }
+        });
+    }
+    
+    function regenerateReport(reportId) {
+        // Show confirmation dialog
+        Swal.fire({
+            title: '{% trans "إعادة إنشاء التقرير؟" %}',
+            text: '{% trans "هل أنت متأكد من رغبتك في إعادة إنشاء هذا التقرير بالإعدادات نفسها؟" %}',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '{% trans "نعم، إعادة الإنشاء" %}',
+            cancelButtonText: '{% trans "إلغاء" %}'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading indicator
+                Swal.fire({
+                    title: '{% trans "جاري إعادة إنشاء التقرير..." %}',
+                    html: '{% trans "يرجى الانتظار" %}',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Send AJAX request to regenerate report
+                $.ajax({
+                    url: "{% url 'maintenance:regenerate_report' %}",
+                    type: 'POST',
+                    data: {
+                        'report_id': reportId
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        Swal.close();
+                        
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '{% trans "تم إعادة إنشاء التقرير بنجاح" %}',
+                                text: response.message,
+                                confirmButtonText: '{% trans "تنزيل التقرير" %}',
+                                showCancelButton: true,
+                                cancelButtonText: '{% trans "إغلاق" %}'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = response.file_url;
+                                }
+                                
+                                // Reload page to update recent reports list
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: '{% trans "خطأ" %}',
+                                text: response.message
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: '{% trans "خطأ" %}',
+                            text: '{% trans "حدث خطأ أثناء إعادة إنشاء التقرير. يرجى المحاولة مرة أخرى." %}'
+                        });
+                    }
+                });
+            }
+        });
+    }
+</script>
+{% endblock %}

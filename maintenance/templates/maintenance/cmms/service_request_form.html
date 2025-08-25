@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.id %}تعديل بلاغ{% else %}إنشاء بلاغ جديد{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        {% if form.instance.id %}
+                            تعديل بلاغ #SR-{{ form.instance.id }}
+                        {% else %}
+                            إنشاء بلاغ جديد
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- معلومات الجهاز -->
+                        <div class="form-group row">
+                            <label for="{{ form.device.id_for_label }}" class="col-sm-3 col-form-label">الجهاز:</label>
+                            <div class="col-sm-9">
+                                {{ form.device }}
+                                {% if form.device.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.device.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">اختر الجهاز الذي يحتاج إلى صيانة</small>
+                            </div>
+                        </div>
+                        
+                        <!-- عنوان البلاغ -->
+                        <div class="form-group row">
+                            <label for="{{ form.title.id_for_label }}" class="col-sm-3 col-form-label">عنوان البلاغ:</label>
+                            <div class="col-sm-9">
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.title.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">عنوان مختصر للمشكلة</small>
+                            </div>
+                        </div>
+                        
+                        <!-- وصف المشكلة -->
+                        <div class="form-group row">
+                            <label for="{{ form.description.id_for_label }}" class="col-sm-3 col-form-label">وصف المشكلة:</label>
+                            <div class="col-sm-9">
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">اشرح المشكلة بالتفصيل</small>
+                            </div>
+                        </div>
+                        
+                        <!-- نوع البلاغ -->
+                        <div class="form-group row">
+                            <label for="{{ form.request_type.id_for_label }}" class="col-sm-3 col-form-label">نوع البلاغ:</label>
+                            <div class="col-sm-9">
+                                {{ form.request_type }}
+                                {% if form.request_type.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.request_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- الشدة والتأثير -->
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.severity.id_for_label }}">الشدة:</label>
+                                {{ form.severity }}
+                                {% if form.severity.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.severity.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">مدى خطورة المشكلة</small>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.impact.id_for_label }}">التأثير:</label>
+                                {{ form.impact }}
+                                {% if form.impact.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.impact.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">مدى تأثير المشكلة على العمل</small>
+                            </div>
+                        </div>
+                        
+                        <!-- حقول مخفية -->
+                        {{ form.reporter }}
+                        {{ form.status }}
+                        
+                        <div class="form-group row mt-4">
+                            <div class="col-sm-9 offset-sm-3">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> 
+                                    {% if form.instance.id %}
+                                        حفظ التعديلات
+                                    {% else %}
+                                        إنشاء البلاغ
+                                    {% endif %}
+                                </button>
+                                <a href="{% url 'maintenance:service_request_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> إلغاء
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // تحسين اختيار الجهاز باستخدام select2
+        $('#{{ form.device.id_for_label }}').select2({
+            placeholder: "اختر الجهاز",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // تحديث الشدة والتأثير تلقائيًا حسب نوع البلاغ
+        $('#{{ form.request_type.id_for_label }}').change(function() {
+            var requestType = $(this).val();
+            
+            // تعيين قيم افتراضية حسب نوع البلاغ
+            if (requestType === 'breakdown') {
+                $('#{{ form.severity.id_for_label }}').val('high');
+                $('#{{ form.impact.id_for_label }}').val('high');
+            } else if (requestType === 'malfunction') {
+                $('#{{ form.severity.id_for_label }}').val('medium');
+                $('#{{ form.impact.id_for_label }}').val('medium');
+            } else if (requestType === 'inspection') {
+                $('#{{ form.severity.id_for_label }}').val('low');
+                $('#{{ form.impact.id_for_label }}').val('low');
+            }
+        });
+    });
+</script>
+{% endblock %}

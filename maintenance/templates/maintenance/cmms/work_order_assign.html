@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تعيين فني لأمر الشغل{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">تعيين فني لأمر الشغل #WO-{{ work_order.id }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <dl class="row">
+                                <dt class="col-sm-4">الجهاز:</dt>
+                                <dd class="col-sm-8">{{ work_order.device.name }}</dd>
+                                
+                                <dt class="col-sm-4">القسم:</dt>
+                                <dd class="col-sm-8">{{ work_order.device.department.name }}</dd>
+                                
+                                <dt class="col-sm-4">وصف العمل:</dt>
+                                <dd class="col-sm-8">{{ work_order.description|truncatechars:100 }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.assignee.id_for_label }}">الفني المسؤول:</label>
+                            {{ form.assignee }}
+                            {% if form.assignee.errors %}
+                                <div class="invalid-feedback d-block">{{ form.assignee.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">اختر الفني المناسب لهذا العمل</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}">ملاحظات:</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">{{ form.notes.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">أي ملاحظات إضافية للفني</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus"></i> تعيين
+                            </button>
+                            <a href="{% url 'work_order_detail' work_order.id %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // تحسين اختيار الفني باستخدام select2
+        $('#{{ form.assignee.id_for_label }}').select2({
+            placeholder: "اختر الفني المسؤول",
+            allowClear: true,
+            width: '100%'
+        });
+    });
+</script>
+{% endblock %}

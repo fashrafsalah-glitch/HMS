@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}قائمة المعايرات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قائمة المعايرات</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'calibration_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> إضافة معايرة جديدة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- فلاتر البحث -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" class="form-inline">
+                                <div class="input-group mr-2">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+                                </div>
+                                <div class="input-group mr-2">
+                                    <select name="status" class="form-control">
+                                        <option value="">-- الحالة --</option>
+                                        <option value="PASS" {% if request.GET.status == 'PASS' %}selected{% endif %}>ناجح</option>
+                                        <option value="FAIL" {% if request.GET.status == 'FAIL' %}selected{% endif %}>راسب</option>
+                                        <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>معلق</option>
+                                    </select>
+                                </div>
+                                <div class="input-group mr-2">
+                                    <select name="due_filter" class="form-control">
+                                        <option value="">-- تاريخ الاستحقاق --</option>
+                                        <option value="overdue" {% if request.GET.due_filter == 'overdue' %}selected{% endif %}>متأخر</option>
+                                        <option value="due_soon" {% if request.GET.due_filter == 'due_soon' %}selected{% endif %}>قريب (30 يوم)</option>
+                                        <option value="future" {% if request.GET.due_filter == 'future' %}selected{% endif %}>مستقبلي</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> بحث
+                                </button>
+                                <a href="{% url 'calibration_list' %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-sync"></i> إعادة تعيين
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- جدول المعايرات -->
+                    {% if calibrations %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>تاريخ المعايرة</th>
+                                    <th>تاريخ الاستحقاق التالي</th>
+                                    <th>الحالة</th>
+                                    <th>رقم الشهادة</th>
+                                    <th>تم بواسطة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for calibration in calibrations %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'device_detail' calibration.device.id %}">
+                                            {{ calibration.device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ calibration.calibration_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        {% if calibration.is_overdue %}
+                                        <span class="badge badge-danger">{{ calibration.next_due_date|date:"Y-m-d" }} (متأخر)</span>
+                                        {% elif calibration.is_due_soon %}
+                                        <span class="badge badge-warning">{{ calibration.next_due_date|date:"Y-m-d" }} (قريب)</span>
+                                        {% else %}
+                                        <span class="badge badge-success">{{ calibration.next_due_date|date:"Y-m-d" }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if calibration.status == 'PASS' %}
+                                        <span class="badge badge-success">ناجح</span>
+                                        {% elif calibration.status == 'FAIL' %}
+                                        <span class="badge badge-danger">راسب</span>
+                                        {% else %}
+                                        <span class="badge badge-warning">معلق</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ calibration.certificate_number|default:"-" }}</td>
+                                    <td>{{ calibration.performed_by }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'calibration_detail' calibration.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'calibration_update' calibration.id %}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if calibration.certificate_file %}
+                                            <a href="{{ calibration.certificate_file.url }}" target="_blank" class="btn btn-secondary btn-sm">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- ترقيم الصفحات -->
+                    {% include 'pagination.html' with page_obj=page_obj %}
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        لا توجد معايرات مسجلة تطابق معايير البحث
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- إحصائيات المعايرة -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات المعايرة</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="info-box bg-danger">
+                                <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">متأخرة</span>
+                                    <span class="info-box-number">{{ stats.overdue_count }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar" style="width: {{ stats.overdue_percentage }}%"></div>
+                                    </div>
+                                    <span class="progress-description">{{ stats.overdue_percentage }}% من إجمالي المعايرات</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-warning">
+                                <span class="info-box-icon"><i class="fas fa-clock"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">قريبة (30 يوم)</span>
+                                    <span class="info-box-number">{{ stats.due_soon_count }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar" style="width: {{ stats.due_soon_percentage }}%"></div>
+                                    </div>
+                                    <span class="progress-description">{{ stats.due_soon_percentage }}% من إجمالي المعايرات</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-success">
+                                <span class="info-box-icon"><i class="fas fa-check"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">ناجحة</span>
+                                    <span class="info-box-number">{{ stats.pass_count }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar" style="width: {{ stats.pass_percentage }}%"></div>
+                                    </div>
+                                    <span class="progress-description">{{ stats.pass_percentage }}% من إجمالي المعايرات</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="info-box bg-info">
+                                <span class="info-box-icon"><i class="fas fa-calendar-check"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي المعايرات</span>
+                                    <span class="info-box-number">{{ stats.total_count }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar" style="width: 100%"></div>
+                                    </div>
+                                    <span class="progress-description">في النظام</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // يمكن إضافة أي سكربت خاص بالصفحة هنا
+    });
+</script>
+{% endblock %}

@@ -50,54 +50,84 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-  // تحميل الغرف حسب القسم
-  $('#id_department').on('change', function () {
-    const departmentId = $(this).val();
-    if (departmentId) {
-      $.ajax({
-        url: '{% url "maintenance:get_rooms" %}',
-        data: { department_id: departmentId },
-        success: function (data) {
-          $('#room-container').html(data);
-          $('#id_room').trigger('change'); // تحميل الأسرة مباشرة
-        }
-      });
-    } else {
-      $('#room-container').html('<select id="id_room" name="room" class="form-control"><option value="">---------</option></select>');
-      $('#bed-container').html('<select id="id_bed" name="bed" class="form-control"><option value="">---------</option></select>');
-    }
-  });
-
-  // تحميل الأسرة حسب الغرفة
-  $(document).on('change', '#id_room', function () {
-    const roomId = $(this).val();
-    if (roomId) {
-      $.ajax({
-        url: '{% url "maintenance:get_beds" %}',
-        data: { room_id: roomId },
-        success: function (data) {
-          $('#bed-container').html(data);
-        }
-      });
-    } else {
-      $('#bed-container').html('<select id="id_bed" name="bed" class="form-control"><option value="">---------</option></select>');
-    }
-  });
-
-  $(document).ready(function () {
+$(document).ready(function () {
     // إضافة تنسيق bootstrap لعناصر النموذج بشكل عام
     $('form input:not([type=checkbox]):not([type=radio]), form select, form textarea').addClass('form-control');
     $('form input[type=checkbox], form input[type=radio]').addClass('form-check-input');
 
     // تأكد من وجود حاويات الغرفة/السرير لاستخدامها في التحديث عبر AJAX
     if (!$('#room-container').length && $('#id_room').length) {
-      $('#id_room').wrap('<div id="room-container"></div>');
+        $('#id_room').wrap('<div id="room-container"></div>');
     }
     if (!$('#bed-container').length && $('#id_bed').length) {
-      $('#id_bed').wrap('<div id="bed-container"></div>');
+        $('#id_bed').wrap('<div id="bed-container"></div>');
     }
-    $('#id_department').trigger('change'); // لتحديث الحقول تلقائيًا عند الدخول
-  });
+
+    // تحميل الغرف حسب القسم
+    $('#id_department').on('change', function () {
+        const departmentId = $(this).val();
+        console.log('Department changed:', departmentId);
+        
+        if (departmentId) {
+            $.ajax({
+                url: '{% url "maintenance:get_rooms" %}',
+                type: 'GET',
+                data: { department_id: departmentId },
+                success: function (response) {
+                    console.log('Rooms response:', response);
+                    $('#room-container').html(response.html);
+                    // إعادة تطبيق تنسيق bootstrap
+                    $('#id_room').addClass('form-control');
+                    // مسح الأسرة عند تغيير القسم
+                    resetBeds();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading rooms:', error);
+                    $('#room-container').html('<label for="id_room">الغرفة</label><select name="room" class="form-control" id="id_room"><option value="">خطأ في تحميل الغرف</option></select>');
+                    resetBeds();
+                }
+            });
+        } else {
+            resetRooms();
+            resetBeds();
+        }
+    });
+
+    // تحميل الأسرة حسب الغرفة
+    $(document).on('change', '#id_room', function () {
+        const roomId = $(this).val();
+        console.log('Room changed:', roomId);
+        
+        if (roomId) {
+            $.ajax({
+                url: '{% url "maintenance:get_beds" %}',
+                type: 'GET',
+                data: { room_id: roomId },
+                success: function (response) {
+                    console.log('Beds response:', response);
+                    $('#bed-container').html(response.html);
+                    // إعادة تطبيق تنسيق bootstrap
+                    $('#id_bed').addClass('form-control');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading beds:', error);
+                    $('#bed-container').html('<label for="id_bed">السرير</label><select name="bed" class="form-control" id="id_bed"><option value="">خطأ في تحميل الأسرة</option></select>');
+                }
+            });
+        } else {
+            resetBeds();
+        }
+    });
+
+    // دوال مساعدة لإعادة تعيين القوائم
+    function resetRooms() {
+        $('#room-container').html('<label for="id_room">الغرفة</label><select name="room" class="form-control" id="id_room"><option value="">---------</option></select>');
+    }
+
+    function resetBeds() {
+        $('#bed-container').html('<label for="id_bed">السرير</label><select name="bed" class="form-control" id="id_bed"><option value="">---------</option></select>');
+    }
+});
 </script>
 {% endblock %}
 

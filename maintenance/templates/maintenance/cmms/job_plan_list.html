@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}خطط الصيانة الوقائية{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">خطط الصيانة الوقائية</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item active">خطط الصيانة الوقائية</li>
+    </ol>
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-clipboard-list me-1"></i>
+                قائمة خطط الصيانة الوقائية
+            </div>
+            <div>
+                <a href="{% url 'job_plan_create' %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> إضافة خطة جديدة
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if job_plans %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="job-plans-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>نوع الجهاز</th>
+                            <th>الوصف</th>
+                            <th>الوقت المقدر (ساعات)</th>
+                            <th>عدد الخطوات</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plan in job_plans %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'job_plan_detail' plan.id %}">
+                                    {{ plan.name }}
+                                </a>
+                            </td>
+                            <td>{{ plan.device_type }}</td>
+                            <td>{{ plan.description|truncatechars:50 }}</td>
+                            <td>{{ plan.estimated_hours }}</td>
+                            <td>{{ plan.steps.count }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'job_plan_detail' plan.id %}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'job_plan_update' plan.id %}" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'job_plan_delete' plan.id %}" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if job_plans.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if job_plans.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ job_plans.previous_page_number }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for i in job_plans.paginator.page_range %}
+                        {% if job_plans.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if job_plans.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ job_plans.next_page_number }}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="alert alert-info">
+                لا توجد خطط صيانة وقائية مسجلة حتى الآن. <a href="{% url 'job_plan_create' %}">إضافة خطة جديدة</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#job-plans-table').DataTable({
+            "language": {
+                "url": "{% static 'js/datatables-ar.json' %}"
+            },
+            "order": [[ 0, "asc" ]]
+        });
+    });
+</script>
+{% endblock %}

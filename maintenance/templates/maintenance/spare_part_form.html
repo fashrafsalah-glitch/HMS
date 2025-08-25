@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {% if form.instance.id %}
+    تعديل قطعة الغيار - {{ form.instance.name }}
+    {% else %}
+    إضافة قطعة غيار جديدة
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        {% if form.instance.id %}
+                        تعديل قطعة الغيار - {{ form.instance.name }}
+                        {% else %}
+                        إضافة قطعة غيار جديدة
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.name|crispy }}
+                                {{ form.part_number|crispy }}
+                                {{ form.description|crispy }}
+                                {{ form.supplier|crispy }}
+                                {{ form.cost|crispy }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.quantity|crispy }}
+                                {{ form.min_quantity|crispy }}
+                                {{ form.unit|crispy }}
+                                {{ form.location|crispy }}
+                                {{ form.lead_time_days|crispy }}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                {{ form.notes|crispy }}
+                                {{ form.datasheet_url|crispy }}
+                                {{ form.image|crispy }}
+                                {{ form.compatible_devices|crispy }}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group text-center mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> حفظ
+                            </button>
+                            <a href="{% url 'spare_part_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // تحسين قائمة الأجهزة المتوافقة باستخدام select2
+        $('#id_compatible_devices').select2({
+            placeholder: "اختر الأجهزة المتوافقة",
+            allowClear: true
+        });
+        
+        // تحسين قائمة الموردين باستخدام select2
+        $('#id_supplier').select2({
+            placeholder: "اختر المورد",
+            allowClear: true
+        });
+    });
+</script>
+{% endblock %}

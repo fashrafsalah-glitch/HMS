@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل جدول الصيانة: {{ schedule.device.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">تفاصيل جدول الصيانة الوقائية</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item active">{{ schedule.device.name }}</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        معلومات الجدول
+                    </div>
+                    <div>
+                        <a href="{% url 'pm_schedule_update' schedule.id %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash"></i> حذف
+                        </a>
+                        {% if schedule.status == 'active' %}
+                        <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-pause"></i> إيقاف
+                        </a>
+                        {% elif schedule.status == 'inactive' %}
+                        <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-play"></i> تنشيط
+                        </a>
+                        {% endif %}
+                        {% if schedule.status == 'active' %}
+                        <a href="{% url 'pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-tools"></i> إنشاء أمر شغل
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">الجهاز:</div>
+                        <div class="col-md-9">
+                            <a href="{% url 'device_detail' schedule.device.id %}">
+                                {{ schedule.device.name }}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">خطة العمل:</div>
+                        <div class="col-md-9">
+                            <a href="{% url 'job_plan_detail' schedule.job_plan.id %}">
+                                {{ schedule.job_plan.name }}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">التكرار:</div>
+                        <div class="col-md-9">{{ schedule.get_frequency_display }}</div>
+                    </div>
+                    
+                    {% if schedule.frequency == 'weekly' %}
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">يوم الأسبوع:</div>
+                        <div class="col-md-9">{{ schedule.get_day_of_week_display }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if schedule.frequency == 'monthly' %}
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">يوم الشهر:</div>
+                        <div class="col-md-9">{{ schedule.day_of_month }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">تاريخ البدء:</div>
+                        <div class="col-md-9">{{ schedule.start_date|date:"Y-m-d" }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">تاريخ الانتهاء:</div>
+                        <div class="col-md-9">{{ schedule.end_date|date:"Y-m-d"|default:"مستمر" }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">الفني المسؤول:</div>
+                        <div class="col-md-9">{{ schedule.assignee|default:"غير محدد" }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">الحالة:</div>
+                        <div class="col-md-9">
+                            {% if schedule.status == 'active' %}
+                            <span class="badge bg-success">نشط</span>
+                            {% elif schedule.status == 'inactive' %}
+                            <span class="badge bg-secondary">غير نشط</span>
+                            {% elif schedule.status == 'completed' %}
+                            <span class="badge bg-info">مكتمل</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">تاريخ الإنشاء:</div>
+                        <div class="col-md-9">{{ schedule.created_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">آخر تحديث:</div>
+                        <div class="col-md-9">{{ schedule.updated_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    
+                    {% if schedule.notes %}
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">ملاحظات:</div>
+                        <div class="col-md-9">{{ schedule.notes|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">موعد الصيانة القادم:</div>
+                        <div class="col-md-9">
+                            {% if schedule.status == 'active' and next_maintenance_date %}
+                            <span class="badge bg-primary">{{ next_maintenance_date|date:"Y-m-d" }}</span>
+                            {% else %}
+                            <span class="text-muted">غير متاح</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Job Plan Steps -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-list-ol me-1"></i>
+                    خطوات العمل
+                </div>
+                <div class="card-body">
+                    {% if schedule.job_plan.steps.all %}
+                    <div class="accordion" id="stepsAccordion">
+                        {% for step in schedule.job_plan.steps.all %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ step.id }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ step.id }}" aria-expanded="false" aria-controls="collapse{{ step.id }}">
+                                    <strong>{{ step.step_number }}. {{ step.description|truncatechars:40 }}</strong>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ step.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ step.id }}" data-bs-parent="#stepsAccordion">
+                                <div class="accordion-body">
+                                    <p><strong>الوصف:</strong> {{ step.description }}</p>
+                                    <p><strong>الوقت المقدر:</strong> {{ step.estimated_minutes }} دقيقة</p>
+                                    
+                                    {% if step.tools_required %}
+                                    <p><strong>الأدوات المطلوبة:</strong> {{ step.tools_required|linebreaks }}</p>
+                                    {% endif %}
+                                    
+                                    {% if step.safety_instructions %}
+                                    <p><strong>تعليمات السلامة:</strong> {{ step.safety_instructions|linebreaks }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        لا توجد خطوات مضافة لخطة العمل هذه.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- History -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-history me-1"></i>
+                    سجل الصيانة
+                </div>
+                <div class="card-body">
+                    {% if history %}
+                    <div class="timeline">
+                        {% for entry in history %}
+                        <div class="timeline-item">
+                            <div class="timeline-item-marker">
+                                <div class="timeline-item-marker-text">{{ entry.created_at|date:"Y-m-d" }}</div>
+                                <div class="timeline-item-marker-indicator bg-primary"></div>
+                            </div>
+                            <div class="timeline-item-content">
+                                {% if entry.work_order %}
+                                <a href="{% url 'work_order_detail' entry.work_order.id %}" class="fw-bold">
+                                    أمر شغل #{{ entry.work_order.id }}
+                                </a>
+                                <div>
+                                    {% if entry.work_order.status == 'closed' or entry.work_order.status == 'qa_verified' %}
+                                    <span class="badge bg-success">مكتمل</span>
+                                    {% elif entry.work_order.status == 'cancelled' %}
+                                    <span class="badge bg-danger">ملغي</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">قيد التنفيذ</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="fw-bold">تم إنشاء أمر شغل</span>
+                                <div class="small text-muted">لم يتم العثور على أمر الشغل</div>
+                                {% endif %}
+                                <div class="small text-muted">{{ entry.created_at|date:"H:i" }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        لم يتم إنشاء أي أوامر شغل لهذا الجدول بعد.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Statistics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    إحصائيات
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>إجمالي أوامر الشغل:</div>
+                        <div class="fw-bold">{{ total_work_orders }}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>أوامر الشغل المكتملة:</div>
+                        <div class="fw-bold">{{ completed_work_orders }}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>أوامر الشغل الملغاة:</div>
+                        <div class="fw-bold">{{ cancelled_work_orders }}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>أوامر الشغل قيد التنفيذ:</div>
+                        <div class="fw-bold">{{ active_work_orders }}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>نسبة الالتزام بالجدول:</div>
+                        <div class="fw-bold">{{ compliance_rate }}%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Timeline styles */
+    .timeline {
+        margin-left: 1rem;
+        padding-left: 1.5rem;
+        border-left: 1px solid #dee2e6;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    .timeline-item-marker {
+        position: absolute;
+        left: -1.5rem;
+        width: 1rem;
+        top: 0;
+    }
+    .timeline-item-marker-text {
+        position: absolute;
+        width: 6rem;
+        left: -7.5rem;
+        top: 0;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    .timeline-item-marker-indicator {
+        display: block;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 100%;
+        background-color: #dee2e6;
+    }
+    .timeline-item-content {
+        padding-bottom: 1rem;
+        padding-left: 0.5rem;
+    }
+</style>
+{% endblock %}

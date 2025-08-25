@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.id %}تعديل{% else %}إنشاء{% endif %} أمر شراء{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .item-row {
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .remove-item {
+        color: #dc3545;
+        cursor: pointer;
+    }
+    .add-item-btn {
+        margin-bottom: 20px;
+    }
+    .total-section {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{% if form.instance.id %}تعديل{% else %}إنشاء{% endif %} أمر شراء</h3>
+                </div>
+                <form method="post" id="purchase-order-form">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5><i class="icon fas fa-ban"></i> يوجد أخطاء في النموذج!</h5>
+                            {{ form.errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.supplier.id_for_label }}">المورد*</label>
+                                    {{ form.supplier }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.po_number.id_for_label }}">رقم أمر الشراء*</label>
+                                    {{ form.po_number }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.order_date.id_for_label }}">تاريخ الطلب*</label>
+                                    {{ form.order_date }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.expected_delivery.id_for_label }}">تاريخ التسليم المتوقع</label>
+                                    {{ form.expected_delivery }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.status.id_for_label }}">حالة الطلب*</label>
+                                    {{ form.status }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.payment_terms.id_for_label }}">شروط الدفع</label>
+                                    {{ form.payment_terms }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}">ملاحظات</label>
+                            {{ form.notes }}
+                        </div>
+                        
+                        <hr>
+                        <h4>عناصر أمر الشراء</h4>
+                        
+                        <div id="items-container">
+                            {% if formset %}
+                                {{ formset.management_form }}
+                                {% for item_form in formset %}
+                                <div class="item-row">
+                                    <div class="row">
+                                        <div class="col-md-11">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label for="{{ item_form.spare_part.id_for_label }}">قطعة الغيار*</label>
+                                                        {{ item_form.spare_part }}
+                                                        {{ item_form.id }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="{{ item_form.quantity.id_for_label }}">الكمية*</label>
+                                                        {{ item_form.quantity }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="{{ item_form.unit_price.id_for_label }}">سعر الوحدة*</label>
+                                                        {{ item_form.unit_price }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <div class="form-group">
+                                                        <label for="{{ item_form.notes.id_for_label }}">ملاحظات</label>
+                                                        {{ item_form.notes }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-center justify-content-center">
+                                            {% if not forloop.first or formset|length > 1 %}
+                                            <a href="#" class="remove-item"><i class="fas fa-trash-alt fa-2x"></i></a>
+                                            {% endif %}
+                                            {{ item_form.DELETE.as_hidden }}
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-12 text-right">
+                                            <div class="item-total">المجموع: <span>0.00</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <button type="button" class="btn btn-success add-item-btn">
+                            <i class="fas fa-plus"></i> إضافة عنصر
+                        </button>
+                        
+                        <div class="total-section">
+                            <div class="row">
+                                <div class="col-md-8"></div>
+                                <div class="col-md-4">
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <th>إجمالي المبلغ:</th>
+                                            <td class="text-right" id="total-amount">0.00</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">حفظ</button>
+                        <a href="{% url 'purchase_order_list' %}" class="btn btn-secondary">إلغاء</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- قالب لعنصر جديد -->
+<div id="empty-form" style="display: none;">
+    <div class="item-row">
+        <div class="row">
+            <div class="col-md-11">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="id_purchaseorderitem_set-__prefix__-spare_part">قطعة الغيار*</label>
+                            <select name="purchaseorderitem_set-__prefix__-spare_part" id="id_purchaseorderitem_set-__prefix__-spare_part" class="form-control select2-spare-part">
+                                <option value="">---------</option>
+                                {% for spare_part in spare_parts %}
+                                <option value="{{ spare_part.id }}">{{ spare_part.name }} ({{ spare_part.part_number }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="id_purchaseorderitem_set-__prefix__-quantity">الكمية*</label>
+                            <input type="number" name="purchaseorderitem_set-__prefix__-quantity" id="id_purchaseorderitem_set-__prefix__-quantity" class="form-control item-quantity" min="1" value="1">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="id_purchaseorderitem_set-__prefix__-unit_price">سعر الوحدة*</label>
+                            <input type="number" name="purchaseorderitem_set-__prefix__-unit_price" id="id_purchaseorderitem_set-__prefix__-unit_price" class="form-control item-price" min="0" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="id_purchaseorderitem_set-__prefix__-notes">ملاحظات</label>
+                            <textarea name="purchaseorderitem_set-__prefix__-notes" id="id_purchaseorderitem_set-__prefix__-notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-1 d-flex align-items-center justify-content-center">
+                <a href="#" class="remove-item"><i class="fas fa-trash-alt fa-2x"></i></a>
+                <input type="hidden" name="purchaseorderitem_set-__prefix__-DELETE" id="id_purchaseorderitem_set-__prefix__-DELETE">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 text-right">
+                <div class="item-total">المجموع: <span>0.00</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    $(document).ready(function() {
+        // تفعيل Select2 للحقول
+        $('#{{ form.supplier.id_for_label }}').select2({
+            placeholder: "اختر المورد",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // تفعيل Select2 لقطع الغيار الموجودة
+        $('.select2-spare-part').select2({
+            placeholder: "اختر قطعة الغيار",
+            width: '100%'
+        });
+        
+        // تفعيل Flatpickr لحقول التاريخ
+        flatpickr("#{{ form.order_date.id_for_label }}", {
+            dateFormat: "Y-m-d",
+            defaultDate: "today"
+        });
+        
+        flatpickr("#{{ form.expected_delivery.id_for_label }}", {
+            dateFormat: "Y-m-d"
+        });
+        
+        // إضافة عنصر جديد
+        $('.add-item-btn').on('click', function() {
+            var form_idx = $('#id_purchaseorderitem_set-TOTAL_FORMS').val();
+            var newForm = $('#empty-form').html().replace(/__prefix__/g, form_idx);
+            $('#items-container').append(newForm);
+            
+            // تحديث عدد النماذج
+            $('#id_purchaseorderitem_set-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+            
+            // تفعيل Select2 للعنصر الجديد
+            $('#id_purchaseorderitem_set-' + form_idx + '-spare_part').select2({
+                placeholder: "اختر قطعة الغيار",
+                width: '100%'
+            });
+            
+            // تفعيل حساب المجموع للعنصر الجديد
+            bindItemEvents($('#items-container .item-row').last());
+            
+            // حساب المجموع الكلي
+            calculateTotal();
+            
+            return false;
+        });
+        
+        // حذف عنصر
+        $(document).on('click', '.remove-item', function() {
+            var row = $(this).closest('.item-row');
+            var deleteInput = row.find('input[name$="-DELETE"]');
+            
+            if (deleteInput.length) {
+                // إذا كان العنصر موجود في قاعدة البيانات، قم بتحديده للحذف
+                deleteInput.val('on');
+                row.hide();
+            } else {
+                // إذا كان عنصر جديد، قم بإزالته من النموذج
+                row.remove();
+            }
+            
+            // حساب المجموع الكلي
+            calculateTotal();
+            
+            return false;
+        });
+        
+        // ربط أحداث حساب المجموع لكل عنصر
+        function bindItemEvents(row) {
+            var quantityInput = row.find('.item-quantity');
+            var priceInput = row.find('.item-price');
+            
+            // حساب مجموع العنصر عند تغيير الكمية أو السعر
+            quantityInput.add(priceInput).on('input', function() {
+                var quantity = parseFloat(quantityInput.val()) || 0;
+                var price = parseFloat(priceInput.val()) || 0;
+                var total = quantity * price;
+                
+                row.find('.item-total span').text(total.toFixed(2));
+                
+                // حساب المجموع الكلي
+                calculateTotal();
+            });
+        }
+        
+        // حساب المجموع الكلي لجميع العناصر
+        function calculateTotal() {
+            var total = 0;
+            
+            $('.item-row:visible').each(function() {
+                var itemTotal = parseFloat($(this).find('.item-total span').text()) || 0;
+                total += itemTotal;
+            });
+            
+            $('#total-amount').text(total.toFixed(2));
+        }
+        
+        // ربط أحداث حساب المجموع لجميع العناصر الموجودة
+        $('.item-row').each(function() {
+            bindItemEvents($(this));
+            
+            // حساب المجموع الأولي لكل عنصر
+            var row = $(this);
+            var quantity = parseFloat(row.find('.item-quantity').val()) || 0;
+            var price = parseFloat(row.find('.item-price').val()) || 0;
+            var total = quantity * price;
+            
+            row.find('.item-total span').text(total.toFixed(2));
+        });
+        
+        // حساب المجموع الكلي الأولي
+        calculateTotal();
+        
+        // تحديث قطع الغيار بناءً على المورد المختار
+        $('#{{ form.supplier.id_for_label }}').on('change', function() {
+            var supplierId = $(this).val();
+            if (supplierId) {
+                $.ajax({
+                    url: '{% url "api_supplier_spare_parts" %}',
+                    data: {
+                        'supplier_id': supplierId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        // تحديث قائمة قطع الغيار في النموذج الفارغ
+                        var emptyFormSelect = $('#empty-form select');
+                        emptyFormSelect.empty();
+                        emptyFormSelect.append('<option value="">---------</option>');
+                        
+                        $.each(data, function(index, sparePart) {
+                            emptyFormSelect.append('<option value="' + sparePart.id + '">' + 
+                                                 sparePart.name + ' (' + sparePart.part_number + ')' + '</option>');
+                        });
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

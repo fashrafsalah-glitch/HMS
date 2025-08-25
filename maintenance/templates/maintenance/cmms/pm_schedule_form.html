@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if schedule %}تعديل جدول صيانة{% else %}إضافة جدول صيانة جديد{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">
+        {% if schedule %}تعديل جدول صيانة{% else %}إضافة جدول صيانة جديد{% endif %}
+    </h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item active">
+            {% if schedule %}تعديل جدول صيانة{% else %}إضافة جدول صيانة جديد{% endif %}
+        </li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    بيانات جدول الصيانة
+                </div>
+                <div class="card-body">
+                    <form method="post" id="schedule-form">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.device.id_for_label }}" class="form-label">الجهاز <span class="text-danger">*</span></label>
+                                {{ form.device }}
+                                {% if form.device.errors %}
+                                <div class="text-danger">
+                                    {{ form.device.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.job_plan.id_for_label }}" class="form-label">خطة العمل <span class="text-danger">*</span></label>
+                                {{ form.job_plan }}
+                                {% if form.job_plan.errors %}
+                                <div class="text-danger">
+                                    {{ form.job_plan.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.frequency.id_for_label }}" class="form-label">التكرار <span class="text-danger">*</span></label>
+                                {{ form.frequency }}
+                                {% if form.frequency.errors %}
+                                <div class="text-danger">
+                                    {{ form.frequency.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 day-of-week-container">
+                                <label for="{{ form.day_of_week.id_for_label }}" class="form-label">يوم الأسبوع</label>
+                                {{ form.day_of_week }}
+                                {% if form.day_of_week.errors %}
+                                <div class="text-danger">
+                                    {{ form.day_of_week.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3 day-of-month-container">
+                            <div class="col-md-6">
+                                <label for="{{ form.day_of_month.id_for_label }}" class="form-label">يوم الشهر</label>
+                                {{ form.day_of_month }}
+                                {% if form.day_of_month.errors %}
+                                <div class="text-danger">
+                                    {{ form.day_of_month.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.start_date.id_for_label }}" class="form-label">تاريخ البدء <span class="text-danger">*</span></label>
+                                {{ form.start_date }}
+                                {% if form.start_date.errors %}
+                                <div class="text-danger">
+                                    {{ form.start_date.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.end_date.id_for_label }}" class="form-label">تاريخ الانتهاء</label>
+                                {{ form.end_date }}
+                                {% if form.end_date.errors %}
+                                <div class="text-danger">
+                                    {{ form.end_date.errors }}
+                                </div>
+                                {% endif %}
+                                <small class="form-text text-muted">اتركه فارغًا إذا كان الجدول مستمرًا</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.assignee.id_for_label }}" class="form-label">الفني المسؤول</label>
+                            {{ form.assignee }}
+                            {% if form.assignee.errors %}
+                            <div class="text-danger">
+                                {{ form.assignee.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">يمكن تعيين فني لاحقًا</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">ملاحظات</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger">
+                                {{ form.notes.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'pm_schedule_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                {% if schedule %}حفظ التعديلات{% else %}إضافة الجدول{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-1"></i>
+                    معلومات مساعدة
+                </div>
+                <div class="card-body">
+                    <h5>تكرار الصيانة</h5>
+                    <ul>
+                        <li><strong>يومي:</strong> تنفذ الصيانة كل يوم</li>
+                        <li><strong>أسبوعي:</strong> تنفذ الصيانة مرة واحدة في الأسبوع في اليوم المحدد</li>
+                        <li><strong>شهري:</strong> تنفذ الصيانة مرة واحدة في الشهر في اليوم المحدد</li>
+                        <li><strong>ربع سنوي:</strong> تنفذ الصيانة كل 3 أشهر</li>
+                        <li><strong>نصف سنوي:</strong> تنفذ الصيانة كل 6 أشهر</li>
+                        <li><strong>سنوي:</strong> تنفذ الصيانة مرة واحدة في السنة</li>
+                    </ul>
+                    
+                    <h5>ملاحظات هامة</h5>
+                    <ul>
+                        <li>سيتم إنشاء أوامر الشغل تلقائيًا حسب الجدول المحدد</li>
+                        <li>يمكن إيقاف الجدول مؤقتًا أو تنشيطه في أي وقت</li>
+                        <li>يمكن إنشاء أمر شغل يدويًا من صفحة تفاصيل الجدول</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize select2 for dropdowns
+        $('#id_device, #id_job_plan, #id_assignee').select2({
+            width: '100%'
+        });
+        
+        // Show/hide day fields based on frequency
+        function toggleDayFields() {
+            var frequency = $('#id_frequency').val();
+            
+            if (frequency === 'weekly') {
+                $('.day-of-week-container').show();
+                $('.day-of-month-container').hide();
+            } else if (frequency === 'monthly') {
+                $('.day-of-week-container').hide();
+                $('.day-of-month-container').show();
+            } else {
+                $('.day-of-week-container').hide();
+                $('.day-of-month-container').hide();
+            }
+        }
+        
+        // Initial state
+        toggleDayFields();
+        
+        // On frequency change
+        $('#id_frequency').change(function() {
+            toggleDayFields();
+        });
+    });
+</script>
+{% endblock %}

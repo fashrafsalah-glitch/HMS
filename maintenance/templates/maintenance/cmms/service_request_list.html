@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}قائمة البلاغات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قائمة البلاغات</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'maintenance:service_request_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> بلاغ جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- فلاتر البحث -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" class="form-inline">
+                                <div class="input-group">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ search_query }}">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-outline-secondary" type="submit">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mx-2">
+                                    <select name="status" class="form-control">
+                                        <option value="">-- الحالة --</option>
+                                        {% for status_code, status_name in status_choices %}
+                                            <option value="{{ status_code }}" {% if status_filter == status_code %}selected{% endif %}>
+                                                {{ status_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group mx-2">
+                                    <select name="request_type" class="form-control">
+                                        <option value="">-- نوع البلاغ --</option>
+                                        {% for type_code, type_name in request_type_choices %}
+                                            <option value="{{ type_code }}" {% if request_type_filter == type_code %}selected{% endif %}>
+                                                {{ type_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary mx-2">
+                                    <i class="fas fa-filter"></i> تصفية
+                                </button>
+                                
+                                <a href="{% url 'maintenance:service_request_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-sync"></i> إعادة ضبط
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- جدول البلاغات -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>رقم البلاغ</th>
+                                    <th>العنوان</th>
+                                    <th>الجهاز</th>
+                                    <th>القسم</th>
+                                    <th>النوع</th>
+                                    <th>الشدة</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ الإنشاء</th>
+                                    <th>مقدم البلاغ</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sr in service_requests %}
+                                <tr>
+                                    <td>SR-{{ sr.id }}</td>
+                                    <td>{{ sr.title }}</td>
+                                    <td>
+                                        <a href="{% url 'maintenance:device_detail' sr.device.id %}">
+                                            {{ sr.device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ sr.device.department.name }}</td>
+                                    <td>{{ sr.get_request_type_display }}</td>
+                                    <td>
+                                        {% if sr.severity == 'critical' %}
+                                            <span class="badge badge-danger">{{ sr.get_severity_display }}</span>
+                                        {% elif sr.severity == 'high' %}
+                                            <span class="badge badge-warning">{{ sr.get_severity_display }}</span>
+                                        {% elif sr.severity == 'medium' %}
+                                            <span class="badge badge-info">{{ sr.get_severity_display }}</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ sr.get_severity_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if sr.status == 'new' %}
+                                            <span class="badge badge-primary">{{ sr.get_status_display }}</span>
+                                        {% elif sr.status == 'in_progress' %}
+                                            <span class="badge badge-info">{{ sr.get_status_display }}</span>
+                                        {% elif sr.status == 'on_hold' %}
+                                            <span class="badge badge-warning">{{ sr.get_status_display }}</span>
+                                        {% elif sr.status == 'resolved' %}
+                                            <span class="badge badge-success">{{ sr.get_status_display }}</span>
+                                        {% elif sr.status == 'closed' %}
+                                            <span class="badge badge-secondary">{{ sr.get_status_display }}</span>
+                                        {% elif sr.status == 'cancelled' %}
+                                            <span class="badge badge-danger">{{ sr.get_status_display }}</span>
+                                        {% endif %}
+                                        
+                                        {% if sr.is_overdue_response %}
+                                            <span class="badge badge-danger">تأخر الاستجابة</span>
+                                        {% endif %}
+                                        
+                                        {% if sr.is_overdue_resolution %}
+                                            <span class="badge badge-danger">تأخر الحل</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ sr.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ sr.reporter.get_full_name }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'maintenance:service_request_detail' sr.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'maintenance:service_request_update' sr.id %}" class="btn btn-warning btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if sr.status != 'closed' and sr.status != 'cancelled' %}
+                                                <a href="{% url 'maintenance:service_request_close' sr.id %}" class="btn btn-secondary btn-sm" onclick="return confirm('هل أنت متأكد من إغلاق هذا البلاغ؟')">
+                                                    <i class="fas fa-check"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center">لا توجد بلاغات</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

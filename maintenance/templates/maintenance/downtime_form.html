@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.id %}تعديل{% else %}إضافة{% endif %} توقف جهاز{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/material_blue.css">
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{% if form.instance.id %}تعديل{% else %}إضافة{% endif %} توقف جهاز</h3>
+                </div>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5><i class="icon fas fa-ban"></i> يوجد أخطاء في النموذج!</h5>
+                            {{ form.errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.device.id_for_label }}">الجهاز*</label>
+                                    {{ form.device }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.reason.id_for_label }}">سبب التوقف*</label>
+                                    {{ form.reason }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.start_time.id_for_label }}">وقت بداية التوقف*</label>
+                                    {{ form.start_time }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.end_time.id_for_label }}">وقت نهاية التوقف</label>
+                                    {{ form.end_time }}
+                                    <small class="form-text text-muted">اترك هذا الحقل فارغًا إذا كان التوقف مستمرًا</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.description.id_for_label }}">وصف المشكلة*</label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.resolution_notes.id_for_label }}">ملاحظات الحل</label>
+                            {{ form.resolution_notes }}
+                            <small class="form-text text-muted">أضف ملاحظات حول كيفية حل المشكلة</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.work_order.id_for_label }}">أمر العمل المرتبط</label>
+                            {{ form.work_order }}
+                            <small class="form-text text-muted">اختر أمر العمل المرتبط بهذا التوقف (إن وجد)</small>
+                        </div>
+                        
+                        {% if form.instance.id %}
+                        <div class="form-group">
+                            <label for="{{ form.status.id_for_label }}">حالة التوقف</label>
+                            {{ form.status }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">حفظ</button>
+                        <a href="{% url 'downtime_list' %}" class="btn btn-secondary">إلغاء</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    $(document).ready(function() {
+        // تفعيل Select2 للحقول
+        $('#{{ form.device.id_for_label }}').select2({
+            placeholder: "اختر الجهاز",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        $('#{{ form.work_order.id_for_label }}').select2({
+            placeholder: "اختر أمر العمل",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // تفعيل Flatpickr لحقول التاريخ والوقت
+        flatpickr("#{{ form.start_time.id_for_label }}", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            defaultHour: new Date().getHours(),
+            defaultMinute: new Date().getMinutes()
+        });
+        
+        flatpickr("#{{ form.end_time.id_for_label }}", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            defaultHour: new Date().getHours(),
+            defaultMinute: new Date().getMinutes()
+        });
+        
+        // تحديث حقل أوامر العمل بناءً على الجهاز المختار
+        $('#{{ form.device.id_for_label }}').on('change', function() {
+            var deviceId = $(this).val();
+            if (deviceId) {
+                // إعادة تحميل أوامر العمل المرتبطة بالجهاز
+                $.ajax({
+                    url: '{% url "api_device_work_orders" %}',
+                    data: {
+                        'device_id': deviceId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        var workOrderSelect = $('#{{ form.work_order.id_for_label }}');
+                        workOrderSelect.empty();
+                        workOrderSelect.append('<option value="">---------</option>');
+                        
+                        $.each(data, function(index, workOrder) {
+                            workOrderSelect.append('<option value="' + workOrder.id + '">' + 
+                                                 workOrder.wo_number + ' - ' + workOrder.description + '</option>');
+                        });
+                        
+                        workOrderSelect.trigger('change');
+                    }
+                });
+            }
+        });
+        
+        // حساب مدة التوقف عند تغيير وقت البداية أو النهاية
+        function calculateDuration() {
+            var startTime = $('#{{ form.start_time.id_for_label }}').val();
+            var endTime = $('#{{ form.end_time.id_for_label }}').val();
+            
+            if (startTime && endTime) {
+                var start = new Date(startTime);
+                var end = new Date(endTime);
+                
+                // التحقق من صحة التواريخ
+                if (start && end && end > start) {
+                    var durationMs = end - start;
+                    var durationHours = Math.round(durationMs / (1000 * 60 * 60) * 10) / 10;
+                    
+                    $('#duration-display').text(durationHours + ' ساعة');
+                    $('#duration-container').show();
+                } else {
+                    $('#duration-container').hide();
+                }
+            } else {
+                $('#duration-container').hide();
+            }
+        }
+        
+        // إضافة عنصر لعرض المدة
+        if ($('#duration-container').length === 0) {
+            $('<div id="duration-container" class="alert alert-info" style="display:none;">' +
+              'مدة التوقف المتوقعة: <strong id="duration-display"></strong></div>')
+              .insertAfter('#{{ form.end_time.id_for_label }}').parent();
+        }
+        
+        $('#{{ form.start_time.id_for_label }}, #{{ form.end_time.id_for_label }}').on('change', calculateDuration);
+        
+        // حساب المدة عند تحميل الصفحة
+        calculateDuration();
+    });
+</script>
+{% endblock %}

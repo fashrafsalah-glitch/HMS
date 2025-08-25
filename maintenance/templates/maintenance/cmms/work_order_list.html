@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}قائمة أوامر الشغل{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">قائمة أوامر الشغل</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'maintenance:work_order_create' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> أمر شغل جديد
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- فلاتر البحث -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" class="form-inline">
+                                <div class="input-group">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ search_query }}">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-outline-secondary" type="submit">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mx-2">
+                                    <select name="status" class="form-control">
+                                        <option value="">-- الحالة --</option>
+                                        {% for status_code, status_name in status_choices %}
+                                            <option value="{{ status_code }}" {% if status_filter == status_code %}selected{% endif %}>
+                                                {{ status_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group mx-2">
+                                    <select name="assignee" class="form-control">
+                                        <option value="">-- الفني المسؤول --</option>
+                                        {% for tech in technicians %}
+                                            <option value="{{ tech.id }}" {% if assignee_filter == tech.id|stringformat:"i" %}selected{% endif %}>
+                                                {{ tech.get_full_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary mx-2">
+                                    <i class="fas fa-filter"></i> تصفية
+                                </button>
+                                
+                                <a href="{% url 'work_order_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-sync"></i> إعادة ضبط
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- جدول أوامر الشغل -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>رقم أمر الشغل</th>
+                                    <th>البلاغ المرتبط</th>
+                                    <th>الجهاز</th>
+                                    <th>القسم</th>
+                                    <th>الحالة</th>
+                                    <th>الفني المسؤول</th>
+                                    <th>تاريخ الإنشاء</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wo in work_orders %}
+                                <tr>
+                                    <td>WO-{{ wo.id }}</td>
+                                    <td>
+                                        {% if wo.service_request %}
+                                            <a href="{% url 'service_request_detail' wo.service_request.id %}">
+                                                SR-{{ wo.service_request.id }}
+                                            </a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'device_detail' wo.device.id %}">
+                                            {{ wo.device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ wo.device.department.name }}</td>
+                                    <td>
+                                        {% if wo.status == 'new' %}
+                                            <span class="badge badge-primary">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'assigned' %}
+                                            <span class="badge badge-info">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'in_progress' %}
+                                            <span class="badge badge-warning">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'on_hold' or wo.status == 'wait_parts' %}
+                                            <span class="badge badge-secondary">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'resolved' or wo.status == 'qa_verified' %}
+                                            <span class="badge badge-success">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'closed' %}
+                                            <span class="badge badge-dark">{{ wo.get_status_display }}</span>
+                                        {% elif wo.status == 'cancelled' %}
+                                            <span class="badge badge-danger">{{ wo.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if wo.assignee %}
+                                            {{ wo.assignee.get_full_name }}
+                                        {% else %}
+                                            <span class="text-muted">غير معين</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ wo.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'work_order_detail' wo.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if wo.status == 'new' and perms.maintenance.assign_workorder %}
+                                                <a href="{% url 'work_order_assign' wo.id %}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center">لا توجد أوامر شغل</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

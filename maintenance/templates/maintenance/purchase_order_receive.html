@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}استلام أمر الشراء - {{ purchase_order.po_number }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .item-row {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .received-quantity {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+    }
+    .partial-received {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+    }
+    .not-received {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+    .summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-truck"></i>
+                        استلام أمر الشراء - {{ purchase_order.po_number }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'purchase_order_detail' purchase_order.id %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> العودة لتفاصيل الطلب
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- معلومات أمر الشراء -->
+                    <div class="summary-card">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <h6><i class="fas fa-building"></i> المورد</h6>
+                                <p class="mb-0">{{ purchase_order.supplier.name }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="fas fa-calendar"></i> تاريخ الطلب</h6>
+                                <p class="mb-0">{{ purchase_order.order_date|date:"Y-m-d" }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="fas fa-calendar-check"></i> تاريخ التسليم المتوقع</h6>
+                                <p class="mb-0">{{ purchase_order.expected_delivery|date:"Y-m-d"|default:"غير محدد" }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="fas fa-dollar-sign"></i> إجمالي المبلغ</h6>
+                                <p class="mb-0">{{ purchase_order.total_amount }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" id="receive-form">
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5><i class="icon fas fa-ban"></i> يوجد أخطاء في النموذج!</h5>
+                            {{ form.errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="received_date">تاريخ الاستلام*</label>
+                                    <input type="date" name="received_date" id="received_date" class="form-control" value="{{ today }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="received_by">تم الاستلام بواسطة*</label>
+                                    <input type="text" name="received_by" id="received_by" class="form-control" value="{{ request.user.get_full_name }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="delivery_notes">ملاحظات التسليم</label>
+                            <textarea name="delivery_notes" id="delivery_notes" class="form-control" rows="3" placeholder="أي ملاحظات حول حالة التسليم أو جودة المواد..."></textarea>
+                        </div>
+                        
+                        <hr>
+                        <h4><i class="fas fa-boxes"></i> عناصر الطلب</h4>
+                        <p class="text-muted">حدد الكميات المستلمة لكل عنصر</p>
+                        
+                        <div id="items-container">
+                            {% for item in items %}
+                            <div class="item-row" data-item-id="{{ item.id }}">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6><i class="fas fa-cog"></i> {{ item.spare_part.name }}</h6>
+                                        <p class="text-muted mb-1">رقم القطعة: {{ item.spare_part.part_number }}</p>
+                                        <p class="text-muted mb-0">الوحدة: {{ item.spare_part.get_unit_display }}</p>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">الكمية المطلوبة</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control text-center" value="{{ item.quantity }}" readonly>
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">{{ item.spare_part.get_unit_display }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">الكمية المستلمة*</label>
+                                        <div class="input-group">
+                                            <input type="number" name="received_quantity_{{ item.id }}" 
+                                                   class="form-control text-center received-input" 
+                                                   min="0" max="{{ item.quantity }}" 
+                                                   value="{{ item.quantity }}" 
+                                                   data-ordered="{{ item.quantity }}"
+                                                   required>
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">{{ item.spare_part.get_unit_display }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">سعر الوحدة</label>
+                                        <input type="text" class="form-control text-center" value="{{ item.unit_price }}" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">حالة الاستلام</label>
+                                        <div class="status-indicator">
+                                            <span class="badge badge-success status-badge">مستلم بالكامل</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label">ملاحظات العنصر</label>
+                                        <input type="text" name="item_notes_{{ item.id }}" 
+                                               class="form-control" 
+                                               placeholder="أي ملاحظات حول حالة هذا العنصر...">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- ملخص الاستلام -->
+                        <div class="card mt-4">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0"><i class="fas fa-chart-pie"></i> ملخص الاستلام</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="text-center">
+                                            <h4 class="text-success" id="fully-received-count">0</h4>
+                                            <p class="text-muted">مستلم بالكامل</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-center">
+                                            <h4 class="text-warning" id="partially-received-count">0</h4>
+                                            <p class="text-muted">مستلم جزئياً</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-center">
+                                            <h4 class="text-danger" id="not-received-count">0</h4>
+                                            <p class="text-muted">غير مستلم</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-center">
+                                            <h4 class="text-primary" id="completion-percentage">100%</h4>
+                                            <p class="text-muted">نسبة الإكمال</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="progress mt-3">
+                                    <div class="progress-bar bg-success" role="progressbar" id="progress-bar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group text-center mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check"></i> تأكيد الاستلام
+                            </button>
+                            <a href="{% url 'purchase_order_detail' purchase_order.id %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // تحديث حالة الاستلام عند تغيير الكميات
+        $('.received-input').on('input', function() {
+            updateReceiveStatus();
+            updateSummary();
+        });
+        
+        function updateReceiveStatus() {
+            $('.received-input').each(function() {
+                var receivedQty = parseFloat($(this).val()) || 0;
+                var orderedQty = parseFloat($(this).data('ordered'));
+                var row = $(this).closest('.item-row');
+                var statusBadge = row.find('.status-badge');
+                
+                // تحديث لون الصف وحالة الاستلام
+                row.removeClass('received-quantity partial-received not-received');
+                
+                if (receivedQty === 0) {
+                    row.addClass('not-received');
+                    statusBadge.removeClass('badge-success badge-warning').addClass('badge-danger').text('غير مستلم');
+                } else if (receivedQty < orderedQty) {
+                    row.addClass('partial-received');
+                    statusBadge.removeClass('badge-success badge-danger').addClass('badge-warning').text('مستلم جزئياً');
+                } else {
+                    row.addClass('received-quantity');
+                    statusBadge.removeClass('badge-warning badge-danger').addClass('badge-success').text('مستلم بالكامل');
+                }
+            });
+        }
+        
+        function updateSummary() {
+            var fullyReceived = 0;
+            var partiallyReceived = 0;
+            var notReceived = 0;
+            var totalItems = $('.received-input').length;
+            var totalReceivedPercentage = 0;
+            
+            $('.received-input').each(function() {
+                var receivedQty = parseFloat($(this).val()) || 0;
+                var orderedQty = parseFloat($(this).data('ordered'));
+                
+                if (receivedQty === 0) {
+                    notReceived++;
+                } else if (receivedQty < orderedQty) {
+                    partiallyReceived++;
+                    totalReceivedPercentage += (receivedQty / orderedQty) * 100;
+                } else {
+                    fullyReceived++;
+                    totalReceivedPercentage += 100;
+                }
+            });
+            
+            var averagePercentage = totalItems > 0 ? (totalReceivedPercentage / totalItems).toFixed(1) : 0;
+            
+            $('#fully-received-count').text(fullyReceived);
+            $('#partially-received-count').text(partiallyReceived);
+            $('#not-received-count').text(notReceived);
+            $('#completion-percentage').text(averagePercentage + '%');
+            $('#progress-bar').css('width', averagePercentage + '%');
+            
+            // تحديث لون شريط التقدم
+            var progressBar = $('#progress-bar');
+            progressBar.removeClass('bg-success bg-warning bg-danger');
+            
+            if (averagePercentage >= 90) {
+                progressBar.addClass('bg-success');
+            } else if (averagePercentage >= 50) {
+                progressBar.addClass('bg-warning');
+            } else {
+                progressBar.addClass('bg-danger');
+            }
+        }
+        
+        // تحديث الحالة الأولية
+        updateReceiveStatus();
+        updateSummary();
+        
+        // التحقق من صحة النموذج قبل الإرسال
+        $('#receive-form').on('submit', function(e) {
+            var hasReceivedItems = false;
+            
+            $('.received-input').each(function() {
+                if (parseFloat($(this).val()) > 0) {
+                    hasReceivedItems = true;
+                    return false;
+                }
+            });
+            
+            if (!hasReceivedItems) {
+                e.preventDefault();
+                alert('يجب استلام عنصر واحد على الأقل');
+                return false;
+            }
+            
+            // تأكيد الإرسال
+            if (!confirm('هل أنت متأكد من تأكيد استلام هذا الطلب؟')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // أزرار سريعة لتحديد الكميات
+        $(document).on('click', '.quick-action', function() {
+            var action = $(this).data('action');
+            var input = $(this).closest('.item-row').find('.received-input');
+            var orderedQty = parseFloat(input.data('ordered'));
+            
+            switch(action) {
+                case 'full':
+                    input.val(orderedQty);
+                    break;
+                case 'half':
+                    input.val(Math.floor(orderedQty / 2));
+                    break;
+                case 'zero':
+                    input.val(0);
+                    break;
+            }
+            
+            input.trigger('input');
+        });
+        
+        // إضافة أزرار سريعة لكل عنصر
+        $('.item-row').each(function() {
+            var quickActions = $('<div class="mt-2">' +
+                '<button type="button" class="btn btn-sm btn-success quick-action mr-1" data-action="full">الكل</button>' +
+                '<button type="button" class="btn btn-sm btn-warning quick-action mr-1" data-action="half">النصف</button>' +
+                '<button type="button" class="btn btn-sm btn-danger quick-action" data-action="zero">لا شيء</button>' +
+                '</div>');
+            
+            $(this).find('.col-md-2:nth-child(3)').append(quickActions);
+        });
+    });
+</script>
+{% endblock %}

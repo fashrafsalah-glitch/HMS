@@ -1,9 +1,15 @@
 from django.contrib import admin
 from .models import (
     Device, DeviceCategory, DeviceSubCategory, Company, DeviceType, DeviceUsage,
-    DeviceUsageLog, DeviceUsageLogItem, ScanSession, ScanHistory,
-    DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog,
-    DeviceTransferRequest
+    DeviceDailyUsageLog, DeviceUsageLogItem, ScanSession, ScanHistory,
+    DeviceTransferLog, PatientTransferLog, DeviceHandoverLog, DeviceAccessory, DeviceAccessoryUsageLog,
+    DeviceTransferRequest, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog
+)
+
+from .models import (
+    ServiceRequest, WorkOrder, JobPlan, JobPlanStep, PreventiveMaintenanceSchedule,
+    SLADefinition, Supplier, SparePart, SystemNotification, EmailLog,
+    NotificationPreference, NotificationTemplate, NotificationQueue
 )
 
 @admin.register(Device)
@@ -20,12 +26,11 @@ class DeviceAdmin(admin.ModelAdmin):
             obj.generate_qr_code()
             obj.save(update_fields=['qr_code', 'qr_token'])
 
-@admin.register(DeviceUsageLog)
-class DeviceUsageLogAdmin(admin.ModelAdmin):
-    list_display = ['session_id', 'user', 'patient', 'operation_type', 'created_at', 'is_completed']
-    list_filter = ['operation_type', 'is_completed', 'created_at']
-    search_fields = ['user__first_name', 'user__last_name', 'patient__first_name', 'patient__last_name']
-    readonly_fields = ['session_id', 'created_at']
+@admin.register(DeviceDailyUsageLog)
+class DeviceDailyUsageLogAdmin(admin.ModelAdmin):
+    list_display = ['device', 'date', 'total_usage_time']
+    list_filter = ['date']
+    search_fields = ['device__name']
 
 @admin.register(DeviceUsageLogItem)
 class DeviceUsageLogItemAdmin(admin.ModelAdmin):
@@ -54,3 +59,33 @@ admin.site.register(DeviceCleaningLog)
 admin.site.register(DeviceSterilizationLog)
 admin.site.register(DeviceMaintenanceLog)
 admin.site.register(DeviceTransferRequest)
+
+# CMMS Models
+admin.site.register(ServiceRequest)
+admin.site.register(WorkOrder)
+admin.site.register(JobPlan)
+admin.site.register(JobPlanStep)
+admin.site.register(PreventiveMaintenanceSchedule)
+admin.site.register(SLADefinition)
+
+# Notification Models
+admin.site.register(SystemNotification)
+admin.site.register(EmailLog)
+admin.site.register(NotificationPreference)
+admin.site.register(NotificationTemplate)
+admin.site.register(NotificationQueue)
+
+# Spare Parts, Calibration and Downtime Models
+@admin.register(Supplier)
+class SupplierAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'contact_person', 'phone', 'email', 'status']
+    list_filter = ['status']
+    search_fields = ['name', 'code', 'contact_person', 'email']
+
+@admin.register(SparePart)
+class SparePartAdmin(admin.ModelAdmin):
+    list_display = ['name', 'part_number', 'current_stock', 'minimum_stock', 'primary_supplier', 'unit_cost']
+    list_filter = ['primary_supplier', 'unit', 'status']
+    search_fields = ['name', 'part_number', 'description']
+
+

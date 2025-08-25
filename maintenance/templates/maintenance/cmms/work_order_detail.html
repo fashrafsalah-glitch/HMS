@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل أمر الشغل{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- بطاقة تفاصيل أمر الشغل -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">أمر شغل #WO-{{ work_order.id }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'work_order_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">الجهاز:</dt>
+                                <dd class="col-sm-8">
+                                    <a href="{% url 'device_detail' work_order.device.id %}">
+                                        {{ work_order.device.name }} ({{ work_order.device.serial_number }})
+                                    </a>
+                                </dd>
+                                
+                                <dt class="col-sm-4">القسم:</dt>
+                                <dd class="col-sm-8">{{ work_order.device.department.name }}</dd>
+                                
+                                <dt class="col-sm-4">الموقع:</dt>
+                                <dd class="col-sm-8">{{ work_order.device.room }}</dd>
+                                
+                                <dt class="col-sm-4">البلاغ المرتبط:</dt>
+                                <dd class="col-sm-8">
+                                    {% if work_order.service_request %}
+                                        <a href="{% url 'service_request_detail' work_order.service_request.id %}">
+                                            SR-{{ work_order.service_request.id }}: {{ work_order.service_request.title }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">لا يوجد</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">الحالة:</dt>
+                                <dd class="col-sm-8">
+                                    {% if work_order.status == 'new' %}
+                                        <span class="badge badge-primary">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'assigned' %}
+                                        <span class="badge badge-info">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'in_progress' %}
+                                        <span class="badge badge-warning">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'on_hold' or work_order.status == 'wait_parts' %}
+                                        <span class="badge badge-secondary">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'resolved' or work_order.status == 'qa_verified' %}
+                                        <span class="badge badge-success">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'closed' %}
+                                        <span class="badge badge-dark">{{ work_order.get_status_display }}</span>
+                                    {% elif work_order.status == 'cancelled' %}
+                                        <span class="badge badge-danger">{{ work_order.get_status_display }}</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">الفني المسؤول:</dt>
+                                <dd class="col-sm-8">
+                                    {% if work_order.assignee %}
+                                        {{ work_order.assignee.get_full_name }}
+                                    {% else %}
+                                        <span class="text-muted">غير معين</span>
+                                        {% if perms.maintenance.assign_workorder %}
+                                            <a href="{% url 'work_order_assign' work_order.id %}" class="btn btn-primary btn-sm ml-2">
+                                                <i class="fas fa-user-plus"></i> تعيين
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">تاريخ الإنشاء:</dt>
+                                <dd class="col-sm-8">{{ work_order.created_at|date:"Y-m-d H:i" }}</dd>
+                                
+                                <dt class="col-sm-4">آخر تحديث:</dt>
+                                <dd class="col-sm-8">{{ work_order.updated_at|date:"Y-m-d H:i" }}</dd>
+                                
+                                {% if work_order.start_time %}
+                                <dt class="col-sm-4">وقت البدء:</dt>
+                                <dd class="col-sm-8">{{ work_order.start_time|date:"Y-m-d H:i" }}</dd>
+                                {% endif %}
+                                
+                                {% if work_order.end_time %}
+                                <dt class="col-sm-4">وقت الانتهاء:</dt>
+                                <dd class="col-sm-8">{{ work_order.end_time|date:"Y-m-d H:i" }}</dd>
+                                {% endif %}
+                                
+                                {% if work_order.work_duration %}
+                                <dt class="col-sm-4">مدة العمل:</dt>
+                                <dd class="col-sm-8">{{ work_order.work_duration }} ساعة</dd>
+                                {% endif %}
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h5>وصف العمل:</h5>
+                            <div class="p-3 bg-light rounded">
+                                {{ work_order.description|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if work_order.resolution %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h5>الحل:</h5>
+                            <div class="p-3 bg-light rounded">
+                                {{ work_order.resolution|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- نموذج تحديث الحالة -->
+                    {% if can_update_status %}
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card card-primary card-outline">
+                                <div class="card-header">
+                                    <h5 class="card-title">تحديث حالة أمر الشغل</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="post" action="{% url 'work_order_update_status' work_order.id %}">
+                                        {% csrf_token %}
+                                        <div class="form-row">
+                                            <div class="form-group col-md-6">
+                                                <label for="id_status">الحالة الجديدة:</label>
+                                                {{ status_form.status }}
+                                            </div>
+                                            <div class="form-group col-md-6">
+                                                <label for="id_resolution">ملاحظات الحل:</label>
+                                                {{ status_form.resolution }}
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> تحديث الحالة
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- بطاقة التعليقات -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">التعليقات والملاحظات</h3>
+                </div>
+                <div class="card-body">
+                    <!-- قائمة التعليقات -->
+                    <div class="direct-chat-messages" style="height: 400px; overflow-y: auto;">
+                        {% for comment in comments %}
+                            <div class="direct-chat-msg {% if comment.user == request.user %}right{% endif %}">
+                                <div class="direct-chat-infos clearfix">
+                                    <span class="direct-chat-name {% if comment.user == request.user %}float-right{% else %}float-left{% endif %}">
+                                        {{ comment.user.get_full_name }}
+                                    </span>
+                                    <span class="direct-chat-timestamp {% if comment.user == request.user %}float-left{% else %}float-right{% endif %}">
+                                        {{ comment.created_at|date:"Y-m-d H:i" }}
+                                    </span>
+                                </div>
+                                <div class="direct-chat-text">
+                                    {{ comment.comment|linebreaks }}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center text-muted">
+                                <p>لا توجد تعليقات</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- نموذج إضافة تعليق -->
+                    <form method="post" action="{% url 'work_order_add_comment' work_order.id %}" class="mt-3">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            {{ comment_form.comment }}
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- بطاقة سجل التغييرات -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">سجل التغييرات</h3>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="timeline timeline-inverse" style="margin: 0 10px 0 0;">
+                        {% for log in status_logs %}
+                            <li>
+                                <i class="fas fa-circle bg-primary"></i>
+                                <div class="timeline-item">
+                                    <span class="time"><i class="fas fa-clock"></i> {{ log.created_at|date:"Y-m-d H:i" }}</span>
+                                    <h3 class="timeline-header">{{ log.user.get_full_name }} قام بتغيير الحالة</h3>
+                                    <div class="timeline-body">
+                                        تم تغيير الحالة من 
+                                        <span class="badge badge-secondary">{{ log.get_old_status_display }}</span> 
+                                        إلى 
+                                        <span class="badge badge-primary">{{ log.get_new_status_display }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                        {% empty %}
+                            <li>
+                                <div class="timeline-item">
+                                    <div class="timeline-body text-center text-muted">
+                                        لا توجد تغييرات مسجلة
+                                    </div>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

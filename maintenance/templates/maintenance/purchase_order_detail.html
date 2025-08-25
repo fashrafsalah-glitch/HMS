@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل أمر الشراء - {{ purchase_order.po_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">تفاصيل أمر الشراء - {{ purchase_order.po_number }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'purchase_order_update' purchase_order.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'purchase_order_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-list"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info"><i class="fas fa-building"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">المورد</span>
+                                    <span class="info-box-number">
+                                        <a href="{% url 'supplier_detail' purchase_order.supplier.id %}">
+                                            {{ purchase_order.supplier.name }}
+                                        </a>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon {% if purchase_order.status == 'PENDING' %}bg-warning{% elif purchase_order.status == 'APPROVED' %}bg-primary{% elif purchase_order.status == 'RECEIVED' %}bg-success{% elif purchase_order.status == 'CANCELLED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {% if purchase_order.status == 'PENDING' %}
+                                    <i class="fas fa-clock"></i>
+                                    {% elif purchase_order.status == 'APPROVED' %}
+                                    <i class="fas fa-thumbs-up"></i>
+                                    {% elif purchase_order.status == 'RECEIVED' %}
+                                    <i class="fas fa-check-circle"></i>
+                                    {% elif purchase_order.status == 'CANCELLED' %}
+                                    <i class="fas fa-ban"></i>
+                                    {% else %}
+                                    <i class="fas fa-question-circle"></i>
+                                    {% endif %}
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">حالة الطلب</span>
+                                    <span class="info-box-number">
+                                        {% if purchase_order.status == 'PENDING' %}
+                                        قيد الانتظار
+                                        {% elif purchase_order.status == 'APPROVED' %}
+                                        معتمد
+                                        {% elif purchase_order.status == 'RECEIVED' %}
+                                        تم الاستلام
+                                        {% elif purchase_order.status == 'CANCELLED' %}
+                                        ملغي
+                                        {% else %}
+                                        غير معروف
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 30%">رقم أمر الشراء</th>
+                                    <td>{{ purchase_order.po_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الطلب</th>
+                                    <td>{{ purchase_order.order_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ التسليم المتوقع</th>
+                                    <td>
+                                        {% if purchase_order.expected_delivery %}
+                                        {{ purchase_order.expected_delivery|date:"Y-m-d" }}
+                                        {% else %}
+                                        غير محدد
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>شروط الدفع</th>
+                                    <td>
+                                        {% if purchase_order.payment_terms %}
+                                        {{ purchase_order.payment_terms }}
+                                        {% else %}
+                                        غير محدد
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>تم إنشاؤه بواسطة</th>
+                                    <td>{{ purchase_order.created_by.get_full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الإنشاء</th>
+                                    <td>{{ purchase_order.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>آخر تحديث</th>
+                                    <td>{{ purchase_order.updated_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if purchase_order.notes %}
+                    <div class="mt-4">
+                        <h5>ملاحظات</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                {{ purchase_order.notes|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <h5>عناصر أمر الشراء</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>قطعة الغيار</th>
+                                        <th>رقم القطعة</th>
+                                        <th>الكمية</th>
+                                        <th>سعر الوحدة</th>
+                                        <th>المجموع</th>
+                                        <th>ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in purchase_order.purchaseorderitem_set.all %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>
+                                            <a href="{% url 'spare_part_detail' item.spare_part.id %}">
+                                                {{ item.spare_part.name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ item.spare_part.part_number }}</td>
+                                        <td>{{ item.quantity }} {{ item.spare_part.get_unit_display }}</td>
+                                        <td>{{ item.unit_price }}</td>
+                                        <td>{{ item.total_price }}</td>
+                                        <td>{{ item.notes|default:"-" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="text-center">لا توجد عناصر في أمر الشراء</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="5" class="text-right">إجمالي المبلغ:</th>
+                                        <th>{{ purchase_order.total_amount }}</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        {% if purchase_order.status == 'PENDING' %}
+                        <div class="col-md-4">
+                            <a href="{% url 'purchase_order_approve' purchase_order.id %}" class="btn btn-success btn-block">
+                                <i class="fas fa-thumbs-up"></i> اعتماد أمر الشراء
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="{% url 'purchase_order_update' purchase_order.id %}" class="btn btn-primary btn-block">
+                                <i class="fas fa-edit"></i> تعديل أمر الشراء
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="{% url 'purchase_order_cancel' purchase_order.id %}" class="btn btn-danger btn-block">
+                                <i class="fas fa-ban"></i> إلغاء أمر الشراء
+                            </a>
+                        </div>
+                        {% elif purchase_order.status == 'APPROVED' %}
+                        <div class="col-md-6">
+                            <a href="{% url 'purchase_order_receive' purchase_order.id %}" class="btn btn-success btn-block">
+                                <i class="fas fa-truck"></i> تسجيل استلام الطلب
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'purchase_order_cancel' purchase_order.id %}" class="btn btn-danger btn-block">
+                                <i class="fas fa-ban"></i> إلغاء أمر الشراء
+                            </a>
+                        </div>
+                        {% elif purchase_order.status == 'RECEIVED' %}
+                        <div class="col-md-6">
+                            <a href="{% url 'supplier_detail' purchase_order.supplier.id %}" class="btn btn-info btn-block">
+                                <i class="fas fa-building"></i> عرض تفاصيل المورد
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'purchase_order_print' purchase_order.id %}" class="btn btn-secondary btn-block" target="_blank">
+                                <i class="fas fa-print"></i> طباعة أمر الشراء
+                            </a>
+                        </div>
+                        {% else %}
+                        <div class="col-md-6">
+                            <a href="{% url 'purchase_order_list' %}" class="btn btn-secondary btn-block">
+                                <i class="fas fa-list"></i> العودة لقائمة أوامر الشراء
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'purchase_order_print' purchase_order.id %}" class="btn btn-info btn-block" target="_blank">
+                                <i class="fas fa-print"></i> طباعة أمر الشراء
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

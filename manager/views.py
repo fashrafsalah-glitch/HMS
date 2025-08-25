@@ -30,7 +30,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse, reverse_lazy
 from django.db import transaction
-import pandas as pd # type: ignore
+# import pandas as pd # type: ignore - moved to function level to avoid loading during migrations
 from django.views.decorators.http import require_GET
 from django.utils.module_loading import import_string
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -2325,6 +2325,7 @@ class FollowUpCreateView(LoginRequiredMixin, HospitalmanagerRequiredMixin, Creat
 ICD11_PATH = os.path.join(settings.BASE_DIR, "static", "icd11.xlsx")   # adjust if needed
 
 try:
+    import pandas as pd
     _icd_df = (
         pd.read_excel(ICD11_PATH, engine="openpyxl")[["Code", "Title"]]
         .fillna("")
@@ -2332,6 +2333,7 @@ try:
     )
 except Exception as exc:            # file missing or bad format
     print(f"[ICD‑11] could not load {ICD11_PATH}: {exc}")
+    import pandas as pd
     _icd_df = pd.DataFrame(columns=["Code", "Title"])
 
 

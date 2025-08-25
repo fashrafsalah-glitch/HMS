@@ -95,22 +95,225 @@ def generate_accessory_qr_code(sender, instance, created, **kwargs):
             print(f"Error generating DeviceAccessory QR code: {e}")
 
 
-@receiver(post_save, sender='manager.Patient') 
-def generate_patient_qr_code(sender, instance, created, **kwargs):
-    """Generate QR code for patients - they already have QR functionality"""
-    # Patients already have QR code generation in their save method
-    pass
+# ═══════════════════════════════════════════════════════════════
+# CMMS SIGNALS - التحويل التلقائي للبلاغات وأوامر الشغل
+# ═══════════════════════════════════════════════════════════════
+
+from .models import ServiceRequest, WorkOrder, SLAMatrix, DowntimeEvent, DeviceUsageLog
+from django.utils import timezone
+from datetime import timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender='manager.Department')
-def generate_department_qr_code(sender, instance, created, **kwargs):
-    """Generate QR code for departments"""
-    # We'll add QR fields to Department model via migration
-    pass
+@receiver(post_save, sender=ServiceRequest)
+def auto_create_work_order(sender, instance, created, **kwargs):
+    """
+    التحويل التلقائي للبلاغ إلى أمر شغل
+    هنا بنشوف لو البلاغ محتاج أمر شغل ونعمله تلقائياً
+    """
+    if created and instance.status == 'new':
+        try:
+            # التحقق من عدم وجود أمر شغل مسبق
+            if not instance.work_orders.exists():
+                
+                # تحديد SLA المناسب من المصفوفة
+                sla_definition = None
+                try:
+                    sla_matrix = SLAMatrix.objects.get(
+                        device_category=instance.device.category,
+                        severity=instance.severity,
+                        impact=instance.impact,
+                        priority=instance.priority,
+                        is_active=True
+                    )
+                    sla_definition = sla_matrix.sla_definition
+                except SLAMatrix.DoesNotExist:
+                    # البحث عن SLA افتراضي
+                    from .models import SLADefinition
+                    sla_definition = SLADefinition.objects.filter(is_active=True).first()
+                
+                # تحديث البلاغ بمعلومات SLA
+                if sla_definition:
+                    instance.response_due = timezone.now() + timedelta(hours=sla_definition.response_time_hours)
+                    instance.resolution_due = timezone.now() + timedelta(hours=sla_definition.resolution_time_hours)
+                    instance.save(update_fields=['response_due', 'resolution_due'])
+                
+                # إنشاء أمر الشغل تلقائياً
+                work_order = WorkOrder.objects.create(
+                    service_request=instance,
+                    title=f"أمر شغل - {instance.title}",
+                    description=instance.description,
+                    wo_type='corrective' if instance.request_type == 'breakdown' else 'preventive',
+                    priority=instance.priority,
+                    created_by=instance.reporter,
+                    assignee=instance.assigned_to,
+                    estimated_hours=instance.estimated_hours
+                )
+                
+                # تحديث حالة البلاغ
+                instance.status = 'assigned' if instance.assigned_to else 'new'
+                instance.save(update_fields=['status'])
+                
+                logger.info(f"تم إنشاء أمر شغل تلقائي {work_order.wo_number} للبلاغ {instance.id}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء أمر الشغل التلقائي للبلاغ {instance.id}: {str(e)}")
 
 
-@receiver(post_save, sender='manager.Bed')
-def generate_bed_qr_code(sender, instance, created, **kwargs):
-    """Generate QR code for beds"""
-    # We'll add QR fields to Bed model via migration  
-    pass
+@receiver(post_save, sender=WorkOrder)
+def update_service_request_status(sender, instance, created, **kwargs):
+    """
+    تحديث حالة البلاغ عند تغيير حالة أمر الشغل
+    هنا بنخلي البلاغ يتابع حالة أمر الشغل
+    """
+    if not created:  # فقط عند التحديث، مش عند الإنشاء
+        try:
+            service_request = instance.service_request
+            
+            # ربط حالات أمر الشغل بحالات البلاغ
+            status_mapping = {
+                'new': 'new',
+                'assigned': 'assigned', 
+                'in_progress': 'in_progress',
+                'wait_parts': 'in_progress',
+                'on_hold': 'in_progress',
+                'resolved': 'resolved',
+                'qa_verified': 'resolved',
+                'closed': 'closed',
+                'cancelled': 'cancelled'
+            }
+            
+            new_sr_status = status_mapping.get(instance.status, service_request.status)
+            
+            if service_request.status != new_sr_status:
+                service_request.status = new_sr_status
+                
+                # تحديث تواريخ الحل والإغلاق
+                if new_sr_status == 'resolved' and not service_request.resolved_at:
+                    service_request.resolved_at = timezone.now()
+                elif new_sr_status == 'closed' and not service_request.closed_at:
+                    service_request.closed_at = timezone.now()
+                
+                service_request.save(update_fields=['status', 'resolved_at', 'closed_at'])
+                
+                logger.info(f"تم تحديث حالة البلاغ {service_request.id} إلى {new_sr_status}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في تحديث حالة البلاغ لأمر الشغل {instance.id}: {str(e)}")
+
+
+@receiver(post_save, sender=DeviceUsageLog)
+def auto_create_maintenance_request(sender, instance, created, **kwargs):
+    """
+    إنشاء بلاغ صيانة تلقائي عند اكتشاف مشاكل في التفقد اليومي
+    هنا لو الفني لاقى مشكلة في الجهاز، بنعمل بلاغ تلقائي
+    """
+    if created and instance.maintenance_needed and instance.issues_found:
+        try:
+            # التحقق من عدم وجود بلاغ مفتوح للجهاز
+            existing_request = ServiceRequest.objects.filter(
+                device=instance.device,
+                status__in=['new', 'assigned', 'in_progress'],
+                request_type='breakdown'
+            ).exists()
+            
+            if not existing_request:
+                # تحديد درجة الخطورة حسب حالة التشغيل
+                severity_mapping = {
+                    'working': 'low',
+                    'minor_issues': 'medium', 
+                    'major_issues': 'high',
+                    'not_working': 'critical'
+                }
+                
+                severity = severity_mapping.get(instance.operational_status, 'medium')
+                
+                # إنشاء البلاغ التلقائي
+                service_request = ServiceRequest.objects.create(
+                    title=f"مشكلة مكتشفة في التفقد اليومي - {instance.device.name}",
+                    description=f"تم اكتشاف المشاكل التالية أثناء التفقد اليومي:\n{instance.issues_found}",
+                    device=instance.device,
+                    request_type='breakdown',
+                    severity=severity,
+                    impact='moderate' if severity in ['low', 'medium'] else 'high',
+                    priority='medium' if severity in ['low', 'medium'] else 'high',
+                    reporter=instance.checked_by,
+                    estimated_hours=2.0 if severity == 'low' else 4.0
+                )
+                
+                logger.info(f"تم إنشاء بلاغ تلقائي {service_request.id} من التفقد اليومي للجهاز {instance.device.name}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء بلاغ تلقائي من التفقد اليومي: {str(e)}")
+
+
+@receiver(post_save, sender=DowntimeEvent)
+def auto_create_downtime_request(sender, instance, created, **kwargs):
+    """
+    إنشاء بلاغ تلقائي عند بداية توقف الجهاز
+    هنا لو الجهاز توقف، بنعمل بلاغ عاجل تلقائي
+    """
+    if created and instance.downtime_type in ['unplanned', 'emergency']:
+        try:
+            # التحقق من عدم وجود بلاغ مرتبط
+            if not instance.related_work_order:
+                
+                # تحديد الأولوية حسب نوع التوقف
+                priority = 'critical' if instance.downtime_type == 'emergency' else 'high'
+                
+                # إنشاء البلاغ التلقائي
+                service_request = ServiceRequest.objects.create(
+                    title=f"توقف الجهاز - {instance.device.name}",
+                    description=f"توقف الجهاز عن العمل:\nالسبب: {instance.reason}\nالتأثير: {instance.impact_description}",
+                    device=instance.device,
+                    request_type='breakdown',
+                    severity='critical',
+                    impact='high',
+                    priority=priority,
+                    reporter=instance.reported_by,
+                    estimated_hours=6.0 if priority == 'critical' else 4.0
+                )
+                
+                # ربط حدث التوقف بأمر الشغل الذي سيتم إنشاؤه
+                # (سيتم إنشاؤه تلقائياً بواسطة signal البلاغ)
+                work_orders = service_request.work_orders.all()
+                if work_orders.exists():
+                    instance.related_work_order = work_orders.first()
+                    instance.save(update_fields=['related_work_order'])
+                
+                logger.info(f"تم إنشاء بلاغ توقف تلقائي {service_request.id} للجهاز {instance.device.name}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء بلاغ توقف تلقائي: {str(e)}")
+
+
+# Signal لتحديث حالة الجهاز عند بداية ونهاية التوقف
+@receiver(post_save, sender=DowntimeEvent)
+def update_device_status_on_downtime(sender, instance, created, **kwargs):
+    """
+    تحديث حالة الجهاز عند بداية أو نهاية التوقف
+    هنا بنخلي حالة الجهاز تتغير لما يتوقف أو يرجع يشتغل
+    """
+    try:
+        device = instance.device
+        
+        if created and instance.end_time is None:
+            # بداية التوقف - تحديث حالة الجهاز
+            device.status = 'out_of_order'
+            device.availability = False
+            device.save(update_fields=['status', 'availability'])
+            
+            logger.info(f"تم تحديث حالة الجهاز {device.name} إلى خارج الخدمة")
+            
+        elif not created and instance.end_time and instance.is_ongoing() == False:
+            # نهاية التوقف - إعادة تشغيل الجهاز
+            device.status = 'needs_check'  # يحتاج فحص قبل العودة للخدمة
+            device.availability = True
+            device.save(update_fields=['status', 'availability'])
+            
+            logger.info(f"تم إنهاء توقف الجهاز {device.name} - يحتاج فحص")
+            
+    except Exception as e:
+        logger.error(f"خطأ في تحديث حالة الجهاز عند التوقف: {str(e)}")

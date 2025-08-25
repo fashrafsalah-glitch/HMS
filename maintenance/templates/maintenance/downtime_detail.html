@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل توقف الجهاز - {{ downtime.device.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">تفاصيل توقف الجهاز - {{ downtime.device.name }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'downtime_update' downtime.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit"></i> تعديل
+                        </a>
+                        <a href="{% url 'downtime_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-list"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info"><i class="fas fa-microscope"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">الجهاز</span>
+                                    <span class="info-box-number">
+                                        <a href="{% url 'device_detail' downtime.device.id %}">
+                                            {{ downtime.device.name }}
+                                        </a>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-box-icon {% if downtime.status == 'ACTIVE' %}bg-danger{% else %}bg-success{% endif %}">
+                                    {% if downtime.status == 'ACTIVE' %}
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {% else %}
+                                    <i class="fas fa-check-circle"></i>
+                                    {% endif %}
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">حالة التوقف</span>
+                                    <span class="info-box-number">
+                                        {% if downtime.status == 'ACTIVE' %}
+                                        نشط
+                                        {% else %}
+                                        تم الحل
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 30%">بداية التوقف</th>
+                                    <td>{{ downtime.start_time|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>نهاية التوقف</th>
+                                    <td>
+                                        {% if downtime.end_time %}
+                                        {{ downtime.end_time|date:"Y-m-d H:i" }}
+                                        {% else %}
+                                        <span class="badge badge-warning">مستمر</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>مدة التوقف</th>
+                                    <td>
+                                        {% if downtime.duration_hours %}
+                                        {{ downtime.duration_hours }} ساعة
+                                        {% else %}
+                                        <span class="badge badge-warning">مستمر</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>سبب التوقف</th>
+                                    <td>
+                                        {% if downtime.reason == 'BREAKDOWN' %}
+                                        <span class="badge badge-danger">عطل</span>
+                                        {% elif downtime.reason == 'MAINTENANCE' %}
+                                        <span class="badge badge-info">صيانة</span>
+                                        {% elif downtime.reason == 'CALIBRATION' %}
+                                        <span class="badge badge-primary">معايرة</span>
+                                        {% elif downtime.reason == 'POWER' %}
+                                        <span class="badge badge-warning">مشكلة كهرباء</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">أخرى</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>أمر العمل</th>
+                                    <td>
+                                        {% if downtime.work_order %}
+                                        <a href="{% url 'work_order_detail' downtime.work_order.id %}">
+                                            {{ downtime.work_order.wo_number }} - {{ downtime.work_order.description }}
+                                        </a>
+                                        {% else %}
+                                        لا يوجد
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>تم إنشاؤه بواسطة</th>
+                                    <td>{{ downtime.created_by.get_full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الإنشاء</th>
+                                    <td>{{ downtime.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>آخر تحديث</th>
+                                    <td>{{ downtime.updated_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if downtime.description %}
+                    <div class="mt-4">
+                        <h5>وصف المشكلة</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                {{ downtime.description|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if downtime.resolution_notes %}
+                    <div class="mt-4">
+                        <h5>ملاحظات الحل</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                {{ downtime.resolution_notes|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        {% if downtime.status == 'ACTIVE' %}
+                        <div class="col-md-6">
+                            <a href="{% url 'downtime_resolve' downtime.id %}" class="btn btn-success btn-block">
+                                <i class="fas fa-check"></i> تسجيل انتهاء التوقف
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            {% if not downtime.work_order %}
+                            <a href="{% url 'work_order_create' %}?device={{ downtime.device.id }}&downtime={{ downtime.id }}" class="btn btn-primary btn-block">
+                                <i class="fas fa-tools"></i> إنشاء أمر عمل
+                            </a>
+                            {% else %}
+                            <a href="{% url 'work_order_detail' downtime.work_order.id %}" class="btn btn-info btn-block">
+                                <i class="fas fa-clipboard-list"></i> عرض أمر العمل
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="col-md-6">
+                            <a href="{% url 'device_detail' downtime.device.id %}" class="btn btn-info btn-block">
+                                <i class="fas fa-microscope"></i> عرض تفاصيل الجهاز
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            {% if downtime.work_order %}
+                            <a href="{% url 'work_order_detail' downtime.work_order.id %}" class="btn btn-primary btn-block">
+                                <i class="fas fa-clipboard-list"></i> عرض أمر العمل
+                            </a>
+                            {% else %}
+                            <a href="{% url 'downtime_list' %}?device={{ downtime.device.id }}" class="btn btn-secondary btn-block">
+                                <i class="fas fa-history"></i> سجل توقفات الجهاز
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- إحصائيات الجهاز -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات توقف الجهاز</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="info-box bg-danger">
+                                <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">عدد مرات التوقف</span>
+                                    <span class="info-box-number">{{ device_stats.total_downtimes }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="info-box bg-warning">
+                                <span class="info-box-icon"><i class="fas fa-clock"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي ساعات التوقف</span>
+                                    <span class="info-box-number">{{ device_stats.total_hours }} ساعة</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="info-box bg-success">
+                                <span class="info-box-icon"><i class="fas fa-chart-line"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">نسبة التوافر</span>
+                                    <span class="info-box-number">{{ device_stats.availability_rate }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- رسم بياني لتوقفات الجهاز -->
+                    <div class="mt-4">
+                        <canvas id="deviceDowntimeChart" style="height: 250px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    $(document).ready(function() {
+        // رسم بياني لتوقفات الجهاز
+        var ctx = document.getElementById('deviceDowntimeChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ device_stats.months|safe }},
+                datasets: [{
+                    label: 'ساعات التوقف',
+                    data: {{ device_stats.hours_per_month|safe }},
+                    backgroundColor: '#dc3545'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'ساعات التوقف'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'الشهر'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

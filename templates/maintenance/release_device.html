@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load lab_filters %}
+
+{% block title %}إنهاء استخدام الجهاز - {{ device.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/maintenance.css' %}">
+<style>
+    .device-info-card {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-left: 4px solid #007bff;
+        margin-bottom: 20px;
+    }
+    .usage-summary {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .time-display {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .patient-info {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .release-form {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 25px;
+    }
+    .form-section {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    .condition-check {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+    }
+    .condition-check:hover {
+        background: #f8f9fa;
+    }
+    .condition-check input[type="checkbox"] {
+        margin-right: 10px;
+        transform: scale(1.2);
+    }
+    .issue-detected {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    .usage-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .timeline-item {
+        position: relative;
+        padding: 10px 0;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -20px;
+        top: 15px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+    .timeline-line {
+        position: absolute;
+        left: -16px;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-stop-circle"></i> إنهاء استخدام الجهاز</h2>
+                <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-right"></i> العودة للجهاز
+                </a>
+            </div>
+
+            <!-- Device Information -->
+            <div class="card device-info-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            {% if device.image %}
+                            <img src="{{ device.image.url }}" class="img-fluid rounded" alt="{{ device.name }}">
+                            {% else %}
+                            <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 80px;">
+                                <i class="fas fa-desktop fa-2x text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h4 class="mb-2">{{ device.name }}</h4>
+                            <div class="row text-muted">
+                                <div class="col-md-6">
+                                    <div><i class="fas fa-barcode"></i> {{ device.serial_number|default:"غير محدد" }}</div>
+                                    <div><i class="fas fa-building"></i> {{ device.department.name }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div><i class="fas fa-door-open"></i> {{ device.room.name|default:"غير محدد" }}</div>
+                                    <div><i class="fas fa-industry"></i> {{ device.manufacturer|default:"غير محدد" }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Usage Summary -->
+            <div class="usage-summary">
+                <h5><i class="fas fa-clock"></i> ملخص الاستخدام الحالي</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>وقت البداية:</strong>
+                            <div class="time-display">{{ device.usage_start_time|date:"d/m/Y H:i" }}</div>
+                        </div>
+                        <div class="mb-2">
+                            <strong>المدة:</strong>
+                            <div class="time-display">{{ usage_duration }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong>الغرض:</strong>
+                            <span class="badge bg-info">{{ usage_log.usage_purpose|default:"غير محدد" }}</span>
+                        </div>
+                        {% if usage_log.notes %}
+                        <div class="mb-2">
+                            <strong>ملاحظات البداية:</strong>
+                            <p class="text-muted mb-0">{{ usage_log.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient Information -->
+            {% if device.current_patient %}
+            <div class="patient-info">
+                <h6><i class="fas fa-user-injured"></i> معلومات المريض</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div><strong>الاسم:</strong> {{ device.current_patient.get_full_name }}</div>
+                        <div><strong>رقم الملف:</strong> {{ device.current_patient.mrn }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div><strong>العمر:</strong> {{ device.current_patient.age|default:"غير محدد" }}</div>
+                        <div><strong>الجنس:</strong> {{ device.current_patient.get_gender_display|default:"غير محدد" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Release Form -->
+            <form method="post" class="release-form" id="releaseForm">
+                {% csrf_token %}
+                
+                <!-- Device Condition Check -->
+                <div class="form-section">
+                    <h5><i class="fas fa-check-circle"></i> فحص حالة الجهاز</h5>
+                    <p class="text-muted mb-3">يرجى فحص الجهاز والتأكد من حالته قبل الإنهاء</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="condition-check">
+                                <input type="checkbox" id="power_check" name="power_check" value="1">
+                                <label for="power_check">الجهاز يعمل بشكل طبيعي</label>
+                            </div>
+                            <div class="condition-check">
+                                <input type="checkbox" id="display_check" name="display_check" value="1">
+                                <label for="display_check">الشاشة والمؤشرات واضحة</label>
+                            </div>
+                            <div class="condition-check">
+                                <input type="checkbox" id="sound_check" name="sound_check" value="1">
+                                <label for="sound_check">الأصوات والتنبيهات طبيعية</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="condition-check">
+                                <input type="checkbox" id="physical_check" name="physical_check" value="1">
+                                <label for="physical_check">لا توجد أضرار ظاهرية</label>
+                            </div>
+                            <div class="condition-check">
+                                <input type="checkbox" id="accessories_check" name="accessories_check" value="1">
+                                <label for="accessories_check">جميع الملحقات موجودة</label>
+                            </div>
+                            <div class="condition-check">
+                                <input type="checkbox" id="cleaning_check" name="cleaning_check" value="1">
+                                <label for="cleaning_check">تم تنظيف الجهاز</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Issues Detected -->
+                <div class="form-section">
+                    <h5><i class="fas fa-exclamation-triangle"></i> المشاكل المكتشفة</h5>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="no_issues" name="no_issues" value="1">
+                            <label class="form-check-label text-success" for="no_issues">
+                                <strong>لا توجد مشاكل - الجهاز يعمل بشكل مثالي</strong>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="issuesSection" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="performance_issue">
+                                    <label class="form-check-label">مشكلة في الأداء</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="display_issue">
+                                    <label class="form-check-label">مشكلة في الشاشة</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="sound_issue">
+                                    <label class="form-check-label">مشكلة في الصوت</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="physical_damage">
+                                    <label class="form-check-label">ضرر مادي</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="missing_accessories">
+                                    <label class="form-check-label">ملحقات مفقودة</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="issues" value="needs_calibration">
+                                    <label class="form-check-label">يحتاج معايرة</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Notes -->
+                <div class="form-section">
+                    <h5><i class="fas fa-sticky-note"></i> ملاحظات الاستخدام</h5>
+                    <div class="mb-3">
+                        <label for="usage_notes" class="form-label">ملاحظات حول استخدام الجهاز</label>
+                        <textarea class="form-control" id="usage_notes" name="usage_notes" rows="4" 
+                                  placeholder="أي ملاحظات حول أداء الجهاز أثناء الاستخدام، مشاكل واجهتها، أو توصيات للاستخدام المستقبلي..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Patient Outcome -->
+                {% if device.current_patient %}
+                <div class="form-section">
+                    <h5><i class="fas fa-heartbeat"></i> نتيجة الاستخدام للمريض</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="treatment_outcome" class="form-label">نتيجة العلاج/التشخيص</label>
+                            <select class="form-select" id="treatment_outcome" name="treatment_outcome">
+                                <option value="">اختر النتيجة</option>
+                                <option value="successful">ناجح</option>
+                                <option value="partial">ناجح جزئياً</option>
+                                <option value="unsuccessful">غير ناجح</option>
+                                <option value="interrupted">متوقف</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="patient_condition" class="form-label">حالة المريض عند الانتهاء</label>
+                            <select class="form-select" id="patient_condition" name="patient_condition">
+                                <option value="">اختر الحالة</option>
+                                <option value="stable">مستقرة</option>
+                                <option value="improved">تحسن</option>
+                                <option value="unchanged">لم تتغير</option>
+                                <option value="deteriorated">تدهور</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label for="patient_notes" class="form-label">ملاحظات حول المريض</label>
+                        <textarea class="form-control" id="patient_notes" name="patient_notes" rows="3"
+                                  placeholder="أي ملاحظات حول حالة المريض أو استجابته للعلاج..."></textarea>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Next Actions -->
+                <div class="form-section">
+                    <h5><i class="fas fa-forward"></i> الإجراءات التالية</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="needs_maintenance" name="next_actions" value="maintenance">
+                                <label class="form-check-label">يحتاج صيانة</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="needs_calibration_next" name="next_actions" value="calibration">
+                                <label class="form-check-label">يحتاج معايرة</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="needs_cleaning" name="next_actions" value="cleaning">
+                                <label class="form-check-label">يحتاج تنظيف عميق</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ready_for_use" name="next_actions" value="ready">
+                                <label class="form-check-label text-success"><strong>جاهز للاستخدام التالي</strong></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="text-center">
+                    <button type="button" class="btn btn-secondary me-3" onclick="history.back()">
+                        <i class="fas fa-times"></i> إلغاء
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                        <i class="fas fa-check"></i> إنهاء الاستخدام
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const noIssuesCheck = document.getElementById('no_issues');
+    const issuesSection = document.getElementById('issuesSection');
+    const issueCheckboxes = document.querySelectorAll('input[name="issues"]');
+    const form = document.getElementById('releaseForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Toggle issues section
+    noIssuesCheck.addEventListener('change', function() {
+        if (this.checked) {
+            issuesSection.style.display = 'none';
+            issueCheckboxes.forEach(cb => cb.checked = false);
+        } else {
+            issuesSection.style.display = 'block';
+        }
+    });
+
+    // If any issue is checked, uncheck "no issues"
+    issueCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                noIssuesCheck.checked = false;
+            }
+        });
+    });
+
+    // Form validation and submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Check if at least basic checks are done
+        const basicChecks = document.querySelectorAll('.condition-check input[type="checkbox"]:checked');
+        if (basicChecks.length < 3) {
+            alert('يرجى إجراء فحص أساسي للجهاز قبل الإنهاء');
+            return;
+        }
+
+        // Confirm submission
+        const hasIssues = Array.from(issueCheckboxes).some(cb => cb.checked);
+        let confirmMessage = 'هل أنت متأكد من إنهاء استخدام الجهاز؟';
+        
+        if (hasIssues) {
+            confirmMessage = 'تم اكتشاف مشاكل في الجهاز. سيتم إنشاء بلاغ صيانة تلقائياً. هل تريد المتابعة؟';
+        }
+
+        if (confirm(confirmMessage)) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنهاء...';
+            
+            // Submit form
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('تم إنهاء استخدام الجهاز بنجاح');
+                    window.location.href = data.redirect_url || '{% url "maintenance:device_detail" device.id %}';
+                } else {
+                    alert('حدث خطأ: ' + data.error);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> إنهاء الاستخدام';
+                }
+            })
+            .catch(error => {
+                alert('حدث خطأ في الاتصال');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> إنهاء الاستخدام';
+            });
+        }
+    });
+
+    // Auto-create maintenance request if issues detected
+    document.querySelectorAll('input[name="issues"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const maintenanceCheck = document.getElementById('needs_maintenance');
+            if (this.checked && !maintenanceCheck.checked) {
+                maintenanceCheck.checked = true;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

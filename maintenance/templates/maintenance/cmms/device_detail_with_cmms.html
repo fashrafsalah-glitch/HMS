@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تفاصيل الجهاز{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">معلومات الجهاز</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>الرقم التسلسلي</th>
+                                    <td>{{ device.serial_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>الموديل</th>
+                                    <td>{{ device.model }}</td>
+                                </tr>
+                                <tr>
+                                    <th>النوع</th>
+                                    <td>{{ device.device_type }}</td>
+                                </tr>
+                                <tr>
+                                    <th>القسم</th>
+                                    <td>{{ device.department }}</td>
+                                </tr>
+                                <tr>
+                                    <th>الشركة المصنعة</th>
+                                    <td>{{ device.manufacturer }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>الحالة</th>
+                                    <td>
+                                        {% if device.status == 'available' %}
+                                            <span class="badge badge-success">متاح</span>
+                                        {% elif device.status == 'in_use' %}
+                                            <span class="badge badge-primary">قيد الاستخدام</span>
+                                        {% elif device.status == 'in_maintenance' %}
+                                            <span class="badge badge-warning">قيد الصيانة</span>
+                                        {% elif device.status == 'needs_check' %}
+                                            <span class="badge badge-danger">يحتاج للفحص</span>
+                                        {% elif device.status == 'out_of_service' %}
+                                            <span class="badge badge-dark">خارج الخدمة</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ device.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>الموقع</th>
+                                    <td>{{ device.location|default:"غير محدد" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ الشراء</th>
+                                    <td>{{ device.purchase_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>تاريخ انتهاء الضمان</th>
+                                    <td>{{ device.warranty_end_date|date:"Y-m-d"|default:"غير محدد" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>المستخدم الحالي</th>
+                                    <td>{{ device.current_user|default:"غير مستخدم حالياً" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <div class="btn-group">
+                                {% if perms.maintenance.change_device %}
+                                <a href="{% url 'edit_device' device.id %}" class="btn btn-primary">
+                                    <i class="fas fa-edit"></i> تعديل
+                                </a>
+                                {% endif %}
+                                
+                                {% if device.status == 'available' and perms.maintenance.change_device %}
+                                <a href="{% url 'assign_device' device.id %}" class="btn btn-success">
+                                    <i class="fas fa-user-plus"></i> تعيين للمستخدم
+                                </a>
+                                {% endif %}
+                                
+                                {% if device.status == 'in_use' and perms.maintenance.change_device %}
+                                <a href="{% url 'release_device' device.id %}" class="btn btn-warning">
+                                    <i class="fas fa-undo"></i> استرجاع من المستخدم
+                                </a>
+                                {% endif %}
+                                
+                                {% if perms.maintenance.add_devicemaintenancelog %}
+                                <a href="{% url 'add_maintenance' device.id %}" class="btn btn-info">
+                                    <i class="fas fa-tools"></i> إضافة سجل صيانة
+                                </a>
+                                {% endif %}
+                                
+                                {% if perms.maintenance.add_servicerequest %}
+                                <a href="{% url 'service_request_create' %}?device={{ device.id }}" class="btn btn-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> إنشاء طلب خدمة
+                                </a>
+                                {% endif %}
+                                
+                                <a href="{% url 'device_maintenance_history' device.id %}" class="btn btn-secondary">
+                                    <i class="fas fa-history"></i> تاريخ الصيانة
+                                </a>
+                                
+                                {% if perms.maintenance.view_deviceaccessory %}
+                                <a href="{% url 'device_accessories' device.id %}" class="btn btn-dark">
+                                    <i class="fas fa-puzzle-piece"></i> الملحقات
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات الصيانة -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات الصيانة</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="info-box bg-info">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">طلبات الخدمة المفتوحة</span>
+                                    <span class="info-box-number">{{ open_service_requests.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-success">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">أوامر العمل النشطة</span>
+                                    <span class="info-box-number">{{ active_work_orders.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-warning">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">إجمالي سجلات الصيانة</span>
+                                    <span class="info-box-number">{{ maintenance_logs.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-danger">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">متوسط وقت الإصلاح (MTTR)</span>
+                                    <span class="info-box-number">{{ mttr|floatformat:2 }} ساعة</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- طلبات الخدمة المفتوحة -->
+    {% if open_service_requests %}
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">طلبات الخدمة المفتوحة</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>رقم الطلب</th>
+                                    <th>العنوان</th>
+                                    <th>النوع</th>
+                                    <th>الخطورة</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ الإنشاء</th>
+                                    <th>المبلغ</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sr in open_service_requests %}
+                                    <tr>
+                                        <td>{{ sr.request_number }}</td>
+                                        <td>{{ sr.title }}</td>
+                                        <td>
+                                            {% if sr.request_type == 'breakdown' %}
+                                                <span class="badge badge-danger">عطل</span>
+                                            {% elif sr.request_type == 'inspection' %}
+                                                <span class="badge badge-info">فحص</span>
+                                            {% elif sr.request_type == 'maintenance' %}
+                                                <span class="badge badge-warning">صيانة</span>
+                                            {% elif sr.request_type == 'installation' %}
+                                                <span class="badge badge-primary">تركيب</span>
+                                            {% elif sr.request_type == 'other' %}
+                                                <span class="badge badge-secondary">أخرى</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if sr.severity == 'critical' %}
+                                                <span class="badge badge-danger">حرج</span>
+                                            {% elif sr.severity == 'high' %}
+                                                <span class="badge badge-warning">مرتفع</span>
+                                            {% elif sr.severity == 'medium' %}
+                                                <span class="badge badge-info">متوسط</span>
+                                            {% elif sr.severity == 'low' %}
+                                                <span class="badge badge-success">منخفض</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if sr.status == 'open' %}
+                                                <span class="badge badge-warning">مفتوح</span>
+                                            {% elif sr.status == 'in_progress' %}
+                                                <span class="badge badge-info">قيد التنفيذ</span>
+                                            {% elif sr.status == 'resolved' %}
+                                                <span class="badge badge-success">تم الحل</span>
+                                            {% elif sr.status == 'closed' %}
+                                                <span class="badge badge-secondary">مغلق</span>
+                                            {% endif %}
+                                            
+                                            {% if sr.is_response_overdue %}
+                                                <span class="badge badge-danger">تأخر الرد</span>
+                                            {% elif sr.is_resolution_overdue %}
+                                                <span class="badge badge-danger">تأخر الحل</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ sr.created_at|date:"Y-m-d H:i" }}</td>
+                                        <td>{{ sr.reporter }}</td>
+                                        <td>
+                                            <a href="{% url 'service_request_detail' sr.id %}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- أوامر العمل النشطة -->
+    {% if active_work_orders %}
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">أوامر العمل النشطة</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>رقم أمر العمل</th>
+                                    <th>طلب الخدمة</th>
+                                    <th>الحالة</th>
+                                    <th>المسؤول</th>
+                                    <th>تاريخ البدء</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wo in active_work_orders %}
+                                    <tr>
+                                        <td>{{ wo.work_order_number }}</td>
+                                        <td>
+                                            <a href="{% url 'service_request_detail' wo.service_request.id %}">
+                                                {{ wo.service_request.request_number }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            {% if wo.status == 'open' %}
+                                                <span class="badge badge-warning">مفتوح</span>
+                                            {% elif wo.status == 'assigned' %}
+                                                <span class="badge badge-info">تم التعيين</span>
+                                            {% elif wo.status == 'in_progress' %}
+                                                <span class="badge badge-primary">قيد التنفيذ</span>
+                                            {% elif wo.status == 'on_hold' %}
+                                                <span class="badge badge-dark">معلق</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ wo.assignee|default:"غير معين" }}</td>
+                                        <td>{{ wo.start_time|date:"Y-m-d H:i"|default:"-" }}</td>
+                                        <td>
+                                            <a href="{% url 'work_order_detail' wo.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- معلومات إضافية -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">معلومات إضافية</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">الوصف</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p>{{ device.description|default:"لا يوجد وصف متاح"|linebreaks }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">ملاحظات</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p>{{ device.notes|default:"لا توجد ملاحظات"|linebreaks }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
