@@ -44,14 +44,22 @@
                                 <div class="form-group">
                                     <label for="{{ form.device.id_for_label }}">الجهاز*</label>
                                     {{ form.device }}
+                                    <small class="form-text text-muted">اختر الجهاز الذي تعطل</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.reason.id_for_label }}">سبب التوقف*</label>
-                                    {{ form.reason }}
+                                    <label for="{{ form.downtime_type.id_for_label }}">نوع التوقف*</label>
+                                    {{ form.downtime_type }}
+                                    <small class="form-text text-muted">حدد ما إذا كان التوقف مخططًا أو غير مخطط له</small>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.reason.id_for_label }}">سبب التوقف*</label>
+                            {{ form.reason }}
+                            <small class="form-text text-muted">اشرح سبب توقف الجهاز بالتفصيل</small>
                         </div>
                         
                         <div class="row">
@@ -71,20 +79,26 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="{{ form.description.id_for_label }}">وصف المشكلة*</label>
-                            {{ form.description }}
+                            <label for="{{ form.impact_description.id_for_label }}">وصف تأثير العطل*</label>
+                            {{ form.impact_description }}
+                            <small class="form-text text-muted">اشرح كيف أثر هذا العطل على العمليات أو الخدمات</small>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="{{ form.resolution_notes.id_for_label }}">ملاحظات الحل</label>
-                            {{ form.resolution_notes }}
-                            <small class="form-text text-muted">أضف ملاحظات حول كيفية حل المشكلة</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="{{ form.work_order.id_for_label }}">أمر العمل المرتبط</label>
-                            {{ form.work_order }}
-                            <small class="form-text text-muted">اختر أمر العمل المرتبط بهذا التوقف (إن وجد)</small>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.related_work_order.id_for_label }}">أمر العمل المرتبط</label>
+                                    {{ form.related_work_order }}
+                                    <small class="form-text text-muted">اختر أمر العمل المرتبط بهذا التوقف (إن وجد)</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.cost_impact.id_for_label }}">التأثير المالي</label>
+                                    {{ form.cost_impact }}
+                                    <small class="form-text text-muted">أدخل التكلفة التقديرية للعطل (اختياري)</small>
+                                </div>
+                            </div>
                         </div>
                         
                         {% if form.instance.id %}
@@ -95,8 +109,19 @@
                         {% endif %}
                     </div>
                     <div class="card-footer">
-                        <button type="submit" class="btn btn-primary">حفظ</button>
-                        <a href="{% url 'downtime_list' %}" class="btn btn-secondary">إلغاء</a>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary">حفظ</button>
+                                <a href="{% url 'downtime_list' %}" class="btn btn-secondary">إلغاء</a>
+                            </div>
+                            <div class="col-md-6 text-right">
+                                {% if form.instance.device %}
+                                <a href="{% url 'device_transfer' form.instance.device.id %}" class="btn btn-warning">
+                                    <i class="fas fa-exchange-alt"></i> نقل الجهاز
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -117,7 +142,7 @@
             width: '100%'
         });
         
-        $('#{{ form.work_order.id_for_label }}').select2({
+        $('#{{ form.related_work_order.id_for_label }}').select2({
             placeholder: "اختر أمر العمل",
             allowClear: true,
             width: '100%'

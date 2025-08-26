@@ -16,7 +16,8 @@ from .models import (
 from .forms_spare_parts import (
     SupplierForm, SparePartForm
 )
-from .models import Device, WorkOrder
+from .forms import DowntimeForm
+from .models import Device, WorkOrder, DowntimeEvent
 
 # =============== Supplier Views ===============
 @login_required
@@ -571,7 +572,7 @@ def calibration_update(request, pk):
 @login_required
 def downtime_list(request):
     """عرض قائمة توقفات الأجهزة"""
-    downtimes = Downtime.objects.all().select_related('device', 'work_order')
+    downtimes = DowntimeEvent.objects.all().select_related('device', 'related_work_order')
     
     # البحث
     search_query = request.GET.get('search', '')
@@ -613,14 +614,14 @@ def downtime_list(request):
         'sort_by': sort_by,
         'selected_type': downtime_type,
         'period': period,
-        'type_choices': Downtime.DOWNTIME_TYPE_CHOICES,
+        'type_choices': DowntimeEvent.DOWNTIME_TYPE_CHOICES,
     }
     return render(request, 'maintenance/downtime_list.html', context)
 
 @login_required
 def downtime_detail(request, pk):
     """عرض تفاصيل توقف الجهاز"""
-    downtime = get_object_or_404(Downtime, pk=pk)
+    downtime = get_object_or_404(DowntimeEvent, pk=pk)
     
     context = {
         'downtime': downtime,
@@ -645,7 +646,7 @@ def downtime_create(request, device_id=None, work_order_id=None):
         form = DowntimeForm(request.POST)
         if form.is_valid():
             downtime = form.save(commit=False)
-            downtime.created_by = request.user
+            downtime.reported_by = request.user
             downtime.save()
             
             # تحديث حالة الجهاز إلى غير متاح
@@ -675,7 +676,7 @@ def downtime_create(request, device_id=None, work_order_id=None):
 @login_required
 def downtime_update(request, pk):
     """تحديث بيانات توقف الجهاز"""
-    downtime = get_object_or_404(Downtime, pk=pk)
+    downtime = get_object_or_404(DowntimeEvent, pk=pk)
     old_end_time = downtime.end_time
     
     if request.method == 'POST':
@@ -687,7 +688,7 @@ def downtime_update(request, pk):
             if old_end_time is None and downtime.end_time is not None:
                 device = downtime.device
                 # تحقق من عدم وجود توقفات أخرى مفتوحة لنفس الجهاز
-                other_open_downtimes = Downtime.objects.filter(
+                other_open_downtimes = DowntimeEvent.objects.filter(
                     device=device, 
                     end_time__isnull=True
                 ).exclude(pk=downtime.pk).exists()

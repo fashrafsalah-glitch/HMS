@@ -2,28 +2,77 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4" dir="rtl">
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-      <h2 class="mb-1">قائمة الأجهزة</h2>
-      <p class="text-muted mb-0">ابحث وفلتر وتصفح الأجهزة بسرعة</p>
-    </div>
-    <div class="d-flex gap-2">
-      <a href="{% url 'maintenance:add_device' %}" class="btn btn-primary">➕ إضافة جهاز جديد</a>
-      <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-info">🔍 اختبار QR - Step 2</a>
-      <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-secondary">➕ تصنيف</a>
-      <a href="{% url 'maintenance:add_device_subcategory' %}" class="btn btn-outline-secondary">➕ تصنيف فرعي</a>
-      <a href="{% url 'add_company' %}" class="btn btn-outline-secondary">➕ شركة</a>
-      <a href="{% url 'add_device_type' %}" class="btn btn-outline-secondary">➕ نوع جهاز</a>
-      <a href="{% url 'add_device_usage' %}" class="btn btn-outline-secondary">➕ استخدام</a>
+<style>
+.device-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+.device-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.action-btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.action-btn:hover {
+    transform: scale(1.05);
+}
+.filter-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+.filter-card .form-select, .filter-card .form-label {
+    color: #333;
+}
+.header-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 15px;
+    margin-bottom: 2rem;
+}
+.qr-image {
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+}
+.qr-image:hover {
+    transform: scale(1.1);
+}
+</style>
+
+<div class="container-fluid mt-4" dir="rtl">
+  <div class="header-gradient text-center">
+    <h1 class="mb-2">🏥 إدارة الأجهزة الطبية</h1>
+    <p class="mb-3">نظام شامل لإدارة ومتابعة الأجهزة الطبية</p>
+    <div class="d-flex flex-wrap justify-content-center gap-2">
+      <a href="{% url 'maintenance:add_device' %}" class="btn btn-light btn-lg action-btn">➕ إضافة جهاز جديد</a>
+      <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-info btn-lg action-btn">🔍 اختبار QR</a>
+      <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-light action-btn">➕ تصنيف</a>
+      <a href="{% url 'maintenance:add_device_subcategory' %}" class="btn btn-outline-light action-btn">➕ تصنيف فرعي</a>
+      <a href="{% url 'add_company' %}" class="btn btn-outline-light action-btn">➕ شركة</a>
+      <a href="{% url 'add_device_type' %}" class="btn btn-outline-light action-btn">➕ نوع جهاز</a>
+      <a href="{% url 'add_device_usage' %}" class="btn btn-outline-light action-btn">➕ استخدام</a>
     </div>
   </div>
 
-  <div class="card shadow-sm mb-3">
-    <div class="card-body">
+  <div class="filter-card shadow-lg mb-4">
+    <div class="card-body p-4">
+      <h4 class="text-white mb-3 text-center">🔍 فلترة وبحث الأجهزة</h4>
       <form method="get" class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label">التصنيف</label>
+        <div class="col-lg-2 col-md-4">
+          <label class="form-label text-white fw-bold">التصنيف</label>
           <select name="category" id="category-select" class="form-select">
             <option value="">الكل</option>
             {% for cat in categories %}
@@ -32,8 +81,8 @@
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">التصنيف الفرعي</label>
+        <div class="col-lg-2 col-md-4">
+          <label class="form-label text-white fw-bold">التصنيف الفرعي</label>
           <select name="subcategory" id="subcategory-select" class="form-select">
             <option value="">الكل</option>
             {% for sub in subcategories %}
@@ -42,8 +91,8 @@
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">القسم</label>
+        <div class="col-lg-2 col-md-4">
+          <label class="form-label text-white fw-bold">القسم</label>
           <select name="department" id="department-select" class="form-select">
             <option value="">الكل</option>
             {% for dept in departments %}
@@ -52,8 +101,8 @@
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">الغرفة</label>
+        <div class="col-lg-2 col-md-4">
+          <label class="form-label text-white fw-bold">الغرفة</label>
           <select name="room" id="room-select" class="form-select">
             <option value="">الكل</option>
             {% for room in rooms %}
@@ -62,148 +111,111 @@
           </select>
         </div>
 
-        <div class="col-md-2">
-          <button type="submit" class="btn btn-primary w-100">🔍 بحث</button>
+        <div class="col-lg-2 col-md-4">
+          <label class="form-label text-white fw-bold">البحث</label>
+          <input type="text" name="search" class="form-control" placeholder="اسم الجهاز..." value="{{ request.GET.search }}">
         </div>
-        <div class="col-md-2">
-          <a href="{% url 'maintenance:device_list' %}" class="btn btn-light border w-100">⟲ إعادة ضبط</a>
+
+        <div class="col-lg-2 col-md-4">
+          <div class="d-flex gap-1">
+            <button type="submit" class="btn btn-light fw-bold flex-fill">🔍 بحث</button>
+            <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-light">⟲</a>
+          </div>
         </div>
       </form>
     </div>
   </div>
 
-  <div class="card shadow-sm">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light sticky-top">
-          <tr>
-            <th>#</th>
-            <th>رقم</th>
-            <th>التصنيف</th>
-            <th>الفرعي</th>
-            <th>الاسم</th>
-            <th>القسم</th>
-            <th>الغرفة</th>
-            <th>السرير</th>
-            <th>الحالة</th>
-            <th>النظافة</th>
-            <th>التعقيم</th>
-            <th>المريض الحالي</th>
-            <th>الباركود</th>
-            <th>إجراءات</th>
-            <th>بدء الاستخدام</th>
-            <th>إنهاء</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for device in devices %}
-            <tr>
-              <td>{{ forloop.counter }}</td>
-              <td>{{ device.id }}</td>
-              <td>{{ device.category.name }}</td>
-              <td>{{ device.subcategory.name }}</td>
-              <td class="fw-semibold">{{ device.name }}</td>
-              <td>{{ device.department.name }}</td>
-              <td>{{ device.room }}</td>
-              <td>{{ device.bed }}</td>
-              <td>
-                <span class="badge text-bg-{% if device.status == 'working' %}success{% elif device.status == 'in_use' %}info{% elif device.status == 'needs_check' %}warning{% else %}secondary{% endif %}">
+  <div class="row g-4">
+    {% for device in devices %}
+      <div class="col-xl-4 col-lg-6 col-md-6">
+        <div class="device-card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h5 class="card-title mb-1 text-primary">{{ device.name }}</h5>
+                <small class="text-muted">ID: {{ device.id }} | {{ device.category.name }}</small>
+              </div>
+              {% if device.qr_code %}
+                <a href="{{ device.qr_code.url }}" target="_blank" title="فتح الباركود">
+                  <img src="{{ device.qr_code.url }}" alt="QR" class="qr-image" style="width:50px;height:50px;object-fit:contain;"/>
+                </a>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              <div class="row g-2 text-sm">
+                <div class="col-6">
+                  <strong>القسم:</strong><br>
+                  <span class="text-muted">{{ device.department.name }}</span>
+                </div>
+                <div class="col-6">
+                  <strong>الغرفة:</strong><br>
+                  <span class="text-muted">{{ device.room|default:"-" }}</span>
+                </div>
+                <div class="col-6">
+                  <strong>السرير:</strong><br>
+                  <span class="text-muted">{{ device.bed|default:"-" }}</span>
+                </div>
+                <div class="col-6">
+                  <strong>المريض:</strong><br>
+                  <span class="text-muted">{{ device.current_patient|default:"-" }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <div class="d-flex flex-wrap gap-1">
+                <span class="status-badge text-bg-{% if device.status == 'working' %}success{% elif device.status == 'in_use' %}info{% elif device.status == 'needs_check' %}warning{% else %}secondary{% endif %}">
                   {{ device.get_status_display }}
                 </span>
-              </td>
-              <td>
-                <span class="badge text-bg-{% if device.clean_status == 'clean' %}success{% elif device.clean_status == 'needs_cleaning' %}warning{% else %}secondary{% endif %}">
+                <span class="status-badge text-bg-{% if device.clean_status == 'clean' %}success{% elif device.clean_status == 'needs_cleaning' %}warning{% else %}secondary{% endif %}">
                   {{ device.get_clean_status_display }}
                 </span>
-              </td>
-              <td>
-                <span class="badge text-bg-{% if device.sterilization_status == 'sterilized' %}success{% elif device.sterilization_status == 'needs_sterilization' %}warning{% else %}secondary{% endif %}">
+                <span class="status-badge text-bg-{% if device.sterilization_status == 'sterilized' %}success{% elif device.sterilization_status == 'needs_sterilization' %}warning{% else %}secondary{% endif %}">
                   {{ device.get_sterilization_status_display }}
                 </span>
-              </td>
-              <td>{{ device.current_patient|default:"-" }}</td>
-              <td class="text-center">
-                {% if device.qr_code %}
-                  <div class="d-flex align-items-center justify-content-center gap-2">
-                    <a href="{{ device.qr_code.url }}" target="_blank" title="فتح الباركود">
-                      <img src="{{ device.qr_code.url }}" alt="QR" class="img-thumbnail" style="width:56px;height:56px;object-fit:contain;"/>
-                    </a>
-                    <a href="{{ device.qr_code.url }}" download class="btn btn-sm btn-outline-secondary" title="تحميل">
-                      ⬇️
-                    </a>
-                  </div>
-                {% else %}
-                  <span class="badge text-bg-secondary">لا يوجد</span>
-                {% endif %}
-              </td>
-              <td class="text-nowrap">
-                <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-sm btn-outline-info" title="فتح">👁️</a>
-                <a href="{% url 'maintenance:device_edit' device.id %}" class="btn btn-sm btn-outline-warning" title="تعديل">✏️</a>
-                <a href="{% url 'maintenance:device_delete' device.id %}" class="btn btn-sm btn-outline-danger" title="حذف">🗑️</a>
-                <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-sm btn-outline-secondary" title="نقل">🔄</a>
-              </td>
-              <td>
-                {% if device.status == 'working' and not device.current_patient %}
-                  <a href="{% url 'maintenance:assign_device' device.id %}" class="btn btn-sm btn-primary">📥 استخدام</a>
-                {% else %}
-                  <span class="text-muted">قيد الاستخدام</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if device.current_patient %}
-                  <a href="{% url 'maintenance:release_device' device.id %}" class="btn btn-sm btn-warning">⏹️ إنهاء</a>
-                {% else %}
-                  <span class="text-muted">-</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="15" class="text-center py-4">لا توجد أجهزة مطابقة.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+              </div>
+            </div>
+            
+            <div class="d-flex flex-wrap gap-1 mb-3">
+              <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-sm btn-outline-info action-btn" title="عرض التفاصيل">👁️ عرض</a>
+              <a href="{% url 'maintenance:device_edit' device.id %}" class="btn btn-sm btn-outline-warning action-btn" title="تعديل">✏️ تعديل</a>
+              <form method="post" action="{% url 'maintenance:device_transfer' device.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary action-btn" title="نقل الجهاز">🔄 نقل</button>
+              </form>
+            </div>
+            
+            <div class="d-flex gap-1">
+              {% if device.status == 'working' and not device.current_patient %}
+                <form method="post" action="{% url 'maintenance:assign_device' device.id %}" class="flex-fill">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-primary action-btn w-100">📥 بدء الاستخدام</button>
+                </form>
+              {% elif device.current_patient %}
+                <form method="post" action="{% url 'maintenance:release_device' device.id %}" class="flex-fill">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-warning action-btn w-100">⏹️ إنهاء الاستخدام</button>
+                </form>
+              {% else %}
+                <button class="btn btn-secondary w-100" disabled>غير متاح</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="text-center py-5">
+          <div class="display-1 text-muted mb-3">🔍</div>
+          <h3 class="text-muted">لا توجد أجهزة مطابقة</h3>
+          <p class="text-muted">جرب تغيير معايير البحث أو إضافة أجهزة جديدة</p>
+          <a href="{% url 'maintenance:add_device' %}" class="btn btn-primary">➕ إضافة جهاز جديد</a>
+        </div>
+      </div>
+    {% endfor %}
   </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-  // تحديث التصنيف الفرعي عند تغيير التصنيف
-  $('#category-select').on('change', function () {
-    var categoryId = $(this).val();
-    $.ajax({
-      url: "{% url 'maintenance:ajax_load_subcategories' %}",
-      data: { 'category_id': categoryId },
-      success: function (data) {
-        var subcategorySelect = $('#subcategory-select');
-        subcategorySelect.empty();
-        subcategorySelect.append('<option value="">الكل</option>');
-        data.forEach(function (subcategory) {
-          subcategorySelect.append('<option value="' + subcategory.id + '">' + subcategory.name + '</option>');
-        });
-      }
-    });
-  });
-
-  // تحميل الغرف حسب القسم
-  document.getElementById('department-select').addEventListener('change', function () {
-    const deptId = this.value;
-    const roomSelect = document.getElementById('room-select');
-    roomSelect.innerHTML = '<option value="">جاري التحميل...</option>';
-
-    fetch(`/maintenance/ajax/load-rooms/?department_id=${deptId}`)
-      .then(response => response.json())
-      .then(data => {
-        roomSelect.innerHTML = '<option value="">الكل</option>';
-        data.forEach(room => {
-          const option = document.createElement('option');
-          option.value = room.id;
-          option.text = room.name;
-          roomSelect.appendChild(option);
-        });
-      });
-  });
-</script>
 {% endblock %}

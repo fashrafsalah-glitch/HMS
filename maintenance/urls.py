@@ -3,6 +3,8 @@ from . import views
 from . import views_accessory
 from . import views_cmms
 
+app_name = 'maintenance'
+
 urlpatterns = [
     
     path('', views.index, name='maintenance_index'),
@@ -22,9 +24,8 @@ urlpatterns = [
     path('categories/add/', views.add_device_category, name='add_device_category'),
     path('subcategories/add/', views.add_device_subcategory, name='add_device_subcategory'),
     path('ajax/load-subcategories/', views.load_subcategories, name='ajax_load_subcategories'),
-    path('ajax/load-rooms/', views.load_rooms, name='ajax_load_rooms'),
-    path('device/<int:pk>/', views.device_detail, name='device_detail'),
-    path('device/<int:pk>/info/', views.device_info, name='device_info'),
+path('ajax/load-rooms/', views.load_rooms, name='ajax_load_rooms'),
+path('device/<int:pk>/info/', views.device_info, name='device_info'),
     path('device/<int:pk>/add-accessory/', views.redirect_to_accessories, name='add_accessory'),
     path('device/<int:pk>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
     path('device/<int:pk>/emergency-request/', views.add_emergency_request, name='add_emergency_request'),
@@ -52,10 +53,8 @@ path('device-type/delete/<int:pk>/', views.delete_device_type, name='delete_devi
 path('device-usage/edit/<int:pk>/', views.edit_device_usage, name='edit_device_usage'),
 path('device-usage/delete/<int:pk>/', views.delete_device_usage, name='delete_device_usage'),
 
-
-path('devices/', views.device_list, name='device_list'),
- path('devices/<int:device_id>/assign/', views.assign_device, name='assign_device'),
- path('devices/<int:device_id>/release/', views.release_device, name='release_device'),
+path('devices/<int:device_id>/assign/', views.assign_device, name='assign_device'),
+path('devices/<int:device_id>/release/', views.release_device, name='release_device'),
 
 
 
@@ -97,10 +96,10 @@ path('api/devices/<int:device_id>/verify-accessories/', views_accessory.verify_d
 path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
 path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
 path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
-
-    # CMMS URLs - نظام إدارة الصيانة
-    path('cmms/', include('maintenance.urls_cmms')),
+    
+    # CMMS URLs
+    path('cmms/', include('maintenance.urls_cmms', namespace='cmms')),
     
     # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
-    path('spare-parts/', include('maintenance.urls_spare_parts')),
+    path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),
 ]

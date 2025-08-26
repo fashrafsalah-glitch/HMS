@@ -31,6 +31,7 @@ urlpatterns = [
     # hospital-manager module
     path("patients/", include(("manager.urls", "manager"), namespace="manager")),
     path("patients/", include(("manager.urls", "patient"), namespace="patient")),  # ← alias مؤقت
+    path("manager/", include(("manager.urls", "manager_api"), namespace="manager_api")),
     
       
 
@@ -47,9 +48,6 @@ urlpatterns = [
     path("laboratory/", include(("laboratory.urls", "laboratory"), namespace="laboratory")),
 
      path("maintenance/", include(("maintenance.urls", "maintenance"), namespace="maintenance")),
-
-
-     path('maintenance/', include('maintenance.urls')),
 ]
 
 if settings.DEBUG:

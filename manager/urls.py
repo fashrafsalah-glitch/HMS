@@ -171,6 +171,9 @@ path(
     path("ajax/load-floors/", ajax_load_floors, name="ajax_load_floors"),
     path("ajax/load-wards/",  ajax_load_wards,  name="ajax_load_wards"),
     path("ajax/load-rooms/",  ajax_load_rooms,  name="ajax_load_rooms"),
+    
+    # API endpoints
+    path("api/rooms/", views.rooms_api, name="rooms_api"),
 
     # ─── departments & clinics ──────────────────────────────────
     path("departments/",                department_list,          name="department_list"),

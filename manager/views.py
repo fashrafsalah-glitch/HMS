@@ -1090,6 +1090,16 @@ def ajax_load_rooms(request):
     options = ''.join([f'<option value="{room.id}">{room.number}</option>' for room in rooms])
     return JsonResponse({'options': options})
 
+def rooms_api(request):
+    """API endpoint for rooms filtered by department"""
+    department_id = request.GET.get('department')
+    if department_id:
+        rooms = Room.objects.filter(department_id=department_id).values('id', 'number', 'room_type')
+        return JsonResponse(list(rooms), safe=False)
+    else:
+        rooms = Room.objects.all().values('id', 'number', 'room_type')
+        return JsonResponse(list(rooms), safe=False)
+
 # Department Views
 def department_list(request):
     departments = Department.objects.filter(hospital=request.user.hospital)
@@ -1156,7 +1166,7 @@ def department_devices(request, department_id):
         department=department
     ).exclude(id__in=pending_devices_ids)
 
-    return render(request, 'maintenance/department_device_list.html', {
+    return render(request, 'maintenance/department_device_ist1.html', {
         'department': department,
         'actual_devices': actual_devices,
         'pending_transfers': pending_transfers

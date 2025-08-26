@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views_spare_parts
 
+app_name = 'spare_parts'
+
 urlpatterns = [
     # Supplier URLs
     path('suppliers/', views_spare_parts.supplier_list, name='supplier_list'),

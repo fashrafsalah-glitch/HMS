@@ -31,7 +31,7 @@ def generate_qr_code_on_save(sender, instance, created, **kwargs):
 # Specific signal handlers for each model
 from manager.models import Patient, Bed
 from hr.models import CustomUser
-from maintenance.models import Device, DeviceAccessory
+from maintenance.models import *
 
 
 @receiver(post_save, sender=Patient)
@@ -99,7 +99,6 @@ def generate_accessory_qr_code(sender, instance, created, **kwargs):
 # CMMS SIGNALS - التحويل التلقائي للبلاغات وأوامر الشغل
 # ═══════════════════════════════════════════════════════════════
 
-from .models import ServiceRequest, WorkOrder, SLAMatrix, DowntimeEvent, DeviceUsageLog
 from django.utils import timezone
 from datetime import timedelta
 import logging

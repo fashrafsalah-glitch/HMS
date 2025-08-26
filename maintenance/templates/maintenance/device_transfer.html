@@ -47,6 +47,16 @@
               {% endif %}
             </div>
 
+            <div class="mb-3">
+              <label class="form-label">سبب النقل</label>
+              {{ form.reason }}
+              {% if form.reason.errors %}
+                <div class="invalid-feedback d-block">
+                  {{ form.reason.errors|striptags }}
+                </div>
+              {% endif %}
+            </div>
+
             {% if form.non_field_errors %}
               <div class="alert alert-danger">
                 {{ form.non_field_errors|striptags }}

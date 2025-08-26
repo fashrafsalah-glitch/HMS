@@ -75,7 +75,7 @@ def service_request_list(request):
 def service_request_create(request):
     """إنشاء بلاغ جديد"""
     # إذا تم تحديد جهاز من قبل
-    device_id = request.GET.get('device_id')
+    device_id = request.GET.get('device')
     initial_data = {}
     
     if device_id:
@@ -292,6 +292,67 @@ def work_order_detail(request, wo_id):
     }
     
     return render(request, 'maintenance/cmms/work_order_detail.html', context)
+
+@login_required
+def work_order_create(request):
+    """إنشاء أمر شغل جديد"""
+    # التحقق من وجود بلاغ مرتبط
+    service_request_id = request.GET.get('service_request')
+    service_request = None
+    if service_request_id:
+        service_request = get_object_or_404(ServiceRequest, id=service_request_id)
+        
+        # التحقق من صلاحية المستخدم لإنشاء أمر شغل لهذا البلاغ
+        if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+            if hasattr(request.user, 'department') and service_request.device.department != request.user.department:
+                messages.error(request, 'ليس لديك صلاحية لإنشاء أمر شغل لهذا البلاغ')
+                return redirect('maintenance:service_request_list')
+    
+    # التحقق من وجود توقف مرتبط (downtime)
+    downtime_id = request.GET.get('downtime')
+    downtime = None
+    device_id = request.GET.get('device')
+    
+    # إذا كان هناك توقف، نحصل على معلوماته
+    if downtime_id and device_id:
+        # استخدام نموذج DowntimeEvent الموجود في المشروع
+        from .models import DowntimeEvent
+        try:
+            downtime = DowntimeEvent.objects.get(id=downtime_id, device_id=device_id)
+        except:
+            # إذا لم يتم العثور على التوقف، نتجاهله
+            pass
+    
+    if request.method == 'POST':
+        wo_form = WorkOrderForm(request.POST, user=request.user, service_request=service_request)
+        if wo_form.is_valid():
+            work_order = wo_form.save(commit=False)
+            if service_request:
+                work_order.service_request = service_request
+            work_order.created_by = request.user
+            work_order.save()
+            
+            # إذا كان هناك توقف، نربطه بأمر الشغل
+            if downtime:
+                downtime.related_work_order = work_order
+                downtime.save()
+            
+            messages.success(request, 'تم إنشاء أمر الشغل بنجاح')
+            return redirect('maintenance:work_order_detail', wo_id=work_order.id)
+    else:
+        wo_form = WorkOrderForm(user=request.user, service_request=service_request)
+        
+        # إذا كان هناك توقف، نضيف وصفه إلى وصف أمر الشغل
+        if downtime and not wo_form.initial.get('description'):
+            wo_form.initial['description'] = f"معالجة توقف الجهاز: {downtime.reason}\n\nتفاصيل التوقف: {downtime.details}"
+    
+    context = {
+        'form': wo_form,
+        'service_request': service_request,
+        'downtime': downtime,
+    }
+    
+    return render(request, 'maintenance/cmms/work_order_form.html', context)
 
 @login_required
 def work_order_assign(request, wo_id):

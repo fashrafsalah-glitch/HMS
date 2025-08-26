@@ -1,6 +1,7 @@
 from django import forms
 from django.apps import apps
 from .models import *
+from django.utils.translation import gettext_lazy as _
 
 class CompanyForm(forms.ModelForm):
     class Meta:
@@ -75,3 +76,27 @@ class AccessoryTransferForm(forms.ModelForm):
     class Meta:
         model = AccessoryTransferLog
         fields = "__all__"
+
+
+class DowntimeForm(forms.ModelForm):
+    """نموذج إنشاء وتعديل توقف الجهاز"""
+    
+    class Meta:
+        model = DowntimeEvent
+        fields = ['device', 'downtime_type', 'reason', 'start_time', 'end_time', 
+                 'impact_description', 'cost_impact']
+        widgets = {
+            'device': forms.Select(attrs={'class': 'form-control select2', 'required': True}),
+            'downtime_type': forms.Select(attrs={'class': 'form-control'}),
+            'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'required': True}),
+            'start_time': forms.DateTimeInput(attrs={'class': 'form-control flatpickr-datetime', 'required': True}),
+            'end_time': forms.DateTimeInput(attrs={'class': 'form-control flatpickr-datetime'}),
+            'impact_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'cost_impact': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['impact_description'].required = False
+        self.fields['cost_impact'].required = False
+        self.fields['end_time'].required = False

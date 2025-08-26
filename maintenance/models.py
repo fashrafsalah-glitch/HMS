@@ -21,93 +21,29 @@ from core.qr_utils import QRCodeMixin
 
 # نموذج سجل استخدام الجهاز اليومي
 class DeviceDailyUsageLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='daily_usage_logs')
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='daily_usage_logs_old')
     date = models.DateField(auto_now_add=True)
     total_usage_time = models.DurationField(default=timezone.timedelta)
     
     def __str__(self):
         return f"{self.device.name} - {self.date}"
 
-# نموذج عنصر سجل استخدام الجهاز - تم نقله إلى نهاية الملف
+# DeviceUsageLogItem model moved below - removing duplicate
 
-# نموذج سجل نقل الجهاز
-class DeviceTransferLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='transfer_logs')
-    from_department = models.ForeignKey('manager.Department', on_delete=models.SET_NULL, null=True, related_name='device_transfers_from')
-    to_department = models.ForeignKey('manager.Department', on_delete=models.SET_NULL, null=True, related_name='device_transfers_to')
-    transfer_date = models.DateTimeField(auto_now_add=True)
-    transferred_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    
-    def __str__(self):
-        return f"{self.device.name} - {self.transfer_date}"
+# DeviceTransferLog model moved below - removing duplicate
 
-# نموذج سجل نقل المريض
-class PatientTransferLog(models.Model):
-    patient = models.ForeignKey('manager.Patient', on_delete=models.CASCADE, related_name='transfer_logs')
-    from_department = models.ForeignKey('manager.Department', on_delete=models.SET_NULL, null=True, related_name='patient_transfers_from')
-    to_department = models.ForeignKey('manager.Department', on_delete=models.SET_NULL, null=True, related_name='patient_transfers_to')
-    transfer_date = models.DateTimeField(auto_now_add=True)
-    transferred_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    
-    def __str__(self):
-        return f"{self.patient.full_name} - {self.transfer_date}"
+# PatientTransferLog model moved below - removing duplicate
 
-# نموذج سجل تسليم الجهاز
-class DeviceHandoverLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='handover_logs')
-    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='device_handovers_from')
-    to_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='device_handovers_to')
-    handover_date = models.DateTimeField(auto_now_add=True)
-    notes = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.device.name} - {self.handover_date}"
+# DeviceHandoverLog model moved below - removing duplicate
 
-# نموذج ملحقات الجهاز
-class DeviceAccessory(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='accessories')
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    quantity = models.PositiveIntegerField(default=1)
-    
-    def __str__(self):
-        return f"{self.name} - {self.device.name}"
+# DeviceAccessory model moved below - removing duplicate
 
 # نموذج سجل استخدام ملحقات الجهاز
-class DeviceAccessoryUsageLog(models.Model):
-    accessory = models.ForeignKey('DeviceAccessory', on_delete=models.CASCADE, related_name='usage_logs')
-    patient = models.ForeignKey('manager.Patient', on_delete=models.SET_NULL, null=True, blank=True)
-    start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    used_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    
-    def __str__(self):
-        return f"{self.accessory.name} - {self.start_time}"
+# تم نقل هذا النموذج إلى تعريف آخر في الملف
 
-# نموذج جلسة المسح
-class ScanSession(models.Model):
-    session_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    
-    def __str__(self):
-        return f"Session {self.session_id} - {self.user.username}"
+# ScanSession model moved below - removing duplicate
 
-# نموذج سجل المسح
-class ScanHistory(models.Model):
-    session = models.ForeignKey('ScanSession', on_delete=models.CASCADE, related_name='scans')
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='scans')
-    scan_time = models.DateTimeField(auto_now_add=True)
-    location = models.CharField(max_length=255, blank=True, null=True)
-    scanned_code = models.CharField(max_length=255, blank=True, null=True)
-    entity_type = models.CharField(max_length=50, blank=True, null=True)
-    entity_id = models.IntegerField(null=True, blank=True)
-    is_valid = models.BooleanField(default=True)
-    
-    def __str__(self):
-        return f"{self.device.name} - {self.scan_time}"
+# ScanHistory model moved below - removing duplicate
 
 # نموذج سجل تنظيف الجهاز
 class DeviceCleaningLog(models.Model):
@@ -140,8 +76,8 @@ class DeviceMaintenanceLog(models.Model):
         ('corrective', 'صيانة تصحيحية'),
         ('calibration', 'معايرة'),
         ('inspection', 'فحص'),
-    ])
-    description = models.TextField()
+    ], default='preventive')
+    description = models.TextField(blank=True, null=True)
     parts_replaced = models.TextField(blank=True, null=True)
     cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     next_maintenance_date = models.DateField(null=True, blank=True)
@@ -168,9 +104,9 @@ class ServiceRequest(models.Model):
         ('critical', 'حرج'),
     ]
     
-    request_number = models.CharField(max_length=20, unique=True)
-    title = models.CharField(max_length=200)
-    description = models.TextField()
+    request_number = models.CharField(max_length=20, unique=True, default='')
+    title = models.CharField(max_length=200, default='')
+    description = models.TextField(blank=True, null=True)
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='service_requests')
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='service_requests')
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_service_requests')
@@ -183,27 +119,14 @@ class ServiceRequest(models.Model):
     def __str__(self):
         return f"{self.request_number} - {self.title}"
 
-# نموذج أمر العمل - تم نقله إلى نهاية الملف
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='work_orders')
-    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_work_orders')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
-    created_at = models.DateTimeField(auto_now_add=True)
-    scheduled_start = models.DateTimeField(null=True, blank=True)
-    scheduled_end = models.DateTimeField(null=True, blank=True)
-    actual_start = models.DateTimeField(null=True, blank=True)
-    actual_end = models.DateTimeField(null=True, blank=True)
-    labor_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
-    def __str__(self):
-        return f"{self.order_number} - {self.title}"
+# WorkOrder model moved below - removing duplicate
 
 # نموذج خطة العمل
 class JobPlan(models.Model):
-    name = models.CharField(max_length=200)
-    description = models.TextField()
+    name = models.CharField(max_length=200, default='')
+    description = models.TextField(blank=True, null=True)
     device_type = models.ForeignKey('DeviceType', on_delete=models.CASCADE, related_name='job_plans')
-    estimated_duration = models.DurationField()
+    estimated_duration = models.DurationField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -214,9 +137,9 @@ class JobPlan(models.Model):
 # نموذج خطوة خطة العمل
 class JobPlanStep(models.Model):
     job_plan = models.ForeignKey('JobPlan', on_delete=models.CASCADE, related_name='steps')
-    step_number = models.PositiveIntegerField()
-    description = models.TextField()
-    estimated_time = models.DurationField()
+    step_number = models.PositiveIntegerField(default=1)
+    description = models.TextField(blank=True, null=True)
+    estimated_time = models.DurationField(null=True, blank=True)
     tools_required = models.TextField(blank=True, null=True)
     safety_notes = models.TextField(blank=True, null=True)
     
@@ -242,14 +165,14 @@ class PreventiveMaintenanceSchedule(models.Model):
     job_plan = models.ForeignKey('JobPlan', on_delete=models.CASCADE)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
     custom_days = models.PositiveIntegerField(null=True, blank=True, help_text='عدد الأيام إذا كان التكرار مخصصًا')
-    next_due_date = models.DateField()
+    next_due_date = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         return f"{self.device.name} - {self.get_frequency_display()} PM"
 
-# نموذج تعريف اتفاقية مستوى الخدمة - تم نقله إلى نهاية الملف
+# SLADefinition model moved below - removing duplicate
 
 # نموذج المورد
 class Supplier(models.Model):
@@ -258,8 +181,8 @@ class Supplier(models.Model):
         ('inactive', 'غير نشط'),
     ]
     
-    name = models.CharField(max_length=200)
-    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=200, default='')
+    code = models.CharField(max_length=50, unique=True, default='')
     contact_person = models.CharField(max_length=100, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -270,7 +193,7 @@ class Supplier(models.Model):
     def __str__(self):
         return self.name
 
-# نموذج قطع الغيار - تم نقله إلى نهاية الملف
+# Old SparePart model removed - using the new comprehensive one below
 
 # نموذج إشعار النظام
 class SystemNotification(models.Model):
@@ -281,8 +204,8 @@ class SystemNotification(models.Model):
         ('error', 'خطأ'),
     ]
     
-    title = models.CharField(max_length=200)
-    message = models.TextField()
+    title = models.CharField(max_length=200, default='')
+    message = models.TextField(blank=True, null=True)
     notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='info')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
     is_read = models.BooleanField(default=False)
@@ -299,9 +222,9 @@ class EmailLog(models.Model):
         ('failed', 'فشل'),
     ]
     
-    recipient = models.EmailField()
-    subject = models.CharField(max_length=200)
-    body = models.TextField()
+    recipient = models.EmailField(default='')
+    subject = models.CharField(max_length=200, default='')
+    body = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     error_message = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -325,10 +248,10 @@ class NotificationPreference(models.Model):
 
 # نموذج قالب الإشعارات
 class NotificationTemplate(models.Model):
-    name = models.CharField(max_length=100)
-    subject = models.CharField(max_length=200)
-    body = models.TextField()
-    variables = models.TextField(help_text='المتغيرات المتاحة في القالب، مفصولة بفواصل')
+    name = models.CharField(max_length=100, default='')
+    subject = models.CharField(max_length=200, default='')
+    body = models.TextField(blank=True, null=True)
+    variables = models.TextField(help_text='المتغيرات المتاحة في القالب، مفصولة بفواصل', blank=True, null=True)
     
     def __str__(self):
         return self.name
@@ -344,9 +267,9 @@ class NotificationQueue(models.Model):
     
     template = models.ForeignKey('NotificationTemplate', on_delete=models.CASCADE)
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    context_data = models.JSONField()
+    context_data = models.JSONField(default=dict)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    scheduled_time = models.DateTimeField()
+    scheduled_time = models.DateTimeField(null=True, blank=True)
     processed_time = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True, null=True)
     
@@ -363,8 +286,8 @@ class Calibration(models.Model):
         ('cancelled', 'ملغي'),
     ]
     
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='calibrations')
-    scheduled_date = models.DateField()
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='device_calibrations')
+    scheduled_date = models.DateField(null=True, blank=True)
     performed_date = models.DateField(null=True, blank=True)
     performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='performed_calibrations')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
@@ -381,11 +304,11 @@ class Calibration(models.Model):
 
 # نموذج معيار المعايرة
 class CalibrationStandard(models.Model):
-    name = models.CharField(max_length=200)
-    description = models.TextField()
-    standard_number = models.CharField(max_length=100, unique=True)
-    issuing_body = models.CharField(max_length=200)
-    issue_date = models.DateField()
+    name = models.CharField(max_length=200, default='')
+    description = models.TextField(blank=True, null=True)
+    standard_number = models.CharField(max_length=100, unique=True, default='')
+    issuing_body = models.CharField(max_length=200, default='')
+    issue_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
     document_file = models.FileField(upload_to='calibration_standards/', null=True, blank=True)
     
@@ -405,14 +328,14 @@ class DeviceDowntime(models.Model):
     ]
     
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='downtimes')
-    start_time = models.DateTimeField()
+    start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
-    reason = models.CharField(max_length=50, choices=REASON_CHOICES)
-    description = models.TextField()
-    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reported_downtimes')
-    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_downtimes')
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES, default='other')
+    description = models.TextField(blank=True, null=True)
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='device_reported_downtimes')
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='device_resolved_downtimes')
     resolution_notes = models.TextField(blank=True, null=True)
-    work_order = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, null=True, blank=True, related_name='device_downtimes')
+    work_order = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, null=True, blank=True, related_name='downtimes')
     
     def __str__(self):
         return f"{self.device.name} - {self.start_time}"
@@ -428,11 +351,11 @@ class FailureAnalysisReport(models.Model):
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='failure_reports')
     downtime = models.ForeignKey('DeviceDowntime', on_delete=models.CASCADE, related_name='analysis_reports')
     analyzed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    analysis_date = models.DateField()
-    failure_description = models.TextField()
-    root_cause = models.TextField()
-    corrective_actions = models.TextField()
-    preventive_measures = models.TextField()
+    analysis_date = models.DateField(null=True, blank=True)
+    failure_description = models.TextField(blank=True, null=True)
+    root_cause = models.TextField(blank=True, null=True)
+    corrective_actions = models.TextField(blank=True, null=True)
+    preventive_measures = models.TextField(blank=True, null=True)
     attachments = models.FileField(upload_to='failure_analysis/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -441,75 +364,23 @@ class FailureAnalysisReport(models.Model):
 
 # شركات
 class Company(models.Model):
-    name = models.CharField(max_length=255, verbose_name="اسم الشركة")
+    name = models.CharField(max_length=255, verbose_name="اسم الشركة", default='')
 
     def __str__(self):
         return self.name
 
 # نوع الجهاز
 class DeviceType(models.Model):
-    name = models.CharField(max_length=255, verbose_name="نوع الجهاز")
+    name = models.CharField(max_length=255, verbose_name="نوع الجهاز", default='')
 
     def __str__(self):
         return self.name
     
 class DeviceUsage(models.Model):
-    name = models.CharField(max_length=255, verbose_name="استخدام الجهاز")
+    name = models.CharField(max_length=255, verbose_name="استخدام الجهاز", default='')
 
     def __str__(self):
         return self.name    
-
- # خصائص الحالة
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ('working', 'يعمل'),
-            ('needs_maintenance', 'يحتاج صيانة'),
-            ('out_of_order', 'عطل دائم'),
-            ('needs_check', 'يحتاج تفقد')
-        ],
-        default='working',
-        verbose_name='حالة الجهاز'
-    )
-    
-    availability = models.BooleanField(default=True, verbose_name="متوفر؟")
-    
-    clean_status = models.CharField(
-        max_length=20,
-        choices=[
-            ('clean', 'نظيف'),
-            ('needs_cleaning', 'يحتاج تنظيف'),
-            ('unknown', 'غير محدد')
-        ],
-        default='unknown',
-        verbose_name='النظافة'
-    )
-
-    sterilization_status = models.CharField(
-        max_length=20,
-        choices=[
-            ('sterilized', 'معقم'),
-            ('needs_sterilization', 'يحتاج تعقيم'),
-            ('not_required', 'لا يحتاج تعقيم')
-        ],
-        default='not_required',
-        verbose_name='التعقيم'
-    )
-
-    # الحقول المرتبطة باستخدام المريض
-    in_use = models.BooleanField(default=False, verbose_name="قيد الاستخدام؟")
-    current_patient = models.ForeignKey('manager.Patient', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="المريض الحالي", related_name="devices_in_use")
-    usage_start_time = models.DateTimeField(null=True, blank=True, verbose_name="بداية الاستخدام")
-
-    def end_usage(self):
-        self.in_use = False
-        self.current_patient = None
-        self.usage_start_time = None
-        self.availability = True
-        self.clean_status = 'needs_cleaning'
-        self.sterilization_status = 'needs_sterilization'
-        self.status = 'needs_check'
-        self.save()
 
 
 
@@ -544,20 +415,39 @@ class DeviceTransferRequest(models.Model):
 
 
 class DeviceCategory(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, default='')
 
     def __str__(self):
         return self.name
 
 
 class DeviceSubCategory(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, default='')
     category = models.ForeignKey('DeviceCategory', on_delete=models.CASCADE, related_name='subcategories')
 
     def __str__(self):
         return f"{self.category.name} - {self.name}"
 
 class Device(QRCodeMixin, models.Model):
+    # Device status choices
+    DEVICE_STATUS_CHOICES = [
+        ('working', 'يعمل'),
+        ('needs_maintenance', 'يحتاج صيانة'),
+        ('out_of_order', 'عطل دائم'),
+        ('needs_check', 'يحتاج تفقد'),
+    ]
+    
+    CLEAN_STATUS_CHOICES = [
+        ('clean', 'نظيف'),
+        ('needs_cleaning', 'يحتاج تنظيف'),
+        ('unknown', 'غير معروف'),
+    ]
+
+    STERILIZATION_STATUS_CHOICES = [
+        ('sterilized', 'معقم'),
+        ('needs_sterilization', 'يحتاج تعقيم'),
+        ('not_required', 'لا يحتاج تعقيم'),
+    ]
 
     DEVICE_CLASSIFICATION_CHOICES = [
         ('Airway Support Device', 'Airway Support Device'),
@@ -576,172 +466,293 @@ class Device(QRCodeMixin, models.Model):
         default='Other'
     )
 
-# قائمة خيارات حالة الجهاز
-    DEVICE_STATUS_CHOICES = [
-    ('working', 'يعمل'),
-    ('needs_maintenance', 'يحتاج صيانة'),
-    ('out_of_order', 'عطل دائم'),
-    ('needs_check', 'يحتاج تفقد'),
-]
-    
-    status = models.CharField(
-    max_length=20,
-    choices=DEVICE_STATUS_CHOICES,
-    default='working',
-    verbose_name="حالة الجهاز"
-) 
-    
-    CLEAN_STATUS_CHOICES = [
-    ('clean', 'نظيف'),
-    ('needs_cleaning', 'يحتاج تنظيف'),
-    ('unknown', 'غير معروف'),
-]
-
-    STERILIZATION_STATUS_CHOICES = [
-    ('sterilized', 'معقم'),
-    ('needs_sterilization', 'يحتاج تعقيم'),
-    ('unknown', 'غير معروف'),
-]
-
-    clean_status = models.CharField(
-    max_length=20,
-    choices=CLEAN_STATUS_CHOICES,
-    default='unknown',
-    verbose_name="حالة النظافة"
-)
-
-    sterilization_status = models.CharField( 
-    max_length=20,
-    choices=STERILIZATION_STATUS_CHOICES,
-    default='unknown',
-    verbose_name="حالة التعقيم"
-)   
     # Basic Info (Required)
-    id = models.AutoField(primary_key=True)  # ← رقم تسلسلي تلقائي
-
-    name = models.CharField(max_length=200)  # ← اسم الجهاز الجديد
-
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=200, default='')
     category = models.ForeignKey('DeviceCategory', on_delete=models.CASCADE)
     subcategory = models.ForeignKey('DeviceSubCategory', on_delete=models.SET_NULL, null=True, blank=True)
-    brief_description = models.TextField()
-    manufacturer = models.CharField(max_length=100)
-    model = models.CharField(max_length=100)
-    serial_number = models.CharField(max_length=100)
+    brief_description = models.TextField(blank=True, null=True)
+    manufacturer = models.CharField(max_length=100, default='')
+    model = models.CharField(max_length=100, default='')
+    serial_number = models.CharField(max_length=100, default='')
+    production_date = models.DateField(null=True, blank=True)
 
-    last_cleaned_by = models.ForeignKey( settings.AUTH_USER_MODEL,  on_delete=models.SET_NULL, null=True,
-        blank=True,related_name='devices_cleaned' )
+    # Status fields
+    status = models.CharField(
+        max_length=20,
+        choices=DEVICE_STATUS_CHOICES,
+        default='working',
+        verbose_name="حالة الجهاز"
+    )
+    clean_status = models.CharField(
+        max_length=20,
+        choices=CLEAN_STATUS_CHOICES,
+        default='unknown',
+        verbose_name="حالة النظافة"
+    )
+    sterilization_status = models.CharField(
+        max_length=20,
+        choices=STERILIZATION_STATUS_CHOICES,
+        default='not_required',
+        verbose_name="حالة التعقيم"
+    )
+    availability = models.BooleanField(default=True, verbose_name="هل متاح؟")
+    in_use = models.BooleanField(default=False, verbose_name="قيد الاستخدام؟")
+    usage_start_time = models.DateTimeField(null=True, blank=True, verbose_name="بداية الاستخدام")
+
+    # Maintenance tracking
+    last_cleaned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='devices_cleaned'
+    )
     last_cleaned_at = models.DateTimeField(null=True, blank=True)
-
-    last_sterilized_by = models.ForeignKey( settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-        blank=True,  related_name='devices_sterilized')
+    last_sterilized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='devices_sterilized'
+    )
     last_sterilized_at = models.DateTimeField(null=True, blank=True)
-
-    last_maintained_by = models.ForeignKey( settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-        blank=True, related_name='devices_maintained'  )
-
+    last_maintained_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='devices_maintained'
+    )
     last_maintained_at = models.DateTimeField(null=True, blank=True)
 
+    # Company relationships
+    manufacture_company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='manufactured_devices',
+        verbose_name="شركة التصنيع"
+    )
+    supplier_company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supplied_devices',
+        verbose_name="شركة التوريد"
+    )
+    maintenance_company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='maintained_devices',
+        verbose_name="شركة الصيانة"
+    )
+    device_type = models.ForeignKey(
+        DeviceType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="نوع الجهاز"
+    )
+    device_usage = models.ForeignKey(
+        DeviceUsage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="استخدام الجهاز"
+    )
 
-    # العلاقات الأساسية
-    manufacture_company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='manufactured_devices', verbose_name="شركة التصنيع")
-    supplier_company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplied_devices', verbose_name="شركة التوريد")
-    maintenance_company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintained_devices', verbose_name="شركة الصيانة")
-    device_type = models.ForeignKey(DeviceType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="نوع الجهاز")
-    device_usage = models.ForeignKey(DeviceUsage, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="استخدام الجهاز")
-
-    # خصائص ديناميكية
-    status = models.CharField(max_length=20, choices=DEVICE_STATUS_CHOICES, default='working', verbose_name="حالة الجهاز")
-    availability = models.BooleanField(default=True, verbose_name="هل متاح؟")
-    clean_status = models.CharField(max_length=20, choices=CLEAN_STATUS_CHOICES, default='unknown', verbose_name="حالة النظافة")
-    sterilization_status = models.CharField(max_length=20, choices=STERILIZATION_STATUS_CHOICES, default='not_required', verbose_name="حالة التعقيم")
-
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإضافة")
-
-    
-    production_date = models.DateField()
-    
-
-    # الموقع الحالي للجهاز (مطلوب)
-    department = models.ForeignKey('manager.Department', on_delete=models.CASCADE, related_name='devices')
-    room = models.ForeignKey('manager.Room', on_delete=models.CASCADE, related_name='devices')
-    bed = models.ForeignKey('manager.Bed', on_delete=models.SET_NULL, null=True, blank=True)  # حقل اختياري
+    # Location
+    department = models.ForeignKey(
+        'manager.Department',
+        on_delete=models.CASCADE,
+        related_name='devices'
+    )
+    room = models.ForeignKey(
+        'manager.Room',
+        on_delete=models.CASCADE,
+        related_name='devices'
+    )
+    bed = models.ForeignKey(
+        'manager.Bed',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     current_patient = models.ForeignKey(
-    'manager.Patient',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    verbose_name="المريض الحالي"
-)
+        'manager.Patient',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="المريض الحالي"
+    )
 
-    # Optional Details - to be added later
+    # Optional Details
     technical_specifications = models.TextField(blank=True, null=True)
     classification = models.CharField(max_length=100, blank=True, null=True)
     uses = models.TextField(blank=True, null=True)
     complications_risks = models.TextField(blank=True, null=True)
     half_life = models.CharField(max_length=100, blank=True, null=True)
-   
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإضافة")
+
+    def end_usage(self):
+        self.in_use = False
+        self.current_patient = None
+        self.usage_start_time = None
+        self.availability = True
+        self.clean_status = 'needs_cleaning'
+        self.sterilization_status = 'needs_sterilization'
+        self.status = 'needs_check'
+        self.save()
+
     def __str__(self):
-     return f"{self.id} - {self.model}"
+        return f"{self.id} - {self.model}"
     
-current_patient = models.ForeignKey(
-    'patients.Patient',
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True
-)
 
 
-class DeviceCleaningLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='cleaning_logs')
-    last_cleaned_by = models.ForeignKey(
-    settings.AUTH_USER_MODEL,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='devices_last_cleaned'  # اسم مميز
-)
-    cleaned_at = models.DateTimeField(auto_now_add=True)
+# DeviceCleaningLog model removed - duplicate definition exists above
 
-    def __str__(self):
-        return f"Cleaned by {self.last_cleaned_by} on {self.cleaned_at.strftime('%Y-%m-%d %H:%M')}"
+# DeviceSterilizationLog model removed - duplicate definition exists above
 
-class DeviceSterilizationLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='sterilization_logs')
-    last_sterilized_by = models.ForeignKey(
-    settings.AUTH_USER_MODEL,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='devices_last_sterilized'  # اسم مميز
-)
-    sterilized_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Sterilized by {self.sterilized_by} on {self.sterilized_at.strftime('%Y-%m-%d %H:%M')}"
-
-class DeviceMaintenanceLog(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='maintenance_logs')
-    last_maintained_by = models.ForeignKey(
-    settings.AUTH_USER_MODEL,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='devices_last_maintained'  # اسم مميز
-)
-    maintained_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Maintained by {self.last_maintained_by} on {self.maintained_at.strftime('%Y-%m-%d %H:%M')}"
+# DeviceMaintenanceLog model removed - duplicate definition exists above
 
 # ═══════════════════════════════════════════════════════════════════════════
 # QR/BARCODE INTEGRATION MODELS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# تم نقل نموذج DeviceUsageLog إلى نهاية الملف
+class DeviceUsageLog(models.Model):
+    """Log for tracking device usage sessions via QR scanning"""
+    OPERATION_CHOICES = [
+        ('surgery', 'عملية جراحية'),
+        ('transfer', 'نقل'),
+        ('assignment', 'تخصيص'),
+        ('maintenance', 'صيانة'),
+        ('cleaning', 'تنظيف'),
+        ('sterilization', 'تعقيم'),
+        ('inspection', 'فحص'),
+        ('procedure', 'إجراء طبي'),
+        ('training', 'تدريب'),
+        ('research', 'بحث'),
+        ('other', 'أخرى'),
+    ]
+    
+    USAGE_STATUS_CHOICES = [
+        ('active', 'نشط'),
+        ('completed', 'مكتمل'),
+        ('cancelled', 'ملغي'),
+        ('paused', 'متوقف مؤقتًا'),
+    ]
+    
+    # Session info
+    session_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="المستخدم")
+
+    
+    # Context
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="المريض"
+    )
+    bed = models.ForeignKey(
+        Bed,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="السرير"
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="القسم"
+    )
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="الغرفة"
+    )
+    
+    # Operation details
+    operation_type = models.CharField(
+        max_length=20,
+        choices=OPERATION_CHOICES,
+        default='other',
+        verbose_name="نوع العملية"
+    )
+    procedure_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="اسم الإجراء"
+    )
+    notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت الإنشاء")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت البدء")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت الإكمال")
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=USAGE_STATUS_CHOICES,
+        default='active',
+        verbose_name="الحالة"
+    )
+    is_completed = models.BooleanField(default=False, verbose_name="مكتملة؟")
+    
+    # Additional tracking
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_usage_logs',
+        verbose_name="أنشئ بواسطة"
+    )
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_usage_logs',
+        verbose_name="أكمل بواسطة"
+    )
+    
+    class Meta:
+        verbose_name = "سجل استخدام الأجهزة"
+        verbose_name_plural = "سجلات استخدام الأجهزة"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Session {self.session_id} - {self.user.get_full_name()} - {self.get_operation_type_display()}"
+        
+    @property
+    def duration(self):
+        """حساب مدة الاستخدام بالساعات"""
+        if self.completed_at and self.started_at:
+            return (self.completed_at - self.started_at).total_seconds() / 3600
+        return None
 
 
 class DeviceUsageLogItem(models.Model):
     """Individual devices/accessories used in a session"""
+    USAGE_STATUS_CHOICES = [
+        ('in_use', 'قيد الاستخدام'),
+        ('completed', 'تم الاستخدام'),
+        ('cancelled', 'تم الإلغاء'),
+        ('paused', 'متوقف مؤقتًا'),
+    ]
+    
     usage_log = models.ForeignKey(
         'DeviceUsageLog',
         on_delete=models.CASCADE,
@@ -753,16 +764,55 @@ class DeviceUsageLogItem(models.Model):
         on_delete=models.CASCADE,
         verbose_name="الجهاز"
     )
+    accessory = models.ForeignKey(
+        'DeviceAccessory',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usage_log_items',
+        verbose_name="ملحق الجهاز"
+    )
+    
+    # Timestamps
     scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
-    notes = models.CharField(max_length=255, blank=True, null=True, verbose_name="ملاحظات")
+    usage_start = models.DateTimeField(null=True, blank=True, verbose_name="وقت بدء الاستخدام")
+    usage_end = models.DateTimeField(null=True, blank=True, verbose_name="وقت انتهاء الاستخدام")
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=USAGE_STATUS_CHOICES,
+        default='in_use',
+        verbose_name="حالة الاستخدام"
+    )
+    
+    # Usage details
+    used_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_usages',
+        verbose_name="المستخدم"
+    )
+    notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات")
+    issues_reported = models.TextField(blank=True, null=True, verbose_name="مشاكل مبلغ عنها")
     
     class Meta:
         verbose_name = "عنصر سجل استخدام الجهاز"
         verbose_name_plural = "عناصر سجل استخدام الأجهزة"
         unique_together = ['usage_log', 'device']
+        ordering = ['-scanned_at']
     
     def __str__(self):
         return f"{self.device} في {self.usage_log}"
+    
+    @property
+    def duration_minutes(self):
+        """حساب مدة استخدام الجهاز بالدقائق"""
+        if self.usage_end and self.usage_start:
+            return (self.usage_end - self.usage_start).total_seconds() / 60
+        return None
 
 
 class ScanSession(models.Model):
@@ -821,9 +871,9 @@ class ScanHistory(models.Model):
         related_name='scan_history',
         verbose_name="الجلسة"
     )
-    scanned_code = models.CharField(max_length=100, verbose_name="الكود الممسوح")
-    entity_type = models.CharField(max_length=50, verbose_name="نوع الكيان")
-    entity_id = models.IntegerField(verbose_name="معرف الكيان")
+    scanned_code = models.CharField(max_length=100, verbose_name="الكود الممسوح", default='')
+    entity_type = models.CharField(max_length=50, verbose_name="نوع الكيان", default='')
+    entity_id = models.IntegerField(verbose_name="معرف الكيان", default=0)
     entity_data = models.JSONField(default=dict, verbose_name="بيانات الكيان")
     scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
     is_valid = models.BooleanField(default=True, verbose_name="صالح؟")
@@ -1039,7 +1089,7 @@ class DeviceHandoverLog(models.Model):
 
 class DeviceAccessory(QRCodeMixin, models.Model):
     """Model for device accessories with QR code functionality"""
-    name = models.CharField(max_length=255, verbose_name="اسم الملحق")
+    name = models.CharField(max_length=255, verbose_name="اسم الملحق", default='')
     description = models.TextField(blank=True, null=True, verbose_name="الوصف")
     device = models.ForeignKey(
         Device,
@@ -1088,7 +1138,7 @@ class DeviceAccessoryUsageLog(models.Model):
         verbose_name="سجل الاستخدام"
     )
     accessory = models.ForeignKey(
-        DeviceAccessory,
+        'DeviceAccessory',
         on_delete=models.CASCADE,
         verbose_name="الملحق"
     )
@@ -1493,8 +1543,8 @@ class ServiceRequest(models.Model):
     """نموذج طلب الخدمة"""
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='service_requests', verbose_name="الجهاز")
     reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reported_requests', verbose_name="مقدم البلاغ")
-    title = models.CharField(max_length=200, verbose_name="عنوان البلاغ")
-    description = models.TextField(verbose_name="وصف المشكلة")
+    title = models.CharField(max_length=200, verbose_name="عنوان البلاغ", default='')
+    description = models.TextField(verbose_name="وصف المشكلة", blank=True, null=True)
     request_type = models.CharField(max_length=20, choices=SR_TYPE_CHOICES, default='breakdown', verbose_name="نوع البلاغ")
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium', verbose_name="درجة الخطورة")
     impact = models.CharField(max_length=20, choices=IMPACT_CHOICES, default='moderate', verbose_name="التأثير")
@@ -1578,9 +1628,9 @@ class SLAMatrix(models.Model):
     هنا بنحدد SLA حسب نوع الجهاز ودرجة الخطورة والتأثير
     """
     device_category = models.ForeignKey('DeviceCategory', on_delete=models.CASCADE, verbose_name="فئة الجهاز")
-    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, verbose_name="درجة الخطورة")
-    impact = models.CharField(max_length=20, choices=IMPACT_CHOICES, verbose_name="التأثير")
-    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, verbose_name="الأولوية")
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, verbose_name="درجة الخطورة", default='medium')
+    impact = models.CharField(max_length=20, choices=IMPACT_CHOICES, verbose_name="التأثير", default='moderate')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, verbose_name="الأولوية", default='medium')
     sla_definition = models.ForeignKey('SLADefinition', on_delete=models.CASCADE, verbose_name="تعريف SLA")
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
@@ -1602,8 +1652,8 @@ class CalibrationRecord(models.Model):
     هنا بنتتبع معايرات الأجهزة وتواريخ الاستحقاق
     """
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='calibration_records', verbose_name="الجهاز")
-    calibration_date = models.DateField(verbose_name="تاريخ المعايرة")
-    next_calibration_date = models.DateField(verbose_name="تاريخ المعايرة التالية")
+    calibration_date = models.DateField(verbose_name="تاريخ المعايرة", null=True, blank=True)
+    next_calibration_date = models.DateField(verbose_name="تاريخ المعايرة التالية", null=True, blank=True)
     calibration_interval_months = models.PositiveIntegerField(default=12, verbose_name="فترة المعايرة بالشهور")
     
     calibrated_by = models.ForeignKey(
@@ -1662,7 +1712,7 @@ class DowntimeEvent(models.Model):
     هنا بنتتبع فترات توقف الأجهزة عن العمل
     """
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='downtime_events', verbose_name="الجهاز")
-    start_time = models.DateTimeField(verbose_name="وقت بداية التوقف")
+    start_time = models.DateTimeField(verbose_name="وقت بداية التوقف", null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True, verbose_name="وقت نهاية التوقف")
     
     downtime_type = models.CharField(
@@ -1672,14 +1722,14 @@ class DowntimeEvent(models.Model):
         verbose_name="نوع التوقف"
     )
     
-    reason = models.TextField(verbose_name="سبب التوقف")
+    reason = models.TextField(verbose_name="سبب التوقف", blank=True, null=True)
     impact_description = models.TextField(blank=True, verbose_name="وصف التأثير")
     
     reported_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 
         null=True,
-        related_name='reported_downtime_events',
+        related_name='event_reported_downtimes',
         verbose_name="تم الإبلاغ بواسطة"
     )
     
@@ -1688,7 +1738,7 @@ class DowntimeEvent(models.Model):
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
-        related_name='resolved_downtime_events',
+        related_name='event_resolved_downtimes',
         verbose_name="تم الحل بواسطة"
     )
     
@@ -1697,7 +1747,7 @@ class DowntimeEvent(models.Model):
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
-        related_name='downtime_events',
+        related_name='related_downtime_events',
         verbose_name="أمر الشغل المرتبط"
     )
     
@@ -1733,13 +1783,14 @@ class DowntimeEvent(models.Model):
         return self.end_time is None
 
 
-class DeviceUsageLog(models.Model):
+# تم نقل هذا النموذج إلى تعريف آخر في الملف
+class DeviceUsageLogDaily(models.Model):
     """
     سجل الاستخدام اليومي للأجهزة
     هنا بنتتبع استخدام الأجهزة والتفقد اليومي
     """
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='usage_logs', verbose_name="الجهاز")
-    date = models.DateField(verbose_name="التاريخ")
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='daily_usage_logs', verbose_name="الجهاز")
+    date = models.DateField(verbose_name="التاريخ", null=True, blank=True)
     shift = models.CharField(
         max_length=20,
         choices=[
@@ -1810,7 +1861,7 @@ class WorkOrderPart(models.Model):
     """
     work_order = models.ForeignKey('WorkOrder', on_delete=models.CASCADE, related_name='parts_used', verbose_name="أمر الشغل")
     spare_part = models.ForeignKey('SparePart', on_delete=models.CASCADE, verbose_name="قطعة الغيار")
-    quantity_requested = models.PositiveIntegerField(verbose_name="الكمية المطلوبة")
+    quantity_requested = models.PositiveIntegerField(verbose_name="الكمية المطلوبة", default=1)
     quantity_used = models.PositiveIntegerField(default=0, verbose_name="الكمية المستخدمة")
     
     status = models.CharField(
@@ -1825,8 +1876,8 @@ class WorkOrderPart(models.Model):
         verbose_name="الحالة"
     )
     
-    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="تكلفة الوحدة")
-    total_cost = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="التكلفة الإجمالية")
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="تكلفة الوحدة", default=0)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="التكلفة الإجمالية", default=0)
     
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
@@ -1866,9 +1917,9 @@ class WorkOrderPart(models.Model):
 class WorkOrder(models.Model):
     """نموذج أمر العمل"""
     service_request = models.ForeignKey('ServiceRequest', on_delete=models.CASCADE, related_name='work_orders', verbose_name="البلاغ")
-    wo_number = models.CharField(max_length=50, unique=True, verbose_name="رقم أمر العمل")
-    title = models.CharField(max_length=200, verbose_name="عنوان أمر العمل")
-    description = models.TextField(verbose_name="وصف العمل")
+    wo_number = models.CharField(max_length=50, unique=True, verbose_name="رقم أمر العمل", default='')
+    title = models.CharField(max_length=200, verbose_name="عنوان أمر العمل", default='')
+    description = models.TextField(verbose_name="وصف العمل", blank=True, null=True)
     wo_type = models.CharField(max_length=20, choices=WO_TYPE_CHOICES, default='corrective', verbose_name="نوع أمر العمل")
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium', verbose_name="الأولوية")
     status = models.CharField(max_length=20, choices=WO_STATUS_CHOICES, default='new', verbose_name="الحالة")
@@ -1944,14 +1995,14 @@ class WorkOrder(models.Model):
 
 class JobPlan(models.Model):
     """نموذج خطة العمل"""
-    name = models.CharField(max_length=200, verbose_name="اسم خطة العمل")
-    description = models.TextField(verbose_name="وصف خطة العمل")
+    name = models.CharField(max_length=200, verbose_name="اسم خطة العمل", default='')
+    description = models.TextField(verbose_name="وصف خطة العمل", blank=True, null=True)
     device_category = models.ForeignKey('DeviceCategory', on_delete=models.CASCADE, related_name='job_plans', verbose_name="فئة الجهاز")
     job_type = models.CharField(max_length=20, choices=WO_TYPE_CHOICES, verbose_name="نوع العمل")
-    estimated_hours = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="الساعات المقدرة")
+    estimated_hours = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="الساعات المقدرة", default=0)
     
     # Instructions
-    instructions = models.TextField(verbose_name="تعليمات العمل")
+    instructions = models.TextField(verbose_name="تعليمات العمل", blank=True, null=True)
     safety_notes = models.TextField(blank=True, verbose_name="ملاحظات السلامة")
     
     # Status
@@ -1974,9 +2025,9 @@ class JobPlan(models.Model):
 class JobPlanStep(models.Model):
     """نموذج خطوة خطة العمل"""
     job_plan = models.ForeignKey(JobPlan, on_delete=models.CASCADE, related_name='steps', verbose_name="خطة العمل")
-    step_number = models.PositiveIntegerField(verbose_name="رقم الخطوة")
-    title = models.CharField(max_length=200, verbose_name="عنوان الخطوة")
-    description = models.TextField(verbose_name="وصف الخطوة")
+    step_number = models.PositiveIntegerField(verbose_name="رقم الخطوة", default=1)
+    title = models.CharField(max_length=200, verbose_name="عنوان الخطوة", default='')
+    description = models.TextField(verbose_name="وصف الخطوة", blank=True, null=True)
     estimated_minutes = models.PositiveIntegerField(default=0, verbose_name="الدقائق المقدرة")
     
     class Meta:
@@ -1991,7 +2042,7 @@ class JobPlanStep(models.Model):
 
 class PreventiveMaintenanceSchedule(models.Model):
     """نموذج جدولة الصيانة الوقائية"""
-    name = models.CharField(max_length=200, verbose_name="اسم الجدولة")
+    name = models.CharField(max_length=200, verbose_name="اسم الجدولة", default='')
     description = models.TextField(blank=True, verbose_name="الوصف")
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='pm_schedules', verbose_name="الجهاز")
     job_plan = models.ForeignKey(JobPlan, on_delete=models.CASCADE, related_name='pm_schedules', verbose_name="خطة العمل")
@@ -1999,11 +2050,11 @@ class PreventiveMaintenanceSchedule(models.Model):
     # Scheduling
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, verbose_name="التكرار")
     interval_days = models.PositiveIntegerField(null=True, blank=True, verbose_name="الفترة بالأيام")
-    start_date = models.DateField(verbose_name="تاريخ البدء")
+    start_date = models.DateField(verbose_name="تاريخ البدء", null=True, blank=True)
     end_date = models.DateField(null=True, blank=True, verbose_name="تاريخ الانتهاء")
     
     # Next occurrence
-    next_due_date = models.DateField(verbose_name="تاريخ الاستحقاق التالي")
+    next_due_date = models.DateField(verbose_name="تاريخ الاستحقاق التالي", null=True, blank=True)
     
     # Assignment
     assigned_to = models.ForeignKey(
@@ -2088,7 +2139,7 @@ class PreventiveMaintenanceSchedule(models.Model):
             reporter=self.created_by,
             title=f"صيانة وقائية - {self.name}",
             description=f"صيانة وقائية مجدولة: {self.description}",
-            sr_type='preventive',
+            request_type='preventive',
             priority='medium',
             status='new'
         )
@@ -2114,7 +2165,7 @@ class PreventiveMaintenanceSchedule(models.Model):
 
 class SLADefinition(models.Model):
     """نموذج تعريف اتفاقية مستوى الخدمة"""
-    name = models.CharField(max_length=200, verbose_name="اسم الاتفاقية")
+    name = models.CharField(max_length=200, verbose_name="اسم الاتفاقية", default='')
     description = models.TextField(blank=True, verbose_name="الوصف")
     
     # Criteria
@@ -2123,8 +2174,8 @@ class SLADefinition(models.Model):
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, null=True, blank=True, verbose_name="الأولوية")
     
     # SLA times (in hours)
-    response_time_hours = models.PositiveIntegerField(verbose_name="وقت الاستجابة (ساعات)")
-    resolution_time_hours = models.PositiveIntegerField(verbose_name="وقت الحل (ساعات)")
+    response_time_hours = models.PositiveIntegerField(verbose_name="وقت الاستجابة (ساعات)", default=24)
+    resolution_time_hours = models.PositiveIntegerField(verbose_name="وقت الحل (ساعات)", default=72)
     
     # Status
     is_active = models.BooleanField(default=True, verbose_name="نشط")
@@ -2156,8 +2207,8 @@ class SLADefinition(models.Model):
 
 class SystemNotification(models.Model):
     """نموذج إشعارات النظام"""
-    title = models.CharField(max_length=200, verbose_name="العنوان")
-    message = models.TextField(verbose_name="الرسالة")
+    title = models.CharField(max_length=200, verbose_name="العنوان", default='')
+    message = models.TextField(verbose_name="الرسالة", blank=True, null=True)
     notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE_CHOICES, verbose_name="نوع الإشعار")
     
     # Recipients
@@ -2234,10 +2285,10 @@ class SystemNotification(models.Model):
 
 class EmailLog(models.Model):
     """نموذج سجل الإيميلات"""
-    recipient_email = models.EmailField(verbose_name="بريد المستقبل")
+    recipient_email = models.EmailField(verbose_name="بريد المستقبل", default='')
     recipient_name = models.CharField(max_length=200, blank=True, verbose_name="اسم المستقبل")
-    subject = models.CharField(max_length=300, verbose_name="الموضوع")
-    body = models.TextField(verbose_name="محتوى الرسالة")
+    subject = models.CharField(max_length=300, verbose_name="الموضوع", default='')
+    body = models.TextField(verbose_name="محتوى الرسالة", blank=True, null=True)
     
     # Related notification
     notification = models.ForeignKey(
@@ -2325,12 +2376,12 @@ class NotificationPreference(models.Model):
 
 class NotificationTemplate(models.Model):
     """نموذج قوالب الإشعارات"""
-    name = models.CharField(max_length=200, verbose_name="اسم القالب")
+    name = models.CharField(max_length=200, verbose_name="اسم القالب", default='')
     notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE_CHOICES, verbose_name="نوع الإشعار")
     
     # Template content
-    subject_template = models.CharField(max_length=300, verbose_name="قالب الموضوع")
-    body_template = models.TextField(verbose_name="قالب المحتوى")
+    subject_template = models.CharField(max_length=300, verbose_name="قالب الموضوع", default='')
+    body_template = models.TextField(verbose_name="قالب المحتوى", blank=True, null=True)
     
     # Language and formatting
     language = models.CharField(
@@ -2384,7 +2435,7 @@ class NotificationQueue(models.Model):
     )
     
     # Processing details
-    scheduled_for = models.DateTimeField(verbose_name="مجدول لـ")
+    scheduled_for = models.DateTimeField(verbose_name="مجدول لـ", null=True, blank=True)
     attempts = models.PositiveIntegerField(default=0, verbose_name="المحاولات")
     max_attempts = models.PositiveIntegerField(default=3, verbose_name="أقصى محاولات")
     
@@ -2430,8 +2481,8 @@ class NotificationQueue(models.Model):
 
 class Supplier(models.Model):
     """نموذج المورد"""
-    name = models.CharField(max_length=200, verbose_name="اسم المورد")
-    code = models.CharField(max_length=50, unique=True, verbose_name="كود المورد")
+    name = models.CharField(max_length=200, verbose_name="اسم المورد", default='')
+    code = models.CharField(max_length=50, unique=True, verbose_name="كود المورد", default='')
     
     # Contact information
     contact_person = models.CharField(max_length=200, blank=True, verbose_name="الشخص المسؤول")
@@ -2481,8 +2532,8 @@ class Supplier(models.Model):
 
 class SparePart(models.Model):
     """نموذج قطعة الغيار"""
-    name = models.CharField(max_length=200, verbose_name="اسم قطعة الغيار")
-    part_number = models.CharField(max_length=100, unique=True, verbose_name="رقم القطعة")
+    name = models.CharField(max_length=200, verbose_name="اسم قطعة الغيار", default='')
+    part_number = models.CharField(max_length=100, unique=True, verbose_name="رقم القطعة", default='')
     description = models.TextField(blank=True, verbose_name="الوصف")
     
     # Categorization
@@ -2516,9 +2567,9 @@ class SparePart(models.Model):
         verbose_name="المورد الأساسي"
     )
     alternative_suppliers = models.ManyToManyField(
-        Supplier, 
+        'Supplier', 
         blank=True,
-        related_name='alternative_parts',
+        related_name='alternative_parts_v2',
         verbose_name="الموردين البديلين"
     )
     
@@ -2533,7 +2584,7 @@ class SparePart(models.Model):
     
     # Compatibility
     compatible_devices = models.ManyToManyField(
-        Device, 
+        'Device', 
         blank=True,
         related_name='compatible_spare_parts',
         verbose_name="الأجهزة المتوافقة"
@@ -2585,11 +2636,104 @@ class SparePart(models.Model):
         return 0
 
 
-class DeviceTransfer(models.Model):
-    device = models.ForeignKey(Device, on_delete=models.CASCADE)
-    from_department = models.CharField(max_length=255)
-    to_department = models.CharField(max_length=255)
-    transfer_date = models.DateField()
+# ================================================================
+# COMPLEMENTARY MODELS FOR FORMS COMPATIBILITY
+# ================================================================
+
+# WorkOrder extra fields used in forms
+if not hasattr(WorkOrder, 'assignee'):
+    WorkOrder.add_to_class('assignee', models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='workorders_assigned'
+    ))
+
+if not hasattr(WorkOrder, 'completion_notes'):
+    WorkOrder.add_to_class('completion_notes', models.TextField(blank=True, null=True))
+
+if not hasattr(WorkOrder, 'qa_notes'):
+    WorkOrder.add_to_class('qa_notes', models.TextField(blank=True, null=True))
+
+
+class WorkOrderComment(models.Model):
+    """تعليقات على أوامر الشغل"""
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    comment = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.device} transferred on {self.transfer_date}"
+        return f"Comment by {self.user} on {self.work_order}"
+
+
+# Extend SLADefinition to match form
+if not hasattr(SLADefinition, 'severity'):
+    SLADefinition.add_to_class('severity', models.CharField(
+        max_length=20,
+        choices=[
+            ('critical', 'حرج'),
+            ('high', 'عالي'),
+            ('medium', 'متوسط'),
+            ('low', 'منخفض'),
+        ],
+        default='medium'
+    ))
+if not hasattr(SLADefinition, 'device_category'):
+    SLADefinition.add_to_class('device_category', models.ForeignKey(
+        'DeviceCategory', on_delete=models.SET_NULL, null=True, blank=True
+    ))
+
+
+# Extend JobPlan to match form
+if not hasattr(JobPlan, 'job_type'):
+    JobPlan.add_to_class('job_type', models.CharField(max_length=100, blank=True, null=True))
+if not hasattr(JobPlan, 'estimated_hours'):
+    JobPlan.add_to_class('estimated_hours', models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True))
+if not hasattr(JobPlan, 'instructions'):
+    JobPlan.add_to_class('instructions', models.TextField(blank=True, null=True))
+
+
+# Extend PreventiveMaintenanceSchedule to match form
+if not hasattr(PreventiveMaintenanceSchedule, 'name'):
+    PreventiveMaintenanceSchedule.add_to_class('name', models.CharField(max_length=200, default='PM Schedule'))
+if not hasattr(PreventiveMaintenanceSchedule, 'description'):
+    PreventiveMaintenanceSchedule.add_to_class('description', models.TextField(blank=True, null=True))
+if not hasattr(PreventiveMaintenanceSchedule, 'interval_days'):
+    PreventiveMaintenanceSchedule.add_to_class('interval_days', models.PositiveIntegerField(default=30))
+if not hasattr(PreventiveMaintenanceSchedule, 'start_date'):
+    PreventiveMaintenanceSchedule.add_to_class('start_date', models.DateField(null=True, blank=True))
+if not hasattr(PreventiveMaintenanceSchedule, 'end_date'):
+    PreventiveMaintenanceSchedule.add_to_class('end_date', models.DateField(null=True, blank=True))
+if not hasattr(PreventiveMaintenanceSchedule, 'assignee'):
+    PreventiveMaintenanceSchedule.add_to_class('assignee', models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pm_assigned'
+    ))
+if not hasattr(PreventiveMaintenanceSchedule, 'day_of_week'):
+    PreventiveMaintenanceSchedule.add_to_class('day_of_week', models.CharField(max_length=20, blank=True, null=True))
+if not hasattr(PreventiveMaintenanceSchedule, 'day_of_month'):
+    PreventiveMaintenanceSchedule.add_to_class('day_of_month', models.PositiveIntegerField(null=True, blank=True))
+
+
+# Extend Supplier to match form
+if not hasattr(Supplier, 'website'):
+    Supplier.add_to_class('website', models.URLField(blank=True, null=True))
+
+
+# Extend SparePart to match form
+if not hasattr(SparePart, 'storage_location'):
+    SparePart.add_to_class('storage_location', models.CharField(max_length=200, blank=True, null=True))
+if not hasattr(SparePart, 'image'):
+    SparePart.add_to_class('image', models.ImageField(upload_to="spare_parts/", blank=True, null=True))
+if not hasattr(SparePart, 'device_category'):
+    SparePart.add_to_class('device_category', models.ForeignKey(
+        'DeviceCategory', on_delete=models.SET_NULL, null=True, blank=True
+    ))
+
+
+# DeviceTransfer alias for forms
+class DeviceTransfer(DeviceTransferLog):
+    class Meta:
+        proxy = True
+        verbose_name = "Device Transfer"
+        verbose_name_plural = "Device Transfers"

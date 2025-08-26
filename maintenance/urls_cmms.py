@@ -4,6 +4,8 @@ from . import views_cmms
 # هنا بنعرف مسارات URL الخاصة بنظام CMMS
 # لاحظ إننا بنستخدم نفس أسلوب التسمية الموجود في المشروع
 
+app_name = 'cmms'
+
 urlpatterns = [
     # بلاغات الصيانة (Service Requests)
     path('service-requests/', views_cmms.service_request_list, name='service_request_list'),
