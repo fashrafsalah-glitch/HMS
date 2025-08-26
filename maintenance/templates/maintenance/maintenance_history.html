@@ -1,40 +1,159 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load static %}
 
-{% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">📋 سجل صيانة الجهاز</h2>
+{% block title %}{% trans "سجل الصيانة" %} - {{ device.name }}{% endblock %}
 
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5>🔧 الجهاز: {{ device.name }}</h5>
-            <p>🔢 الرقم التسلسلي: {{ device.serial_number }}</p>
+{% block extra_css %}
+<style>
+    .history-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .history-header {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1.25rem;
+    }
+    .device-info {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .log-item {
+        background: white;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-left: 4px solid #ffc107;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-12">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-wrench text-warning me-2"></i>
+                        {% trans "سجل الصيانة" %}
+                    </h2>
+                    <p class="text-muted mb-0">{{ device.name }}</p>
+                </div>
+                <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    {% trans "العودة للجهاز" %}
+                </a>
+            </div>
+
+            <!-- Device Information -->
+            <div class="device-info">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-1">
+                            <i class="fas fa-desktop text-primary me-2"></i>
+                            {{ device.name }}
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <small>
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                {{ device.department.name }} - {{ device.room.name }}
+                                {% if device.serial_number %}
+                                    | <i class="fas fa-barcode me-1"></i>{{ device.serial_number }}
+                                {% endif %}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-start">
+                        <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-warning">
+                            <i class="fas fa-plus me-1"></i>
+                            {% trans "تسجيل صيانة جديدة" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance History -->
+            <div class="history-card card">
+                <div class="history-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        {% trans "سجل عمليات الصيانة" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if maintenance_logs %}
+                        <div class="row">
+                            {% for log in maintenance_logs %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="log-item">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <i class="fas fa-user text-warning me-1"></i>
+                                                    {% if log.maintained_by %}
+                                                        {{ log.maintained_by.get_full_name|default:log.maintained_by.username }}
+                                                    {% else %}
+                                                        {% trans "مستخدم غير محدد" %}
+                                                    {% endif %}
+                                                </h6>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ log.maintained_at|date:"Y-m-d H:i" }}
+                                                </small>
+                                            </div>
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-wrench me-1"></i>
+                                                {% trans "صيانة" %}
+                                            </span>
+                                        </div>
+                                        {% if log.maintenance_type %}
+                                            <div class="mt-2">
+                                                <small class="text-warning">
+                                                    <i class="fas fa-tools me-1"></i>
+                                                    <strong>{% trans "النوع:" %}</strong> {{ log.maintenance_type }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                        {% if log.notes %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-sticky-note me-1"></i>
+                                                    {{ log.notes }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-wrench fa-3x mb-3 text-muted"></i>
+                            <h5 class="text-muted">{% trans "لا توجد سجلات صيانة" %}</h5>
+                            <p class="text-muted">{% trans "لم يتم تسجيل أي عمليات صيانة لهذا الجهاز حتى الآن" %}</p>
+                            <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-warning">
+                                <i class="fas fa-plus me-1"></i>
+                                {% trans "تسجيل أول عملية صيانة" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
-
-    {% if logs %}
-    <table class="table table-bordered table-striped">
-        <thead class="thead-dark">
-            <tr>
-                <th>#</th>
-                <th>اسم المستخدم</th>
-                <th>التاريخ والوقت</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ log.last_maintained_by.get_full_name|default:log.last_maintained_by.username }}</td>
-                <td>{{ log.maintained_at|date:"Y-m-d H:i:s" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-info">لا توجد سجلات صيانة حتى الآن.</div>
-    {% endif %}
-    
-    <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary mt-3">⬅️ العودة إلى تفاصيل الجهاز</a>
 </div>
 {% endblock %}

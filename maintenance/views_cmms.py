@@ -1128,3 +1128,52 @@ def pm_schedule_toggle_status(request, schedule_id):
     
     pm_schedule.save()
     return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+
+@login_required
+def work_order_update_status(request, wo_id):
+    """تحديث حالة أمر الشغل"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        completion_notes = request.POST.get('completion_notes', '')
+        
+        if new_status in ['pending', 'in_progress', 'completed', 'cancelled']:
+            work_order.status = new_status
+            if completion_notes:
+                work_order.completion_notes = completion_notes
+            if new_status == 'completed':
+                work_order.completed_at = timezone.now()
+            work_order.save()
+            
+            messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
+        else:
+            messages.error(request, 'حالة غير صحيحة')
+    
+    return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+
+@login_required
+def work_order_add_comment(request, wo_id):
+    """إضافة تعليق لأمر الشغل"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    
+    if request.method == 'POST':
+        comment_text = request.POST.get('comment', '').strip()
+        
+        if comment_text:
+            # إضافة التعليق إلى ملاحظات أمر الشغل
+            current_notes = work_order.notes or ''
+            timestamp = timezone.now().strftime('%Y-%m-%d %H:%M')
+            new_comment = f"[{timestamp}] {request.user.get_full_name() or request.user.username}: {comment_text}"
+            
+            if current_notes:
+                work_order.notes = f"{current_notes}\n\n{new_comment}"
+            else:
+                work_order.notes = new_comment
+            
+            work_order.save()
+            messages.success(request, 'تم إضافة التعليق بنجاح')
+        else:
+            messages.error(request, 'لا يمكن إضافة تعليق فارغ')
+    
+    return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)

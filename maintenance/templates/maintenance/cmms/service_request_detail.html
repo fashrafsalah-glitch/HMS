@@ -12,7 +12,7 @@
                 <div class="card-header">
                     <h3 class="card-title">بلاغ #SR-{{ service_request.id }}: {{ service_request.title }}</h3>
                     <div class="card-tools">
-                        <a href="{% url 'service_request_list' %}" class="btn btn-secondary btn-sm">
+                        <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-arrow-left"></i> العودة للقائمة
                         </a>
                     </div>
@@ -23,16 +23,32 @@
                             <dl class="row">
                                 <dt class="col-sm-4">الجهاز:</dt>
                                 <dd class="col-sm-8">
-                                    <a href="{% url 'device_detail' service_request.device.id %}">
-                                        {{ service_request.device.name }} ({{ service_request.device.serial_number }})
-                                    </a>
+                                    {% if service_request.device %}
+                                        <a href="{% url 'maintenance:device_detail' service_request.device.id %}">
+                                            {{ service_request.device.name }}{% if service_request.device.serial_number %} ({{ service_request.device.serial_number }}){% endif %}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
                                 </dd>
                                 
                                 <dt class="col-sm-4">القسم:</dt>
-                                <dd class="col-sm-8">{{ service_request.device.department.name }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if service_request.device and service_request.device.department %}
+                                        {{ service_request.device.department.name }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">الموقع:</dt>
-                                <dd class="col-sm-8">{{ service_request.device.room }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if service_request.device and service_request.device.room %}
+                                        {{ service_request.device.room }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">نوع البلاغ:</dt>
                                 <dd class="col-sm-8">{{ service_request.get_request_type_display }}</dd>
@@ -130,18 +146,18 @@
                     <div class="row mt-4">
                         <div class="col-12">
                             <div class="btn-group">
-                                <a href="{% url 'service_request_update' service_request.id %}" class="btn btn-warning">
+                                <a href="{% url 'maintenance:cmms:service_request_update' service_request.id %}" class="btn btn-warning">
                                     <i class="fas fa-edit"></i> تعديل البلاغ
                                 </a>
                                 
                                 {% if service_request.status != 'closed' and service_request.status != 'cancelled' %}
-                                    <a href="{% url 'service_request_close' service_request.id %}" class="btn btn-secondary" onclick="return confirm('هل أنت متأكد من إغلاق هذا البلاغ؟')">
+                                    <a href="{% url 'maintenance:cmms:service_request_close' service_request.id %}" class="btn btn-secondary" onclick="return confirm('هل أنت متأكد من إغلاق هذا البلاغ؟')">
                                         <i class="fas fa-check"></i> إغلاق البلاغ
                                     </a>
                                 {% endif %}
                                 
                                 {% if perms.maintenance.add_workorder and service_request.status != 'closed' and service_request.status != 'cancelled' %}
-                                    <a href="{% url 'work_order_create' %}?service_request={{ service_request.id }}" class="btn btn-primary">
+                                    <a href="{% url 'maintenance:cmms:work_order_create' %}?service_request={{ service_request.id }}" class="btn btn-primary">
                                         <i class="fas fa-tools"></i> إنشاء أمر شغل
                                     </a>
                                 {% endif %}
@@ -162,7 +178,7 @@
                     {% if work_orders %}
                         <div class="list-group">
                             {% for wo in work_orders %}
-                                <a href="{% url 'work_order_detail' wo.id %}" class="list-group-item list-group-item-action">
+                                <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="list-group-item list-group-item-action">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h5 class="mb-1">WO-{{ wo.id }}</h5>
                                         <small>

@@ -12,7 +12,7 @@
                 <div class="card-header">
                     <h3 class="card-title">أمر شغل #WO-{{ work_order.id }}</h3>
                     <div class="card-tools">
-                        <a href="{% url 'work_order_list' %}" class="btn btn-secondary btn-sm">
+                        <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-arrow-left"></i> العودة للقائمة
                         </a>
                     </div>
@@ -23,21 +23,37 @@
                             <dl class="row">
                                 <dt class="col-sm-4">الجهاز:</dt>
                                 <dd class="col-sm-8">
-                                    <a href="{% url 'device_detail' work_order.device.id %}">
-                                        {{ work_order.device.name }} ({{ work_order.device.serial_number }})
-                                    </a>
+                                    {% if work_order.device %}
+                                        <a href="{% url 'maintenance:device_detail' work_order.device.id %}">
+                                            {{ work_order.device.name }}{% if work_order.device.serial_number %} ({{ work_order.device.serial_number }}){% endif %}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
                                 </dd>
                                 
                                 <dt class="col-sm-4">القسم:</dt>
-                                <dd class="col-sm-8">{{ work_order.device.department.name }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if work_order.device and work_order.device.department %}
+                                        {{ work_order.device.department.name }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">الموقع:</dt>
-                                <dd class="col-sm-8">{{ work_order.device.room }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if work_order.device and work_order.device.room %}
+                                        {{ work_order.device.room }}
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">البلاغ المرتبط:</dt>
                                 <dd class="col-sm-8">
                                     {% if work_order.service_request %}
-                                        <a href="{% url 'service_request_detail' work_order.service_request.id %}">
+                                        <a href="{% url 'maintenance:cmms:service_request_detail' work_order.service_request.id %}">
                                             SR-{{ work_order.service_request.id }}: {{ work_order.service_request.title }}
                                         </a>
                                     {% else %}
@@ -74,7 +90,7 @@
                                     {% else %}
                                         <span class="text-muted">غير معين</span>
                                         {% if perms.maintenance.assign_workorder %}
-                                            <a href="{% url 'work_order_assign' work_order.id %}" class="btn btn-primary btn-sm ml-2">
+                                            <a href="{% url 'maintenance:cmms:work_order_assign' work_order.id %}" class="btn btn-primary btn-sm ml-2">
                                                 <i class="fas fa-user-plus"></i> تعيين
                                             </a>
                                         {% endif %}
@@ -134,7 +150,7 @@
                                     <h5 class="card-title">تحديث حالة أمر الشغل</h5>
                                 </div>
                                 <div class="card-body">
-                                    <form method="post" action="{% url 'work_order_update_status' work_order.id %}">
+                                    <form method="post" action="{% url 'maintenance:cmms:work_order_update_status' work_order.id %}">
                                         {% csrf_token %}
                                         <div class="form-row">
                                             <div class="form-group col-md-6">
@@ -190,7 +206,7 @@
                     </div>
                     
                     <!-- نموذج إضافة تعليق -->
-                    <form method="post" action="{% url 'work_order_add_comment' work_order.id %}" class="mt-3">
+                    <form method="post" action="{% url 'maintenance:cmms:work_order_add_comment' work_order.id %}" class="mt-3">
                         {% csrf_token %}
                         <div class="input-group">
                             {{ comment_form.comment }}

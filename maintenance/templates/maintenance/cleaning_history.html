@@ -1,41 +1,191 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load static %}
 
-{% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">🧼 سجل تنظيف الجهاز</h2>
+{% block title %}{% trans "سجل التنظيف" %} - {{ device.name }}{% endblock %}
 
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5>🔧 اسم الجهاز: <strong>{{ device.name }}</strong></h5>
-            <p>📟 الرقم التسلسلي: <strong>{{ device.serial_number }}</strong></p>
-            <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-outline-secondary btn-sm">⬅ الرجوع لتفاصيل الجهاز</a>
+{% block extra_css %}
+<style>
+    .history-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .history-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1.25rem;
+    }
+    .device-info {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .table th {
+        background-color: #28a745;
+        color: white;
+        border: none;
+    }
+    .log-item {
+        background: white;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-left: 4px solid #28a745;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-12">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-spray-can text-success me-2"></i>
+                        {% trans "سجل التنظيف" %}
+                    </h2>
+                    <p class="text-muted mb-0">{{ device.name }}</p>
+                </div>
+                <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    {% trans "العودة للجهاز" %}
+                </a>
+            </div>
+
+            <!-- Device Information -->
+            <div class="device-info">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-1">
+                            <i class="fas fa-desktop text-primary me-2"></i>
+                            {{ device.name }}
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <small>
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                {{ device.department.name }} - {{ device.room.name }}
+                                {% if device.serial_number %}
+                                    | <i class="fas fa-barcode me-1"></i>{{ device.serial_number }}
+                                {% endif %}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-start">
+                        <a href="{% url 'maintenance:clean_device' device.id %}" class="btn btn-success">
+                            <i class="fas fa-plus me-1"></i>
+                            {% trans "تسجيل تنظيف جديد" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cleaning History -->
+            <div class="history-card card">
+                <div class="history-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        {% trans "سجل عمليات التنظيف" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if cleaning_logs %}
+                        <div class="row">
+                            {% for log in cleaning_logs %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="log-item">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <i class="fas fa-user text-success me-1"></i>
+                                                    {% if log.cleaned_by %}
+                                                        {{ log.cleaned_by.get_full_name|default:log.cleaned_by.username }}
+                                                    {% else %}
+                                                        {% trans "مستخدم غير محدد" %}
+                                                    {% endif %}
+                                                </h6>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ log.cleaned_at|date:"Y-m-d H:i" }}
+                                                </small>
+                                            </div>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-spray-can me-1"></i>
+                                                {% trans "تنظيف" %}
+                                            </span>
+                                        </div>
+                                        {% if log.notes %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-sticky-note me-1"></i>
+                                                    {{ log.notes }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Pagination if needed -->
+                        {% if cleaning_logs.has_other_pages %}
+                            <nav aria-label="Page navigation" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    {% if cleaning_logs.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ cleaning_logs.previous_page_number }}">
+                                                {% trans "السابق" %}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    {% for num in cleaning_logs.paginator.page_range %}
+                                        {% if cleaning_logs.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% else %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if cleaning_logs.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ cleaning_logs.next_page_number }}">
+                                                {% trans "التالي" %}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-spray-can fa-3x mb-3 text-muted"></i>
+                            <h5 class="text-muted">{% trans "لا توجد سجلات تنظيف" %}</h5>
+                            <p class="text-muted">{% trans "لم يتم تسجيل أي عمليات تنظيف لهذا الجهاز حتى الآن" %}</p>
+                            <a href="{% url 'maintenance:clean_device' device.id %}" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>
+                                {% trans "تسجيل أول عملية تنظيف" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
-
-    {% if logs %}
-    <table class="table table-bordered table-striped">
-        <thead class="table-dark">
-            <tr>
-                <th>#</th>
-                <th>اسم المستخدم</th>
-                <th>تاريخ ووقت التنظيف</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ log.last_cleaned_by.get_full_name|default:log.last_cleaned_by.username }}</td>
-                <td>{{ log.cleaned_at|date:"Y-m-d H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-warning">
-        لا توجد سجلات تنظيف لهذا الجهاز حتى الآن.
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

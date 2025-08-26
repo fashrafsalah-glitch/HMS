@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تعديل البلاغ SR-{{ service_request.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-edit"></i> تعديل البلاغ SR-{{ service_request.id }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'maintenance:cmms:service_request_detail' service_request.id %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> العودة للتفاصيل
+                        </a>
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- معلومات البلاغ الحالية -->
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> معلومات البلاغ الحالية</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>رقم البلاغ:</strong> SR-{{ service_request.id }}</p>
+                                    <p><strong>الحالة الحالية:</strong> 
+                                        <span class="badge badge-{{ service_request.status|yesno:'success,warning,danger' }}">
+                                            {{ service_request.get_status_display }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>تاريخ الإنشاء:</strong> {{ service_request.created_at|date:"Y-m-d H:i" }}</p>
+                                    <p><strong>مقدم البلاغ:</strong> {{ service_request.reporter.get_full_name }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.title.id_for_label }}">
+                                        <i class="fas fa-heading"></i> عنوان البلاغ <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.title.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.device.id_for_label }}">
+                                        <i class="fas fa-laptop-medical"></i> الجهاز <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.device }}
+                                    {% if form.device.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.device.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.request_type.id_for_label }}">
+                                        <i class="fas fa-tags"></i> نوع البلاغ <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.request_type }}
+                                    {% if form.request_type.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.request_type.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.severity.id_for_label }}">
+                                        <i class="fas fa-exclamation-triangle"></i> درجة الأهمية <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.severity }}
+                                    {% if form.severity.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.severity.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.status.id_for_label }}">
+                                        <i class="fas fa-flag"></i> الحالة
+                                    </label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.status.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        يمكن تغيير حالة البلاغ حسب التقدم
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.description.id_for_label }}">
+                                        <i class="fas fa-file-alt"></i> وصف المشكلة <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.description.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        اكتب وصفاً مفصلاً للمشكلة أو الطلب
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- معلومات إضافية -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card card-outline card-secondary">
+                                    <div class="card-header">
+                                        <h5 class="card-title">
+                                            <i class="fas fa-info-circle"></i> معلومات إضافية
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p><strong>الجهاز الحالي:</strong> 
+                                                    {% if service_request.device %}
+                                                        {{ service_request.device.name }}
+                                                    {% else %}
+                                                        غير محدد
+                                                    {% endif %}
+                                                </p>
+                                                <p><strong>القسم:</strong> 
+                                                    {% if service_request.device.department %}
+                                                        {{ service_request.device.department.name }}
+                                                    {% else %}
+                                                        غير محدد
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p><strong>آخر تحديث:</strong> {{ service_request.updated_at|date:"Y-m-d H:i" }}</p>
+                                                <p><strong>عدد أوامر الشغل المرتبطة:</strong> 
+                                                    <span class="badge badge-info">{{ service_request.work_orders.count }}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- إرشادات -->
+                        <div class="alert alert-light">
+                            <h6><i class="fas fa-lightbulb"></i> إرشادات التعديل:</h6>
+                            <ul class="mb-0">
+                                <li>تأكد من دقة المعلومات المُدخلة</li>
+                                <li>يمكن تغيير حالة البلاغ حسب التقدم في المعالجة</li>
+                                <li>تغيير الجهاز قد يؤثر على أوامر الشغل المرتبطة</li>
+                                <li>سيتم إشعار الأطراف المعنية بالتحديثات</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save"></i> حفظ التعديلات
+                                </button>
+                                <a href="{% url 'maintenance:cmms:service_request_detail' service_request.id %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-times"></i> إلغاء
+                                </a>
+                            </div>
+                            <div class="col-md-6 text-right">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> آخر تعديل: {{ service_request.updated_at|date:"Y-m-d H:i" }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // تحسين تجربة المستخدم
+    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
+    if (descriptionField) {
+        // عداد الأحرف
+        const charCounter = document.createElement('small');
+        charCounter.className = 'form-text text-muted';
+        charCounter.id = 'char-counter';
+        descriptionField.parentNode.appendChild(charCounter);
+        
+        function updateCharCounter() {
+            const length = descriptionField.value.length;
+            charCounter.textContent = `عدد الأحرف: ${length}`;
+            if (length < 20) {
+                charCounter.className = 'form-text text-danger';
+            } else if (length < 100) {
+                charCounter.className = 'form-text text-warning';
+            } else {
+                charCounter.className = 'form-text text-success';
+            }
+        }
+        
+        descriptionField.addEventListener('input', updateCharCounter);
+        updateCharCounter();
+    }
+    
+    // تنبيه عند تغيير الجهاز
+    const deviceField = document.getElementById('{{ form.device.id_for_label }}');
+    if (deviceField) {
+        const originalDevice = deviceField.value;
+        deviceField.addEventListener('change', function() {
+            if (this.value !== originalDevice) {
+                const workOrdersCount = {{ service_request.work_orders.count }};
+                if (workOrdersCount > 0) {
+                    alert('تنبيه: تغيير الجهاز قد يؤثر على ' + workOrdersCount + ' أمر شغل مرتبط بهذا البلاغ.');
+                }
+            }
+        });
+    }
+    
+    // تحسين اختيار درجة الأهمية
+    const severityField = document.getElementById('{{ form.severity.id_for_label }}');
+    if (severityField) {
+        severityField.addEventListener('change', function() {
+            const severityColors = {
+                'critical': 'danger',
+                'high': 'warning', 
+                'medium': 'info',
+                'low': 'secondary'
+            };
+            
+            // إزالة الألوان السابقة
+            this.classList.remove('border-danger', 'border-warning', 'border-info', 'border-secondary');
+            
+            // إضافة اللون الجديد
+            if (severityColors[this.value]) {
+                this.classList.add('border-' + severityColors[this.value]);
+            }
+        });
+        
+        // تطبيق اللون الأولي
+        severityField.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %}

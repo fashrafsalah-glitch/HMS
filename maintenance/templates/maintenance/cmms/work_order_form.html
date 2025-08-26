@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إنشاء أمر شغل جديد{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-tools"></i> إنشاء أمر شغل جديد
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> العودة للقائمة
+                        </a>
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- معلومات البلاغ المرتبط -->
+                        {% if service_request %}
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> البلاغ المرتبط</h5>
+                            <p><strong>رقم البلاغ:</strong> SR-{{ service_request.id }}</p>
+                            <p><strong>الجهاز:</strong> {{ service_request.device.name }}</p>
+                            <p><strong>القسم:</strong> {{ service_request.device.department.name }}</p>
+                            <p><strong>الوصف:</strong> {{ service_request.description }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- معلومات التوقف المرتبط -->
+                        {% if downtime %}
+                        <div class="alert alert-warning">
+                            <h5><i class="fas fa-exclamation-triangle"></i> التوقف المرتبط</h5>
+                            <p><strong>الجهاز:</strong> {{ downtime.device.name }}</p>
+                            <p><strong>سبب التوقف:</strong> {{ downtime.reason }}</p>
+                            <p><strong>التفاصيل:</strong> {{ downtime.details }}</p>
+                            <p><strong>تاريخ التوقف:</strong> {{ downtime.start_time|date:"Y-m-d H:i" }}</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.description.id_for_label }}">
+                                        <i class="fas fa-file-alt"></i> وصف أمر الشغل <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.description.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        اكتب وصفاً مفصلاً للأعمال المطلوب تنفيذها
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.assignee.id_for_label }}">
+                                        <i class="fas fa-user-cog"></i> الفني المسؤول
+                                    </label>
+                                    {{ form.assignee }}
+                                    {% if form.assignee.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.assignee.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        يمكن تعيين الفني لاحقاً إذا لم يتم تحديده الآن
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>
+                                        <i class="fas fa-info-circle"></i> معلومات إضافية
+                                    </label>
+                                    <div class="bg-light p-3 rounded">
+                                        <p class="mb-1"><strong>الأولوية:</strong> <span class="badge badge-warning">متوسطة</span></p>
+                                        <p class="mb-1"><strong>الحالة:</strong> <span class="badge badge-primary">جديد</span></p>
+                                        <p class="mb-0"><strong>تاريخ الإنشاء:</strong> {{ "now"|date:"Y-m-d H:i" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- إرشادات -->
+                        <div class="alert alert-light">
+                            <h6><i class="fas fa-lightbulb"></i> إرشادات:</h6>
+                            <ul class="mb-0">
+                                <li>تأكد من كتابة وصف واضح ومفصل للأعمال المطلوبة</li>
+                                <li>يمكن تعيين الفني المسؤول الآن أو لاحقاً</li>
+                                <li>سيتم إشعار الفني المعين تلقائياً عند إنشاء أمر الشغل</li>
+                                {% if service_request %}
+                                <li>سيتم ربط أمر الشغل تلقائياً بالبلاغ رقم SR-{{ service_request.id }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> إنشاء أمر الشغل
+                                </button>
+                                <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-times"></i> إلغاء
+                                </a>
+                            </div>
+                            <div class="col-md-6 text-right">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> سيتم حفظ أمر الشغل مع الطابع الزمني الحالي
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // تحسين تجربة المستخدم
+    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
+    if (descriptionField) {
+        descriptionField.setAttribute('placeholder', 'اكتب وصفاً مفصلاً للأعمال المطلوب تنفيذها...');
+        
+        // عداد الأحرف
+        const charCounter = document.createElement('small');
+        charCounter.className = 'form-text text-muted';
+        charCounter.id = 'char-counter';
+        descriptionField.parentNode.appendChild(charCounter);
+        
+        function updateCharCounter() {
+            const length = descriptionField.value.length;
+            charCounter.textContent = `عدد الأحرف: ${length}`;
+            if (length < 10) {
+                charCounter.className = 'form-text text-danger';
+            } else if (length < 50) {
+                charCounter.className = 'form-text text-warning';
+            } else {
+                charCounter.className = 'form-text text-success';
+            }
+        }
+        
+        descriptionField.addEventListener('input', updateCharCounter);
+        updateCharCounter();
+    }
+    
+    // تحسين اختيار الفني
+    const assigneeField = document.getElementById('{{ form.assignee.id_for_label }}');
+    if (assigneeField) {
+        assigneeField.setAttribute('data-placeholder', 'اختر الفني المسؤول...');
+    }
+});
+</script>
+{% endblock %}

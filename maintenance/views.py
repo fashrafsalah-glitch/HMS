@@ -1,37 +1,18 @@
-from django.shortcuts import render, redirect
-from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm
-from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage
-from django.shortcuts import get_object_or_404
-from .forms import DeviceFormBasic
-from django.shortcuts import render, redirect
-from .models import DeviceCategory, DeviceSubCategory
-from .forms import DeviceCategoryForm, DeviceSubCategoryForm
-from django.shortcuts import render
-from .models import Device, DeviceCategory, DeviceSubCategory
-from manager.models import Department, Room, Bed
-from django.http import HttpResponseBadRequest, JsonResponse
-from .models import DeviceSubCategory
-from .models import Device, DeviceCategory, DeviceSubCategory
-from manager.models import Department, Room
-from django.views.decorators.http import require_GET
-from maintenance.models import Device 
-from django.utils.timezone import now
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
-from .models import DeviceTransferRequest
-from django.utils import timezone
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.http import JsonResponse
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-from manager.models import Patient  # افترضنا أن مرضى القسم في هذا الموديل
-from .models import Device
-
-from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from .models import DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceAccessory, AccessoryTransaction
-from .forms import DeviceAccessoryForm, AccessoryScanForm
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.views.decorators.http import require_GET
+from django.utils.timezone import now
+from django.utils import timezone
+from django.db.models import Q
+from django.template.loader import render_to_string
+from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
+from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory
+from manager.models import Department, Room, Bed, Patient
+
+from .models import DeviceAccessory, AccessoryTransaction
+from .forms import AccessoryScanForm
 
 @login_required
 def clean_device(request, device_id):
@@ -95,22 +76,26 @@ def maintenance_history(request, device_id):
 def assign_device(request, device_id):
     device = get_object_or_404(Device, id=device_id)
     
-    patients = Patient.objects.filter(admission__department=device.department).distinct()
+    # Get all patients - simplified approach
+    patients = Patient.objects.all().order_by('first_name', 'last_name')
 
     if request.method == 'POST':
         patient_id = request.POST.get('patient')
 
         if not patient_id:
-            return HttpResponseBadRequest("لم يتم اختيار مريض.")
+            messages.error(request, "لم يتم اختيار مريض.")
+            return render(request, 'maintenance/assign_device.html', {'device': device, 'patients': patients})
 
         try:
             patient = Patient.objects.get(id=patient_id)
         except Patient.DoesNotExist:
-            return HttpResponseBadRequest("المريض المحدد غير موجود.")
+            messages.error(request, "المريض المحدد غير موجود.")
+            return render(request, 'maintenance/assign_device.html', {'device': device, 'patients': patients})
 
         device.current_patient = patient
         device.status = 'in_use'
         device.save()
+        messages.success(request, f'تم ربط الجهاز "{device.name}" بالمريض "{patient.first_name} {patient.last_name}" بنجاح.')
         return redirect('maintenance:device_list')
 
     return render(request, 'maintenance/assign_device.html', {'device': device, 'patients': patients})
@@ -371,7 +356,48 @@ def approve_transfer(request, transfer_id):
     return redirect('maintenance:device_detail', pk=device.id)
 
 def index(request):
-    return render(request, 'maintenance/index.html')
+    # إحصائيات صيانة الأجهزة
+    total_devices = Device.objects.count()
+    working_devices = Device.objects.filter(status='working').count()
+    needs_maintenance = Device.objects.filter(status='needs_maintenance').count()
+    out_of_order = Device.objects.filter(status='out_of_order').count()
+    needs_cleaning = Device.objects.filter(clean_status='needs_cleaning').count()
+    needs_sterilization = Device.objects.filter(sterilization_status='needs_sterilization').count()
+    
+    # إحصائيات الصيانة العامة (CMMS)
+    from .models import WorkOrder, ServiceRequest
+    total_work_orders = WorkOrder.objects.count() if 'WorkOrder' in globals() else 0
+    pending_work_orders = WorkOrder.objects.filter(status='pending').count() if 'WorkOrder' in globals() else 0
+    total_service_requests = ServiceRequest.objects.count() if 'ServiceRequest' in globals() else 0
+    pending_service_requests = ServiceRequest.objects.filter(status='pending').count() if 'ServiceRequest' in globals() else 0
+    
+    # الأجهزة الأكثر استخداماً
+    popular_devices = Device.objects.filter(current_patient__isnull=False)[:5]
+    
+    # آخر عمليات الصيانة
+    recent_maintenance = DeviceMaintenanceLog.objects.select_related('device', 'maintained_by').order_by('-maintained_at')[:5]
+    
+    context = {
+        # إحصائيات الأجهزة
+        'total_devices': total_devices,
+        'working_devices': working_devices,
+        'needs_maintenance': needs_maintenance,
+        'out_of_order': out_of_order,
+        'needs_cleaning': needs_cleaning,
+        'needs_sterilization': needs_sterilization,
+        
+        # إحصائيات CMMS
+        'total_work_orders': total_work_orders,
+        'pending_work_orders': pending_work_orders,
+        'total_service_requests': total_service_requests,
+        'pending_service_requests': pending_service_requests,
+        
+        # بيانات إضافية
+        'popular_devices': popular_devices,
+        'recent_maintenance': recent_maintenance,
+    }
+    
+    return render(request, 'maintenance/index.html', context)
 
 
 
@@ -396,10 +422,103 @@ def device_info(request, pk):
     return render(request, 'maintenance/device_info.html', {'device': device})
 
 def add_accessory(request, pk):
-    return render(request, 'maintenance/add_accessory.html', {'device_id': pk})
+    device = get_object_or_404(Device, pk=pk)
+    
+    if request.method == 'POST':
+        form = DeviceAccessoryForm(request.POST)
+        if form.is_valid():
+            accessory = form.save(commit=False)
+            accessory.device = device
+            accessory.save()
+            messages.success(request, f'تم إضافة الملحق "{accessory.name}" بنجاح للجهاز {device.name}')
+            return redirect('maintenance:device_info', pk=device.id)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
+    else:
+        form = DeviceAccessoryForm()
+    
+    return render(request, 'maintenance/add_accessory.html', {
+        'device': device,
+        'form': form
+    })
 
 def maintenance_schedule(request, pk):
     return render(request, 'maintenance/maintenance_schedule.html', {'device_id': pk})
+
+# Device Operations Views
+def clean_device(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        notes = request.POST.get('notes', '')
+        DeviceCleaningLog.objects.create(
+            device=device,
+            cleaned_by=request.user,
+            notes=notes
+        )
+        messages.success(request, f'تم تسجيل تنظيف الجهاز "{device.name}" بنجاح')
+        return redirect('maintenance:device_info', pk=device.id)
+    
+    return render(request, 'maintenance/clean_device.html', {'device': device})
+
+def sterilize_device(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        notes = request.POST.get('notes', '')
+        method = request.POST.get('method', '')
+        DeviceSterilizationLog.objects.create(
+            device=device,
+            sterilized_by=request.user,
+            notes=notes,
+            method=method
+        )
+        messages.success(request, f'تم تسجيل تعقيم الجهاز "{device.name}" بنجاح')
+        return redirect('maintenance:device_info', pk=device.id)
+    
+    return render(request, 'maintenance/sterilize_device.html', {'device': device})
+
+def perform_maintenance(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        notes = request.POST.get('notes', '')
+        maintenance_type = request.POST.get('maintenance_type', '')
+        DeviceMaintenanceLog.objects.create(
+            device=device,
+            maintained_by=request.user,
+            notes=notes,
+            maintenance_type=maintenance_type
+        )
+        messages.success(request, f'تم تسجيل صيانة الجهاز "{device.name}" بنجاح')
+        return redirect('maintenance:device_info', pk=device.id)
+    
+    return render(request, 'maintenance/perform_maintenance.html', {'device': device})
+
+# History Views
+def cleaning_history(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    cleaning_logs = DeviceCleaningLog.objects.filter(device=device).order_by('-cleaned_at')
+    return render(request, 'maintenance/cleaning_history.html', {
+        'device': device,
+        'cleaning_logs': cleaning_logs
+    })
+
+def sterilization_history(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    sterilization_logs = DeviceSterilizationLog.objects.filter(device=device).order_by('-sterilized_at')
+    return render(request, 'maintenance/sterilization_history.html', {
+        'device': device,
+        'sterilization_logs': sterilization_logs
+    })
+
+def maintenance_history(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    maintenance_logs = DeviceMaintenanceLog.objects.filter(device=device).order_by('-maintained_at')
+    return render(request, 'maintenance/maintenance_history.html', {
+        'device': device,
+        'maintenance_logs': maintenance_logs
+    })
 
 def add_emergency_request(request, pk):
     return render(request, 'maintenance/add_emergency_request.html', {'device_id': pk})
@@ -1361,47 +1480,30 @@ def device_usage_logs(request):
     """
     View device usage logs with filtering and export options
     """
-    logs = DeviceDailyUsageLog.objects.all().select_related(
-        'user', 'patient', 'bed', 'department'
-    ).prefetch_related('items__device')
+    logs = DeviceUsageLogDaily.objects.all().select_related(
+        'checked_by', 'device'
+    )
     
     # Filtering
     user_filter = request.GET.get('user')
-    patient_filter = request.GET.get('patient')
-    department_filter = request.GET.get('department')
-    operation_filter = request.GET.get('operation_type')
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
     
     if user_filter:
-        logs = logs.filter(user_id=user_filter)
-    if patient_filter:
-        logs = logs.filter(patient_id=patient_filter)
-    if department_filter:
-        logs = logs.filter(department_id=department_filter)
-    if operation_filter:
-        logs = logs.filter(operation_type=operation_filter)
+        logs = logs.filter(checked_by_id=user_filter)
     if date_from:
-        logs = logs.filter(created_at__date__gte=date_from)
+        logs = logs.filter(date__gte=date_from)
     if date_to:
-        logs = logs.filter(created_at__date__lte=date_to)
+        logs = logs.filter(date__lte=date_to)
     
     # Get filter options
-    users = User.objects.filter(devicedailyusagelog__isnull=False).distinct()
-    patients = Patient.objects.filter(devicedailyusagelog__isnull=False).distinct()
-    departments = Department.objects.filter(devicedailyusagelog__isnull=False).distinct()
+    users = User.objects.filter(deviceusagelogdaily__isnull=False).distinct()
     
     context = {
-        'logs': logs.order_by('-created_at'),
+        'logs': logs.order_by('-date'),
         'users': users,
-        'patients': patients,
-        'departments': departments,
-        'operation_choices': DeviceDailyUsageLog.OPERATION_CHOICES,
         'filters': {
             'user': user_filter,
-            'patient': patient_filter,
-            'department': department_filter,
-            'operation_type': operation_filter,
             'date_from': date_from,
             'date_to': date_to,
         }

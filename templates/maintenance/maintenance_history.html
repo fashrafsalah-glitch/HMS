@@ -175,7 +175,7 @@
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <div>
                                                         <strong>{{ wo.wo_number }}</strong>
-                                                        <span class="badge status-badge bg-{{ wo.status|get_status_color }}">
+                                                        <span class="badge status-badge bg-primary">
                                                             {{ wo.get_status_display }}
                                                         </span>
                                                     </div>
@@ -194,10 +194,10 @@
                                     
                                     <div class="col-md-4 text-end">
                                         <div class="mb-2">
-                                            <span class="badge status-badge bg-{{ request.status|get_status_color }}">
+                                            <span class="badge status-badge bg-info">
                                                 {{ request.get_status_display }}
                                             </span>
-                                            <span class="badge bg-{{ request.priority|get_priority_color }} ms-1">
+                                            <span class="badge bg-warning ms-1">
                                                 {{ request.get_priority_display }}
                                             </span>
                                         </div>
@@ -377,12 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('وظيفة التصدير قيد التطوير');
     });
     
-    // Auto-refresh every 5 minutes for active requests
-    if ({{ pending_requests }} > 0) {
-        setTimeout(function() {
-            location.reload();
-        }, 300000); // 5 minutes
-    }
+    // Auto-refresh functionality can be added here if needed
 });
 </script>
 {% endblock %}

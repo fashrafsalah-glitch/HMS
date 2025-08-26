@@ -11,7 +11,7 @@
                 <div class="card-header">
                     <h3 class="card-title">قائمة أوامر الشغل</h3>
                     <div class="card-tools">
-                        <a href="{% url 'maintenance:work_order_create' %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:cmms:work_order_create' %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus"></i> أمر شغل جديد
                         </a>
                     </div>
@@ -56,7 +56,7 @@
                                     <i class="fas fa-filter"></i> تصفية
                                 </button>
                                 
-                                <a href="{% url 'work_order_list' %}" class="btn btn-secondary">
+                                <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-secondary">
                                     <i class="fas fa-sync"></i> إعادة ضبط
                                 </a>
                             </form>
@@ -84,7 +84,7 @@
                                     <td>WO-{{ wo.id }}</td>
                                     <td>
                                         {% if wo.service_request %}
-                                            <a href="{% url 'service_request_detail' wo.service_request.id %}">
+                                            <a href="{% url 'maintenance:cmms:service_request_detail' wo.service_request.id %}">
                                                 SR-{{ wo.service_request.id }}
                                             </a>
                                         {% else %}
@@ -92,11 +92,21 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'device_detail' wo.device.id %}">
-                                            {{ wo.device.name }}
-                                        </a>
+                                        {% if wo.device %}
+                                            <a href="{% url 'maintenance:device_detail' wo.device.id %}">
+                                                {{ wo.device.name }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
                                     </td>
-                                    <td>{{ wo.device.department.name }}</td>
+                                    <td>
+                                        {% if wo.device and wo.device.department %}
+                                            {{ wo.device.department.name }}
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if wo.status == 'new' %}
                                             <span class="badge badge-primary">{{ wo.get_status_display }}</span>
@@ -124,11 +134,11 @@
                                     <td>{{ wo.created_at|date:"Y-m-d H:i" }}</td>
                                     <td>
                                         <div class="btn-group">
-                                            <a href="{% url 'work_order_detail' wo.id %}" class="btn btn-info btn-sm">
+                                            <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="btn btn-info btn-sm">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             {% if wo.status == 'new' and perms.maintenance.assign_workorder %}
-                                                <a href="{% url 'work_order_assign' wo.id %}" class="btn btn-primary btn-sm">
+                                                <a href="{% url 'maintenance:cmms:work_order_assign' wo.id %}" class="btn btn-primary btn-sm">
                                                     <i class="fas fa-user-plus"></i>
                                                 </a>
                                             {% endif %}

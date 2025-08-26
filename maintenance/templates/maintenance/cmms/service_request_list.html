@@ -86,11 +86,21 @@
                                     <td>SR-{{ sr.id }}</td>
                                     <td>{{ sr.title }}</td>
                                     <td>
-                                        <a href="{% url 'maintenance:device_detail' sr.device.id %}">
-                                            {{ sr.device.name }}
-                                        </a>
+                                        {% if sr.device %}
+                                            <a href="{% url 'maintenance:device_detail' sr.device.id %}">
+                                                {{ sr.device.name }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
                                     </td>
-                                    <td>{{ sr.device.department.name }}</td>
+                                    <td>
+                                        {% if sr.device and sr.device.department %}
+                                            {{ sr.device.department.name }}
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ sr.get_request_type_display }}</td>
                                     <td>
                                         {% if sr.severity == 'critical' %}

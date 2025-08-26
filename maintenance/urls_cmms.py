@@ -16,8 +16,11 @@ urlpatterns = [
     
     # أوامر الشغل (Work Orders)
     path('work-orders/', views_cmms.work_order_list, name='work_order_list'),
+    path('work-orders/create/', views_cmms.work_order_create, name='work_order_create'),
     path('work-orders/<int:wo_id>/', views_cmms.work_order_detail, name='work_order_detail'),
     path('work-orders/<int:wo_id>/assign/', views_cmms.work_order_assign, name='work_order_assign'),
+    path('work-orders/<int:wo_id>/update-status/', views_cmms.work_order_update_status, name='work_order_update_status'),
+    path('work-orders/<int:wo_id>/add-comment/', views_cmms.work_order_add_comment, name='work_order_add_comment'),
     
     # إدارة SLA
     path('sla/', views_cmms.sla_list, name='sla_list'),
