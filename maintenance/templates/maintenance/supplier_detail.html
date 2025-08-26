@@ -11,7 +11,7 @@
                 <div class="card-header">
                     <h3 class="card-title">معلومات المورد</h3>
                     <div class="card-tools">
-                        <a href="{% url 'supplier_update' supplier.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:supplier_update' supplier.id %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
                     </div>
@@ -85,12 +85,12 @@
                 <div class="card-footer">
                     <div class="row">
                         <div class="col-6">
-                            <a href="{% url 'spare_part_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-block">
+                            <a href="{% url 'maintenance:spare_parts:spare_part_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">block">
                                 <i class="fas fa-plus"></i> إضافة قطعة غيار
                             </a>
                         </div>
                         <div class="col-6">
-                            <a href="{% url 'purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-info btn-block">
+                            <a href="{% url 'maintenance:spare_parts:purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">block">
                                 <i class="fas fa-shopping-cart"></i> أمر شراء جديد
                             </a>
                         </div>
@@ -151,7 +151,7 @@
                 <div class="card-header">
                     <h3 class="card-title">قطع الغيار</h3>
                     <div class="card-tools">
-                        <a href="{% url 'spare_part_list' %}?supplier={{ supplier.id }}" class="btn btn-info btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:spare_part_list' %}?supplier={{ supplier.id }}" class="btn btn-info btn-sm">
                             <i class="fas fa-list"></i> عرض الكل
                         </a>
                     </div>
@@ -210,7 +210,7 @@
                 <div class="card-header">
                     <h3 class="card-title">أوامر الشراء</h3>
                     <div class="card-tools">
-                        <a href="{% url 'purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus"></i> أمر شراء جديد
                         </a>
                     </div>

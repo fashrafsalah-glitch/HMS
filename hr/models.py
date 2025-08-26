@@ -17,6 +17,7 @@ class CustomUser(AbstractUser, QRCodeMixin):
         ('pharmacist', 'Pharmacist'),
         ('hospital_manager', 'Hospital manager'),
         ('hr', 'Human Resources'),
+        ('technician', 'Technician'),
     ]
     EMPLOYMENT_STATUS_CHOICES = [
         ('active', 'Active'),

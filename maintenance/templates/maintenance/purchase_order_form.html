@@ -62,8 +62,8 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.supplier.id_for_label }}">المورد*</label>
-                                    {{ form.supplier }}
+                                    <label for="{{ form.primary_supplier.id_for_label }}">المورد*</label>
+                                    {{ form.primary_supplier }}
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -186,7 +186,7 @@
                     </div>
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">حفظ</button>
-                        <a href="{% url 'purchase_order_list' %}" class="btn btn-secondary">إلغاء</a>
+                        <a href="{% url 'maintenance:spare_parts:purchase_order_list' %}" class="btn btn-secondary">إلغاء</a>
                     </div>
                 </form>
             </div>
@@ -253,7 +253,7 @@
 <script>
     $(document).ready(function() {
         // تفعيل Select2 للحقول
-        $('#{{ form.supplier.id_for_label }}').select2({
+        $('#{{ form.primary_supplier.id_for_label }}').select2({
             placeholder: "اختر المورد",
             allowClear: true,
             width: '100%'
@@ -366,11 +366,11 @@
         calculateTotal();
         
         // تحديث قطع الغيار بناءً على المورد المختار
-        $('#{{ form.supplier.id_for_label }}').on('change', function() {
+        $('#{{ form.primary_supplier.id_for_label }}').on('change', function() {
             var supplierId = $(this).val();
             if (supplierId) {
                 $.ajax({
-                    url: '{% url "api_supplier_spare_parts" %}',
+                    url: '/maintenance/api/supplier-spare-parts/',
                     data: {
                         'supplier_id': supplierId
                     },

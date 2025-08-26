@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}داشبورد الفني - {{ user.get_full_name|default:user.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">مرحباً {{ user.get_full_name|default:user.username }}</h2>
+                    <p class="text-muted mb-0">داشبورد الفني - إدارة أوامر الشغل</p>
+                </div>
+                <div>
+                    <span class="badge badge-info">فني صيانة</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.total_assigned }}</h3>
+                            <p class="mb-0">إجمالي أوامر الشغل</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-tasks fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.new_orders }}</h3>
+                            <p class="mb-0">أوامر جديدة</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-plus-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.in_progress }}</h3>
+                            <p class="mb-0">قيد التنفيذ</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-cog fa-spin fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ stats.completed_today }}</h3>
+                            <p class="mb-0">مكتملة اليوم</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- أوامر الشغل العاجلة -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> أوامر عاجلة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if urgent_work_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الأمر</th>
+                                        <th>الجهاز</th>
+                                        <th>القسم</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wo in urgent_work_orders %}
+                                    <tr>
+                                        <td>WO-{{ wo.id }}</td>
+                                        <td>
+                                            {% if wo.service_request.device %}
+                                                {{ wo.service_request.device.name|truncatechars:20 }}
+                                            {% else %}
+                                                غير محدد
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if wo.service_request.device.department %}
+                                                {{ wo.service_request.device.department.name }}
+                                            {% else %}
+                                                غير محدد
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-danger">{{ wo.get_status_display }}</span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد أوامر عاجلة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- أوامر الشغل المتأخرة -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock"></i> أوامر متأخرة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if overdue_work_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الأمر</th>
+                                        <th>الجهاز</th>
+                                        <th>تاريخ الإنشاء</th>
+                                        <th>الإجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wo in overdue_work_orders %}
+                                    <tr>
+                                        <td>WO-{{ wo.id }}</td>
+                                        <td>
+                                            {% if wo.service_request.device %}
+                                                {{ wo.service_request.device.name|truncatechars:20 }}
+                                            {% else %}
+                                                غير محدد
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ wo.created_at|date:"Y-m-d" }}</td>
+                                        <td>
+                                            <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد أوامر متأخرة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أوامر الشغل الحديثة -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list"></i> أوامر الشغل الحديثة
+                        </h5>
+                        <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-eye"></i> عرض الكل
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_work_orders %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الأمر</th>
+                                        <th>البلاغ</th>
+                                        <th>الجهاز</th>
+                                        <th>القسم</th>
+                                        <th>الحالة</th>
+                                        <th>تاريخ الإنشاء</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wo in recent_work_orders %}
+                                    <tr>
+                                        <td>WO-{{ wo.id }}</td>
+                                        <td>
+                                            {% if wo.service_request %}
+                                                <a href="{% url 'maintenance:cmms:service_request_detail' wo.service_request.id %}">
+                                                    SR-{{ wo.service_request.id }}
+                                                </a>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if wo.service_request.device %}
+                                                <a href="{% url 'maintenance:device_detail' wo.service_request.device.id %}">
+                                                    {{ wo.service_request.device.name }}
+                                                </a>
+                                            {% else %}
+                                                غير محدد
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if wo.service_request.device.department %}
+                                                {{ wo.service_request.device.department.name }}
+                                            {% else %}
+                                                غير محدد
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if wo.status == 'new' %}
+                                                <span class="badge badge-primary">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'assigned' %}
+                                                <span class="badge badge-info">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'in_progress' %}
+                                                <span class="badge badge-warning">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'on_hold' or wo.status == 'wait_parts' %}
+                                                <span class="badge badge-secondary">{{ wo.get_status_display }}</span>
+                                            {% elif wo.status == 'resolved' or wo.status == 'qa_verified' %}
+                                                <span class="badge badge-success">{{ wo.get_status_display }}</span>
+                                            {% else %}
+                                                <span class="badge badge-dark">{{ wo.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ wo.created_at|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">لا توجد أوامر شغل مسندة إليك</h5>
+                            <p class="text-muted">سيتم عرض أوامر الشغل المسندة إليك هنا</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // تحديث الصفحة كل 5 دقائق لعرض آخر التحديثات
+    setTimeout(function() {
+        location.reload();
+    }, 300000); // 5 minutes
+
+    // إضافة تأثيرات بصرية للكروت
+    $(document).ready(function() {
+        $('.card').hover(
+            function() {
+                $(this).addClass('shadow-lg');
+            },
+            function() {
+                $(this).removeClass('shadow-lg');
+            }
+        );
+    });
+</script>
+{% endblock %}

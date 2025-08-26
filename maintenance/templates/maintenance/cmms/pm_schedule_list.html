@@ -147,7 +147,7 @@
                         {% for schedule in schedules %}
                         <tr>
                             <td>
-                                <a href="{% url 'device_detail' schedule.device.id %}">
+                                <a href="{% url 'maintenance:device_detail' schedule.device.id %}">
                                     {{ schedule.device.name }}
                                 </a>
                             </td>

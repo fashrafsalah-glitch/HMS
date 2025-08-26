@@ -102,4 +102,6 @@ urlpatterns = [
     
     # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
     path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),
+    path("test-links/", views.test_links, name="test_links"),
+
 ]

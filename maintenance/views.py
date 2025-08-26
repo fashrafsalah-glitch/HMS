@@ -365,11 +365,17 @@ def index(request):
     needs_sterilization = Device.objects.filter(sterilization_status='needs_sterilization').count()
     
     # إحصائيات الصيانة العامة (CMMS)
-    from .models import WorkOrder, ServiceRequest
-    total_work_orders = WorkOrder.objects.count() if 'WorkOrder' in globals() else 0
-    pending_work_orders = WorkOrder.objects.filter(status='pending').count() if 'WorkOrder' in globals() else 0
-    total_service_requests = ServiceRequest.objects.count() if 'ServiceRequest' in globals() else 0
-    pending_service_requests = ServiceRequest.objects.filter(status='pending').count() if 'ServiceRequest' in globals() else 0
+    try:
+        from .models import WorkOrder, ServiceRequest
+        total_work_orders = WorkOrder.objects.count()
+        pending_work_orders = WorkOrder.objects.filter(status='pending').count()
+        total_service_requests = ServiceRequest.objects.count()
+        pending_service_requests = ServiceRequest.objects.filter(status='pending').count()
+    except ImportError:
+        total_work_orders = 0
+        pending_work_orders = 0
+        total_service_requests = 0
+        pending_service_requests = 0
     
     # الأجهزة الأكثر استخداماً
     popular_devices = Device.objects.filter(current_patient__isnull=False)[:5]
@@ -1773,3 +1779,7 @@ def generate_qr_code(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+
+def test_links(request):
+    return render(request, "maintenance/test_links.html")

@@ -551,6 +551,20 @@
                     <a class="nav-link {% if request.resolver_match.url_name == 'shift_swap_request_list' %}active{% endif %}" href="{% url 'hr:shift_swap_request_list' %}">
                         <i class="bi bi-arrow-left-right me-2"></i><span>{% trans "Shift Swaps" %}</span>
                     </a>
+                {% elif user.role == 'technician' %}
+                    <!-- Technician Navigation -->
+                    <a class="nav-link {% if request.resolver_match.url_name == 'technician_dashboard' %}active{% endif %}" href="{% url 'maintenance:cmms:technician_dashboard' %}">
+                        <i class="fas fa-tachometer-alt me-2"></i><span>{% trans "Dashboard" %}</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'work_order_list' %}active{% endif %}" href="{% url 'maintenance:cmms:work_order_list' %}">
+                        <i class="fas fa-tasks me-2"></i><span>{% trans "Work Orders" %}</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'service_request_list' %}active{% endif %}" href="{% url 'maintenance:cmms:service_request_list' %}">
+                        <i class="fas fa-clipboard-list me-2"></i><span>{% trans "Service Requests" %}</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'leave_request_list' %}active{% endif %}" href="{% url 'staff:leave_request_list' %}">
+                        <i class="bi bi-calendar-x me-2"></i><span>{% trans "Leave Requests" %}</span>
+                    </a>
                 {% elif user.role in 'doctor,nurse,receptionist,pharmacist' %}
                     <a class="nav-link {% if request.resolver_match.url_name == 'patient_list' %}active{% endif %}" href="{% url 'staff:patient_list' %}">
                         <i class="bi bi-person-lines-fill me-2"></i><span>{% trans "Patients" %}</span>

@@ -11,10 +11,10 @@
                 <div class="card-header">
                     <h3 class="card-title">قائمة قطع الغيار</h3>
                     <div class="card-tools">
-                        <a href="{% url 'spare_part_create' %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:spare_part_create' %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus"></i> إضافة قطعة غيار جديدة
                         </a>
-                        <a href="{% url 'export_spare_parts_csv' %}" class="btn btn-success btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:export_spare_parts_csv' %}" class="btn btn-success btn-sm">
                             <i class="fas fa-file-csv"></i> تصدير CSV
                         </a>
                     </div>
@@ -103,7 +103,7 @@
                                 {% for spare_part in page_obj %}
                                 <tr {% if spare_part.quantity <= spare_part.min_quantity %}class="table-warning"{% endif %}>
                                     <td>
-                                        <a href="{% url 'spare_part_detail' spare_part.id %}">
+                                        <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.id %}">
                                             {{ spare_part.name }}
                                         </a>
                                     </td>
@@ -115,9 +115,9 @@
                                     </td>
                                     <td>{{ spare_part.min_quantity }} {{ spare_part.unit }}</td>
                                     <td>
-                                        {% if spare_part.supplier %}
-                                        <a href="{% url 'supplier_detail' spare_part.supplier.id %}">
-                                            {{ spare_part.supplier.name }}
+                                        {% if spare_part.primary_supplier %}
+                                        <a href="{% url 'maintenance:spare_parts:supplier_detail' spare_part.primary_supplier.id %}">
+                                            {{ spare_part.primary_supplier.name }}
                                         </a>
                                         {% else %}
                                         -
@@ -126,13 +126,13 @@
                                     <td>{{ spare_part.cost|default:"-" }}</td>
                                     <td>
                                         <div class="btn-group">
-                                            <a href="{% url 'spare_part_detail' spare_part.id %}" class="btn btn-info btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.id %}" class="btn btn-info btn-sm">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{% url 'spare_part_update' spare_part.id %}" class="btn btn-primary btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_update' spare_part.id %}" class="btn btn-warning btn-sm">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="{% url 'spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-sm">
                                                 <i class="fas fa-exchange-alt"></i>
                                             </a>
                                         </div>

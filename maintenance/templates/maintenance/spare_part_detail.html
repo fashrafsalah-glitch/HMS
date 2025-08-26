@@ -11,7 +11,7 @@
                 <div class="card-header">
                     <h3 class="card-title">معلومات قطعة الغيار</h3>
                     <div class="card-tools">
-                        <a href="{% url 'spare_part_update' spare_part.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'spare_parts:spare_part_update' spare_part.id %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
                     </div>
@@ -55,7 +55,7 @@
                                     <th>المورد</th>
                                     <td>
                                         {% if spare_part.supplier %}
-                                        <a href="{% url 'supplier_detail' spare_part.supplier.id %}">
+                                        <a href="{% url 'spare_parts:supplier_detail' spare_part.supplier.id %}">
                                             {{ spare_part.supplier.name }}
                                         </a>
                                         {% else %}
@@ -94,7 +94,7 @@
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{% url 'spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-block">
+                    <a href="{% url 'spare_parts:spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-block">
                         <i class="fas fa-exchange-alt"></i> تسجيل حركة
                     </a>
                 </div>

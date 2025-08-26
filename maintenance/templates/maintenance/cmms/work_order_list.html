@@ -92,17 +92,17 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if wo.device %}
-                                            <a href="{% url 'maintenance:device_detail' wo.device.id %}">
-                                                {{ wo.device.name }}
+                                        {% if wo.service_request.device %}
+                                            <a href="{% url 'maintenance:device_detail' wo.service_request.device.id %}">
+                                                {{ wo.service_request.device.name }}
                                             </a>
                                         {% else %}
                                             <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if wo.device and wo.device.department %}
-                                            {{ wo.device.department.name }}
+                                        {% if wo.service_request.device and wo.service_request.device.department %}
+                                            {{ wo.service_request.device.department.name }}
                                         {% else %}
                                             <span class="text-muted">غير محدد</span>
                                         {% endif %}

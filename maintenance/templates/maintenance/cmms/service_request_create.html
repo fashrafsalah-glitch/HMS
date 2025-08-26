@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Create Service Request" %} - {% trans "CMMS" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label {
+        opacity: .65;
+        transform: scale(.85) translateY(-0.5rem) translateX(0.15rem);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">{% trans "Create Service Request" %}</h2>
+                    <p class="text-muted mb-0">{% trans "Submit a new maintenance service request" %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>{% trans "Back to List" %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="card form-card">
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <!-- Device Selection -->
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    {{ form.device }}
+                                    <label for="{{ form.device.id_for_label }}" class="required-field">
+                                        {% trans "Device" %}
+                                    </label>
+                                </div>
+                                {% if form.device.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.device.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                {% if form.device.help_text %}
+                                    <div class="form-text">{{ form.device.help_text }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Title -->
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    {{ form.title }}
+                                    <label for="{{ form.title.id_for_label }}" class="required-field">
+                                        {% trans "Title" %}
+                                    </label>
+                                </div>
+                                {% if form.title.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.title.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Description -->
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    {{ form.description }}
+                                    <label for="{{ form.description.id_for_label }}" class="required-field">
+                                        {% trans "Description" %}
+                                    </label>
+                                </div>
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.description.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Provide detailed information about the issue or request" %}</div>
+                            </div>
+
+                            <!-- Request Type and Severity -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.request_type }}
+                                    <label for="{{ form.request_type.id_for_label }}" class="required-field">
+                                        {% trans "Request Type" %}
+                                    </label>
+                                </div>
+                                {% if form.request_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.request_type.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.severity }}
+                                    <label for="{{ form.severity.id_for_label }}" class="required-field">
+                                        {% trans "Severity" %}
+                                    </label>
+                                </div>
+                                {% if form.severity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.severity.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Impact -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.impact }}
+                                    <label for="{{ form.impact.id_for_label }}" class="required-field">
+                                        {% trans "Impact" %}
+                                    </label>
+                                </div>
+                                {% if form.impact.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.impact.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Expected Resolution Date -->
+                            {% if form.expected_resolution_date %}
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.expected_resolution_date }}
+                                    <label for="{{ form.expected_resolution_date.id_for_label }}">
+                                        {% trans "Expected Resolution Date" %}
+                                    </label>
+                                </div>
+                                {% if form.expected_resolution_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.expected_resolution_date.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times me-2"></i>{% trans "Cancel" %}
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>{% trans "Create Service Request" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Help Information -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>{% trans "Help Information" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>{% trans "Request Types" %}</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>{% trans "Breakdown" %}:</strong> {% trans "Equipment failure or malfunction" %}</li>
+                                <li><strong>{% trans "Preventive" %}:</strong> {% trans "Scheduled maintenance" %}</li>
+                                <li><strong>{% trans "Inspection" %}:</strong> {% trans "Safety or quality inspection" %}</li>
+                                <li><strong>{% trans "Calibration" %}:</strong> {% trans "Equipment calibration" %}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "Severity Levels" %}</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-danger me-2">{% trans "Critical" %}</span> {% trans "System down, immediate attention required" %}</li>
+                                <li><span class="badge bg-warning me-2">{% trans "High" %}</span> {% trans "Major functionality affected" %}</li>
+                                <li><span class="badge bg-info me-2">{% trans "Medium" %}</span> {% trans "Minor functionality affected" %}</li>
+                                <li><span class="badge bg-secondary me-2">{% trans "Low" %}</span> {% trans "Cosmetic or enhancement" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add form-control class to all form fields
+    const formFields = document.querySelectorAll('select, input, textarea');
+    formFields.forEach(field => {
+        if (!field.classList.contains('form-control') && !field.classList.contains('form-select')) {
+            if (field.tagName === 'SELECT') {
+                field.classList.add('form-select');
+            } else {
+                field.classList.add('form-control');
+            }
+        }
+    });
+
+    // Handle device selection from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const deviceId = urlParams.get('device');
+    if (deviceId) {
+        const deviceSelect = document.querySelector('#id_device');
+        if (deviceSelect) {
+            deviceSelect.value = deviceId;
+        }
+    }
+
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        // Check required fields
+        const requiredFields = form.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            e.preventDefault();
+            // Scroll to first invalid field
+            const firstInvalid = form.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstInvalid.focus();
+            }
+        }
+    });
+
+    // Real-time validation
+    const inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.hasAttribute('required') && !this.value.trim()) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

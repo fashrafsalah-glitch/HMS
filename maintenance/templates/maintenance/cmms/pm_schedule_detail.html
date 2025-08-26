@@ -47,7 +47,7 @@
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">الجهاز:</div>
                         <div class="col-md-9">
-                            <a href="{% url 'device_detail' schedule.device.id %}">
+                            <a href="{% url 'maintenance:device_detail' schedule.device.id %}">
                                 {{ schedule.device.name }}
                             </a>
                         </div>

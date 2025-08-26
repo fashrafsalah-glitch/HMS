@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CMMS Dashboard - Bootstrap</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container my-5">
+  <h1 class="mb-4 text-center">CMMS & Spare Parts - Dashboard</h1>
+  <p class="text-muted text-center">تجربة كل اللينكات بالترتيب الصحيح (من أول البلاغ لحد حل العطل)</p>
+
+  <!-- 1. Service Requests -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">1. Service Requests (بلاغات)</div>
+    <div class="card-body">
+      <p>ابدأ بإنشاء بلاغ جديد، ثم راجع أو حدث أو اغلقه.</p>
+      <a href="{% url 'maintenance:cmms:service_request_create' %}" class="btn btn-success btn-sm">Create SR</a>
+      <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-outline-primary btn-sm">List</a>
+      <a href="{% url 'maintenance:cmms:service_request_detail' 1 %}" class="btn btn-outline-secondary btn-sm">Detail (id=1)</a>
+      <a href="{% url 'maintenance:cmms:service_request_update' 1 %}" class="btn btn-outline-warning btn-sm">Update (id=1)</a>
+      <a href="{% url 'maintenance:cmms:service_request_close' 1 %}" class="btn btn-outline-danger btn-sm">Close (id=1)</a>
+    </div>
+  </div>
+
+  <!-- 2. Work Orders -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">2. Work Orders (أوامر الشغل)</div>
+    <div class="card-body">
+      <p>حول البلاغ إلى أمر شغل، بعدين وزعه على الفنيين وخلّيهم يحدّثوا الحالة.</p>
+      <a href="{% url 'maintenance:cmms:work_order_create' %}" class="btn btn-success btn-sm">Create WO</a>
+      <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-outline-primary btn-sm">List</a>
+      <a href="{% url 'maintenance:cmms:work_order_detail' 1 %}" class="btn btn-outline-secondary btn-sm">Detail (id=1)</a>
+      <a href="{% url 'maintenance:cmms:work_order_assign' 1 %}" class="btn btn-outline-info btn-sm">Assign (id=1)</a>
+      <a href="{% url 'maintenance:cmms:technician_dashboard' %}" class="btn btn-outline-dark btn-sm">Technician Dashboard</a>
+      <a href="{% url 'maintenance:cmms:work_order_update_status' 1 %}" class="btn btn-outline-warning btn-sm">Update Status (id=1)</a>
+      <a href="{% url 'maintenance:cmms:work_order_add_comment' 1 %}" class="btn btn-outline-success btn-sm">Add Comment (id=1)</a>
+    </div>
+  </div>
+
+  <!-- 3. SLA -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">3. SLA (اتفاقيات مستوى الخدمة)</div>
+    <div class="card-body">
+      <p>حدد معايير الاستجابة والمدة الزمنية المتوقعة لكل نوع عطل.</p>
+      <a href="{% url 'maintenance:cmms:sla_create' %}" class="btn btn-success btn-sm">Create SLA</a>
+      <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-outline-primary btn-sm">List SLAs</a>
+      <a href="{% url 'maintenance:cmms:sla_matrix_create' %}" class="btn btn-success btn-sm">Create SLA Matrix</a>
+      <a href="{% url 'maintenance:cmms:sla_matrix_list' %}" class="btn btn-outline-primary btn-sm">List SLA Matrix</a>
+    </div>
+  </div>
+
+  <!-- 4. Devices -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">4. Devices (الأجهزة)</div>
+    <div class="card-body">
+      <p>تابع تاريخ الصيانة وتفاصيل الجهاز.</p>
+      <a href="{% url 'maintenance:cmms:device_maintenance_history' 8 %}" class="btn btn-outline-secondary btn-sm">Maintenance History (device=1)</a>
+      <a href="{% url 'maintenance:cmms:device_detail_with_cmms' 8 %}" class="btn btn-outline-secondary btn-sm">Device Detail with CMMS (device=1)</a>
+    </div>
+  </div>
+
+  <!-- 5. Job Plans & PM -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">5. Job Plans & PM Schedules (خطط الصيانة)</div>
+    <div class="card-body">
+      <p>ضع خطة عمل للصيانة الوقائية وتوليد أوامر شغل دورية.</p>
+      <a href="{% url 'maintenance:cmms:job_plan_create' %}" class="btn btn-success btn-sm">Create Job Plan</a>
+      <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-success btn-sm">Create PM Schedule</a>
+      <a href="{% url 'maintenance:cmms:pm_schedule_generate_wo' 1 %}" class="btn btn-outline-info btn-sm">Generate WO (PM=1)</a>
+    </div>
+  </div>
+
+  <!-- 6. Spare Parts & Suppliers -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">6. Spare Parts & Suppliers (قطع الغيار والموردين)</div>
+    <div class="card-body">
+      <p>أضف الموردين، أنشئ قطع غيار جديدة، وتابع المخزون.</p>
+      <a href="{% url 'maintenance:spare_parts:supplier_create' %}" class="btn btn-success btn-sm">Create Supplier</a>
+      <a href="{% url 'maintenance:spare_parts:spare_part_create' %}" class="btn btn-success btn-sm">Create Spare Part</a>
+      <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-outline-primary btn-sm">List Spare Parts</a>
+    </div>
+  </div>
+
+  <!-- 7. Purchase Orders -->
+  <div class="card mb-4">
+    <div class="card-header bg-secondary text-white">7. Purchase Orders (أوامر الشراء) - مؤقتاً معطل</div>
+    <div class="card-body">
+      <p class="text-muted">اطلب قطع غيار رسمياً من الموردين. (هذه الوظيفة معطلة مؤقتاً حتى يتم إنشاء النماذج المطلوبة)</p>
+      <button class="btn btn-secondary btn-sm" disabled>Create PO (معطل)</button>
+      <button class="btn btn-outline-secondary btn-sm" disabled>List POs (معطل)</button>
+      <button class="btn btn-outline-secondary btn-sm" disabled>Receive Items (معطل)</button>
+    </div>
+  </div>
+
+  <!-- 8. Calibration & Downtime -->
+  <div class="card mb-4">
+    <div class="card-header bg-secondary text-white">8. Calibration & Downtime (المعايرة والتوقفات) - مؤقتاً معطل</div>
+    <div class="card-body">
+      <p class="text-muted">سجل معايرات الأجهزة وفترات التوقف لتقييم الأداء. (هذه الوظيفة معطلة مؤقتاً حتى يتم إنشاء النماذج المطلوبة)</p>
+      <button class="btn btn-secondary btn-sm" disabled>Create Calibration (معطل)</button>
+      <button class="btn btn-outline-secondary btn-sm" disabled>Create Downtime (معطل)</button>
+    </div>
+  </div>
+
+  <!-- 9. APIs -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">9. APIs (اختبارات)</div>
+    <div class="card-body">
+      <p>لو حابب تختبر التكامل مع أنظمة تانية.</p>
+      <a href="{% url 'maintenance:cmms:api_service_request_create' %}" class="btn btn-outline-dark btn-sm">API - Create SR</a>
+      <a href="{% url 'maintenance:cmms:api_work_order_status_update' 1 %}" class="btn btn-outline-dark btn-sm">API - Update WO (id=1)</a>
+      <button class="btn btn-outline-secondary btn-sm" disabled>API - Low Stock (معطل)</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -16,10 +16,22 @@
                         <div class="col-12">
                             <dl class="row">
                                 <dt class="col-sm-4">الجهاز:</dt>
-                                <dd class="col-sm-8">{{ work_order.device.name }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if work_order.service_request.device %}
+                                        {{ work_order.service_request.device.name }}
+                                    {% else %}
+                                        غير محدد
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">القسم:</dt>
-                                <dd class="col-sm-8">{{ work_order.device.department.name }}</dd>
+                                <dd class="col-sm-8">
+                                    {% if work_order.service_request.device.department %}
+                                        {{ work_order.service_request.device.department.name }}
+                                    {% else %}
+                                        غير محدد
+                                    {% endif %}
+                                </dd>
                                 
                                 <dt class="col-sm-4">وصف العمل:</dt>
                                 <dd class="col-sm-8">{{ work_order.description|truncatechars:100 }}</dd>
@@ -37,20 +49,22 @@
                         {% endif %}
                         
                         <div class="form-group">
-                            <label for="{{ form.assignee.id_for_label }}">الفني المسؤول:</label>
-                            {{ form.assignee }}
-                            {% if form.assignee.errors %}
-                                <div class="invalid-feedback d-block">{{ form.assignee.errors }}</div>
-                            {% endif %}
+                            <label for="assignee">الفني المسؤول:</label>
+                            <select name="assignee" id="assignee" class="form-control" required>
+                                <option value="">اختر الفني المسؤول</option>
+                                {% for technician in available_technicians %}
+                                    <option value="{{ technician.id }}">
+                                        {{ technician.get_full_name|default:technician.username }}
+                                        {% if technician.email %} - {{ technician.email }}{% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
                             <small class="form-text text-muted">اختر الفني المناسب لهذا العمل</small>
                         </div>
                         
                         <div class="form-group">
-                            <label for="{{ form.notes.id_for_label }}">ملاحظات:</label>
-                            {{ form.notes }}
-                            {% if form.notes.errors %}
-                                <div class="invalid-feedback d-block">{{ form.notes.errors }}</div>
-                            {% endif %}
+                            <label for="notes">ملاحظات:</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="أي ملاحظات إضافية للفني"></textarea>
                             <small class="form-text text-muted">أي ملاحظات إضافية للفني</small>
                         </div>
                         
@@ -74,7 +88,7 @@
 <script>
     $(document).ready(function() {
         // تحسين اختيار الفني باستخدام select2
-        $('#{{ form.assignee.id_for_label }}').select2({
+        $('#assignee').select2({
             placeholder: "اختر الفني المسؤول",
             allowClear: true,
             width: '100%'

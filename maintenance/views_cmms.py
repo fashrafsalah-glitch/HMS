@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.core.paginator import Paginator
 
 from .models import (Device, ServiceRequest, WorkOrder, JobPlan, JobPlanStep, 
-                     PreventiveMaintenanceSchedule, SLADefinition)
+                     PreventiveMaintenanceSchedule, SLADefinition, SR_TYPE_CHOICES, WO_STATUS_CHOICES)
 from .forms_cmms import (ServiceRequestForm, WorkOrderForm, WorkOrderUpdateForm, 
                         SLADefinitionForm, JobPlanForm, JobPlanStepForm, PMScheduleForm)
 
@@ -65,9 +65,28 @@ def service_request_list(request):
         'request_type_filter': request_type_filter,
         'department_filter': department_filter,
         'search_query': search_query,
-        'status_choices': ServiceRequest.status.field.choices,
-        'request_type_choices': ServiceRequest.request_type.field.choices,
+        'status_choices': [
+            ('new', 'جديد'),
+            ('assigned', 'تم التعيين'),
+            ('in_progress', 'قيد التنفيذ'),
+            ('on_hold', 'معلق'),
+            ('resolved', 'تم الحل'),
+            ('closed', 'مغلق'),
+            ('cancelled', 'ملغي'),
+        ],
+        'request_type_choices': [
+            ('breakdown', 'عطل'),
+            ('preventive', 'صيانة وقائية'),
+            ('inspection', 'فحص'),
+            ('calibration', 'معايرة'),
+            ('upgrade', 'ترقية'),
+            ('installation', 'تركيب'),
+        ],
     }
+    
+    # Debug: Add a simple test context
+    context['debug_message'] = 'View is working'
+    context['service_requests_count'] = service_requests.count()
     
     return render(request, 'maintenance/cmms/service_request_list.html', context)
 
@@ -93,7 +112,7 @@ def service_request_create(request):
             service_request.save()
             
             messages.success(request, 'تم إنشاء البلاغ بنجاح')
-            return redirect('service_request_detail', sr_id=service_request.id)
+            return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
     else:
         form = ServiceRequestForm(user=request.user, initial=initial_data)
     
@@ -127,7 +146,7 @@ def service_request_detail(request, sr_id):
             work_order.save()
             
             messages.success(request, 'تم إنشاء أمر الشغل بنجاح')
-            return redirect('work_order_detail', wo_id=work_order.id)
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     else:
         wo_form = WorkOrderForm(user=request.user, service_request=service_request)
     
@@ -148,14 +167,14 @@ def service_request_update(request, sr_id):
     if not request.user.is_superuser and service_request.reporter != request.user:
         if not request.user.groups.filter(name='Supervisor').exists():
             messages.error(request, 'ليس لديك صلاحية لتعديل هذا البلاغ')
-            return redirect('service_request_detail', sr_id=service_request.id)
+            return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
     
     if request.method == 'POST':
         form = ServiceRequestForm(request.POST, instance=service_request, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'تم تحديث البلاغ بنجاح')
-            return redirect('service_request_detail', sr_id=service_request.id)
+            return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
     else:
         form = ServiceRequestForm(instance=service_request, user=request.user)
     
@@ -174,7 +193,7 @@ def service_request_close(request, sr_id):
     # التحقق من صلاحية المستخدم لإغلاق البلاغ
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإغلاق هذا البلاغ')
-        return redirect('service_request_detail', sr_id=service_request.id)
+        return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
     
     # التحقق من عدم وجود أوامر شغل مفتوحة
     open_work_orders = service_request.work_orders.filter(
@@ -183,36 +202,36 @@ def service_request_close(request, sr_id):
     
     if open_work_orders:
         messages.error(request, 'لا يمكن إغلاق البلاغ لوجود أوامر شغل مفتوحة')
-        return redirect('service_request_detail', sr_id=service_request.id)
+        return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
     
     service_request.status = 'closed'
     service_request.closed_at = timezone.now()
     service_request.save()
     
     messages.success(request, 'تم إغلاق البلاغ بنجاح')
-    return redirect('service_request_detail', sr_id=service_request.id)
+    return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
 
 # أوامر الشغل (Work Orders)
 
 @login_required
 def work_order_list(request):
     """عرض قائمة أوامر الشغل مع إمكانية الفلترة"""
-    # هنا بنجيب أوامر الشغل حسب صلاحيات المستخدم
+    # هنا بنجيب أوامر الشغل حسب صلاحيات المستخدم مع معلومات الجهاز والقسم
     if request.user.is_superuser:
         # المدير يشوف كل أوامر الشغل
-        work_orders = WorkOrder.objects.all()
+        work_orders = WorkOrder.objects.select_related('service_request__device__department', 'assignee').all()
     elif request.user.groups.filter(name='Supervisor').exists():
         # المشرف يشوف أوامر شغل قسمه
         if hasattr(request.user, 'department'):
-            work_orders = WorkOrder.objects.filter(service_request__device__department=request.user.department)
+            work_orders = WorkOrder.objects.select_related('service_request__device__department', 'assignee').filter(service_request__device__department=request.user.department)
         else:
             work_orders = WorkOrder.objects.none()
-    elif request.user.groups.filter(name='Technician').exists():
+    elif request.user.role == 'technician':
         # الفني يشوف أوامر الشغل المسندة إليه
-        work_orders = WorkOrder.objects.filter(assignee=request.user)
+        work_orders = WorkOrder.objects.select_related('service_request__device__department', 'assignee').filter(assignee=request.user)
     else:
         # المستخدم العادي يشوف أوامر الشغل المرتبطة ببلاغاته
-        work_orders = WorkOrder.objects.filter(service_request__reporter=request.user)
+        work_orders = WorkOrder.objects.select_related('service_request__device__department', 'assignee').filter(service_request__reporter=request.user)
     
     # فلترة حسب الحالة
     status_filter = request.GET.get('status', '')
@@ -248,7 +267,17 @@ def work_order_list(request):
         'assignee_filter': assignee_filter,
         'department_filter': department_filter,
         'search_query': search_query,
-        'status_choices': WorkOrder.status.field.choices,
+        'status_choices': [
+            ('new', 'جديد'),
+            ('assigned', 'تم التعيين'),
+            ('in_progress', 'جاري العمل'),
+            ('wait_parts', 'انتظار قطع غيار'),
+            ('on_hold', 'معلق'),
+            ('resolved', 'تم الحل'),
+            ('qa_verified', 'تم التحقق'),
+            ('closed', 'مغلق'),
+            ('cancelled', 'ملغي'),
+        ],
     }
     
     return render(request, 'maintenance/cmms/work_order_list.html', context)
@@ -277,7 +306,7 @@ def work_order_detail(request, wo_id):
             
             update_form.save()
             messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
-            return redirect('work_order_detail', wo_id=work_order.id)
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     else:
         update_form = WorkOrderUpdateForm(instance=work_order, user=request.user)
     
@@ -357,17 +386,27 @@ def work_order_create(request):
 @login_required
 def work_order_assign(request, wo_id):
     """تعيين فني لأمر الشغل"""
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Group
+    
+    User = get_user_model()
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
     # التحقق من صلاحية المستخدم لتعيين فني
-    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+    if not request.user.is_superuser and request.user.role not in ['hospital_manager', 'super_admin']:
         messages.error(request, 'ليس لديك صلاحية لتعيين فني')
-        return redirect('work_order_detail', wo_id=work_order.id)
+        return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     
     # التحقق من أن أمر الشغل في حالة تسمح بالتعيين
     if work_order.status not in ['new', 'assigned']:
         messages.error(request, 'لا يمكن تعيين فني لأمر شغل في هذه الحالة')
-        return redirect('work_order_detail', wo_id=work_order.id)
+        return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+    
+    # جلب قائمة الفنيين المتاحين (بناءً على الرول)
+    available_technicians = User.objects.filter(
+        role='technician',
+        is_active=True
+    ).order_by('first_name', 'last_name')
     
     if request.method == 'POST':
         assignee_id = request.POST.get('assignee')
@@ -378,20 +417,88 @@ def work_order_assign(request, wo_id):
                 work_order.status = 'assigned'
                 work_order.save()
                 
-                # إضافة تعليق تلقائي
-                WorkOrderComment.objects.create(
-                    work_order=work_order,
-                    user=request.user,
-                    comment=f'تم تعيين {assignee.get_full_name() or assignee.username} كفني مسؤول'
-                )
+                # إضافة تعليق تلقائي (إذا كان WorkOrderComment موجود)
+                try:
+                    from .models import WorkOrderComment
+                    WorkOrderComment.objects.create(
+                        work_order=work_order,
+                        user=request.user,
+                        comment=f'تم تعيين {assignee.get_full_name() or assignee.username} كفني مسؤول'
+                    )
+                except:
+                    pass  # تجاهل إذا لم يكن WorkOrderComment موجود
                 
                 messages.success(request, 'تم تعيين الفني بنجاح')
+                return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
             except User.DoesNotExist:
                 messages.error(request, 'الفني غير موجود')
         else:
             messages.error(request, 'يجب اختيار فني')
     
-    return redirect('work_order_detail', wo_id=work_order.id)
+    context = {
+        'work_order': work_order,
+        'available_technicians': available_technicians,
+    }
+    
+    return render(request, 'maintenance/cmms/work_order_assign.html', context)
+
+# داشبورد الفني
+@login_required
+def technician_dashboard(request):
+    """داشبورد خاص بالفني"""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Count, Q
+    from datetime import datetime, timedelta
+    
+    User = get_user_model()
+    
+    # التحقق من أن المستخدم فني
+    if request.user.role != 'technician':
+        messages.error(request, 'هذه الصفحة مخصصة للفنيين فقط')
+        return redirect('/')
+    
+    # إحصائيات أوامر الشغل المسندة للفني
+    my_work_orders = WorkOrder.objects.filter(assignee=request.user)
+    
+    # إحصائيات سريعة
+    stats = {
+        'total_assigned': my_work_orders.count(),
+        'new_orders': my_work_orders.filter(status='new').count(),
+        'in_progress': my_work_orders.filter(status='in_progress').count(),
+        'on_hold': my_work_orders.filter(status='on_hold').count(),
+        'completed_today': my_work_orders.filter(
+            status__in=['resolved', 'qa_verified', 'closed'],
+            updated_at__date=datetime.now().date()
+        ).count(),
+    }
+    
+    # أوامر الشغل الحديثة (آخر 10)
+    recent_work_orders = my_work_orders.select_related(
+        'service_request__device__department'
+    ).order_by('-created_at')[:10]
+    
+    # أوامر الشغل العاجلة (high priority)
+    urgent_work_orders = my_work_orders.filter(
+        service_request__severity='critical',
+        status__in=['new', 'assigned', 'in_progress']
+    ).select_related('service_request__device__department')[:5]
+    
+    # أوامر الشغل المتأخرة (أكثر من 3 أيام)
+    three_days_ago = datetime.now() - timedelta(days=3)
+    overdue_work_orders = my_work_orders.filter(
+        created_at__lt=three_days_ago,
+        status__in=['new', 'assigned', 'in_progress']
+    ).select_related('service_request__device__department')[:5]
+    
+    context = {
+        'stats': stats,
+        'recent_work_orders': recent_work_orders,
+        'urgent_work_orders': urgent_work_orders,
+        'overdue_work_orders': overdue_work_orders,
+        'user': request.user,
+    }
+    
+    return render(request, 'maintenance/cmms/technician_dashboard.html', context)
 
 # إدارة SLA
 
@@ -420,13 +527,13 @@ def sla_create(request):
         return redirect('sla_list')
     
     if request.method == 'POST':
-        form = SLAForm(request.POST)
+        form = SLADefinitionForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, 'تم إنشاء اتفاقية مستوى الخدمة بنجاح')
             return redirect('sla_list')
     else:
-        form = SLAForm()
+        form = SLADefinitionForm()
     
     context = {
         'form': form,
@@ -442,11 +549,14 @@ def sla_matrix_list(request):
         messages.error(request, 'ليس لديك صلاحية لعرض مصفوفة اتفاقيات مستوى الخدمة')
         return redirect('service_request_list')
     
-    sla_matrix = SLAMatrix.objects.all()
+    # sla_matrix = SLAMatrix.objects.all()
+    sla_matrix = []  # Placeholder until SLAMatrix model is created
     
     # تنظيم المصفوفة في شكل جدول
-    severity_choices = dict(SEVERITY_CHOICES)
-    impact_choices = dict(IMPACT_CHOICES)
+    # severity_choices = dict(SEVERITY_CHOICES)
+    # impact_choices = dict(IMPACT_CHOICES)
+    severity_choices = {'high': 'عالي', 'medium': 'متوسط', 'low': 'منخفض'}
+    impact_choices = {'high': 'عالي', 'medium': 'متوسط', 'low': 'منخفض'}
     
     matrix_table = {}
     for severity in severity_choices.keys():
@@ -480,24 +590,19 @@ def sla_matrix_create(request):
     
     if severity and impact:
         try:
-            instance = SLAMatrix.objects.get(severity=severity, impact=impact)
-        except SLAMatrix.DoesNotExist:
+            # instance = SLAMatrix.objects.get(severity=severity, impact=impact)
+            pass  # SLAMatrix model not available yet
+        except:  # SLAMatrix.DoesNotExist:
             pass
     
     if request.method == 'POST':
-        form = SLAMatrixForm(request.POST, instance=instance)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'تم حفظ عنصر المصفوفة بنجاح')
-            return redirect('sla_matrix_list')
+        # form = SLAMatrixForm(request.POST, instance=instance)
+        # SLAMatrixForm is commented out - placeholder functionality
+        messages.error(request, 'وظيفة مصفوفة SLA غير متاحة حالياً')
+        return redirect('maintenance:cmms:sla_matrix_list')
     else:
-        initial_data = {}
-        if severity:
-            initial_data['severity'] = severity
-        if impact:
-            initial_data['impact'] = impact
-        
-        form = SLAMatrixForm(instance=instance, initial=initial_data)
+        # Placeholder form
+        form = None
     
     context = {
         'form': form,
@@ -1103,7 +1208,7 @@ def pm_schedule_generate_wo(request, schedule_id):
     try:
         work_order = pm_schedule.generate_work_order()
         messages.success(request, 'تم إنشاء أمر العمل بنجاح')
-        return redirect('work_order_detail', wo_id=work_order.id)
+        return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     except Exception as e:
         messages.error(request, f'حدث خطأ أثناء إنشاء أمر العمل: {str(e)}')
         return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
