@@ -28,22 +28,7 @@ class DeviceDailyUsageLog(models.Model):
     def __str__(self):
         return f"{self.device.name} - {self.date}"
 
-# DeviceUsageLogItem model moved below - removing duplicate
 
-# DeviceTransferLog model moved below - removing duplicate
-
-# PatientTransferLog model moved below - removing duplicate
-
-# DeviceHandoverLog model moved below - removing duplicate
-
-# DeviceAccessory model moved below - removing duplicate
-
-# نموذج سجل استخدام ملحقات الجهاز
-# تم نقل هذا النموذج إلى تعريف آخر في الملف
-
-# ScanSession model moved below - removing duplicate
-
-# ScanHistory model moved below - removing duplicate
 
 # نموذج سجل تنظيف الجهاز
 class DeviceCleaningLog(models.Model):
@@ -174,24 +159,7 @@ class PreventiveMaintenanceSchedule(models.Model):
 
 # SLADefinition model moved below - removing duplicate
 
-# نموذج المورد
-class Supplier(models.Model):
-    STATUS_CHOICES = [
-        ('active', 'نشط'),
-        ('inactive', 'غير نشط'),
-    ]
-    
-    name = models.CharField(max_length=200, default='')
-    code = models.CharField(max_length=50, unique=True, default='')
-    contact_person = models.CharField(max_length=100, blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    address = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    notes = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return self.name
+# نموذج المورد - تم نقله إلى قسم Spare Parts Models أدناه
 
 # Old SparePart model removed - using the new comprehensive one below
 
@@ -2634,6 +2602,228 @@ class SparePart(models.Model):
         if self.unit_cost:
             return self.current_stock * self.unit_cost
         return 0
+
+
+class SparePartTransaction(models.Model):
+    """نموذج معاملات قطع الغيار"""
+    TRANSACTION_TYPES = [
+        ('in', 'وارد'),
+        ('out', 'صادر'),
+        ('adjustment', 'تعديل'),
+        ('return', 'إرجاع'),
+    ]
+    
+    spare_part = models.ForeignKey(
+        SparePart, 
+        on_delete=models.CASCADE, 
+        related_name='transactions',
+        verbose_name="قطعة الغيار"
+    )
+    transaction_type = models.CharField(
+        max_length=20, 
+        choices=TRANSACTION_TYPES,
+        verbose_name="نوع المعاملة"
+    )
+    quantity = models.PositiveIntegerField(verbose_name="الكمية")
+    reference_number = models.CharField(
+        max_length=100, 
+        blank=True, 
+        verbose_name="رقم المرجع"
+    )
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    
+    # Optional relationships
+    work_order = models.ForeignKey(
+        'WorkOrder', 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True,
+        related_name='spare_part_transactions',
+        verbose_name="أمر العمل"
+    )
+    device = models.ForeignKey(
+        'Device', 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True,
+        related_name='spare_part_transactions',
+        verbose_name="الجهاز"
+    )
+    
+    # Stock levels before and after transaction
+    stock_before = models.PositiveIntegerField(verbose_name="المخزون قبل المعاملة")
+    stock_after = models.PositiveIntegerField(verbose_name="المخزون بعد المعاملة")
+    
+    # Timestamps and user tracking
+    transaction_date = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ المعاملة")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE,
+        verbose_name="تم بواسطة"
+    )
+    
+    class Meta:
+        verbose_name = "معاملة قطعة غيار"
+        verbose_name_plural = "معاملات قطع الغيار"
+        ordering = ['-transaction_date']
+        indexes = [
+            models.Index(fields=['spare_part', '-transaction_date']),
+            models.Index(fields=['transaction_type', '-transaction_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.spare_part.name} - {self.get_transaction_type_display()} ({self.quantity})"
+
+
+class SparePartRequest(models.Model):
+    """نموذج طلبات قطع الغيار من الفنيين"""
+    STATUS_CHOICES = [
+        ('pending', 'في الانتظار'),
+        ('approved', 'موافق عليه'),
+        ('rejected', 'مرفوض'),
+        ('fulfilled', 'تم التنفيذ'),
+        ('cancelled', 'ملغي'),
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', 'منخفض'),
+        ('medium', 'متوسط'),
+        ('high', 'عالي'),
+        ('urgent', 'عاجل'),
+    ]
+    
+    # Basic information
+    request_number = models.CharField(max_length=20, unique=True, verbose_name="رقم الطلب")
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='spare_part_requests',
+        verbose_name="مقدم الطلب"
+    )
+    
+    # Request details
+    spare_part = models.ForeignKey(
+        SparePart,
+        on_delete=models.CASCADE,
+        related_name='requests',
+        verbose_name="قطعة الغيار"
+    )
+    quantity_requested = models.PositiveIntegerField(verbose_name="الكمية المطلوبة")
+    priority = models.CharField(
+        max_length=10,
+        choices=PRIORITY_CHOICES,
+        default='medium',
+        verbose_name="الأولوية"
+    )
+    
+    # Work context
+    work_order = models.ForeignKey(
+        'WorkOrder',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='spare_part_requests',
+        verbose_name="أمر العمل"
+    )
+    device = models.ForeignKey(
+        'Device',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='spare_part_requests',
+        verbose_name="الجهاز"
+    )
+    
+    # Request justification
+    reason = models.TextField(verbose_name="سبب الطلب")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات إضافية")
+    
+    # Status and approval
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="حالة الطلب"
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='approved_spare_part_requests',
+        verbose_name="تمت الموافقة بواسطة"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الموافقة")
+    approval_notes = models.TextField(blank=True, verbose_name="ملاحظات الموافقة")
+    
+    # Fulfillment
+    quantity_approved = models.PositiveIntegerField(null=True, blank=True, verbose_name="الكمية المعتمدة")
+    fulfilled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='fulfilled_spare_part_requests',
+        verbose_name="تم التنفيذ بواسطة"
+    )
+    fulfilled_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ التنفيذ")
+    
+    # Related transaction
+    transaction = models.OneToOneField(
+        SparePartTransaction,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='request',
+        verbose_name="المعاملة المرتبطة"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التحديث")
+    
+    class Meta:
+        verbose_name = "طلب قطعة غيار"
+        verbose_name_plural = "طلبات قطع الغيار"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['priority', '-created_at']),
+            models.Index(fields=['requester', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"طلب {self.request_number} - {self.spare_part.name}"
+    
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            # Generate unique request number
+            from django.utils import timezone
+            today = timezone.now().strftime('%Y%m%d')
+            last_request = SparePartRequest.objects.filter(
+                request_number__startswith=f'REQ-{today}'
+            ).order_by('-request_number').first()
+            
+            if last_request:
+                last_num = int(last_request.request_number.split('-')[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            
+            self.request_number = f'REQ-{today}-{new_num:03d}'
+        
+        super().save(*args, **kwargs)
+    
+    def can_approve(self):
+        """التحقق من إمكانية الموافقة على الطلب"""
+        return self.status == 'pending'
+    
+    def can_fulfill(self):
+        """التحقق من إمكانية تنفيذ الطلب"""
+        return self.status == 'approved'
+    
+    def get_priority_color(self):
+        """إرجاع لون الأولوية للعرض"""
+        colors = {
+            'low': 'success',
+            'medium': 'info',
+            'high': 'warning',
+            'urgent': 'danger'
+        }
+        return colors.get(self.priority, 'secondary')
 
 
 # ================================================================

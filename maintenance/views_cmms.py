@@ -17,15 +17,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.urls import reverse
 from django.core.paginator import Paginator
 
 from .models import (Device, ServiceRequest, WorkOrder, JobPlan, JobPlanStep, 
-                     PreventiveMaintenanceSchedule, SLADefinition, SR_TYPE_CHOICES, WO_STATUS_CHOICES)
+                     PreventiveMaintenanceSchedule, SLADefinition, SR_TYPE_CHOICES, WO_STATUS_CHOICES,
+                     WorkOrderPart)
 from .forms_cmms import (ServiceRequestForm, WorkOrderForm, WorkOrderUpdateForm, 
-                        SLADefinitionForm, JobPlanForm, JobPlanStepForm, PMScheduleForm)
+                        SLADefinitionForm, JobPlanForm, JobPlanStepForm, PMScheduleForm,
+                        WorkOrderPartRequestForm, WorkOrderPartIssueForm)
 
 # ========================================
 # بلاغات الصيانة (Service Requests)
@@ -357,6 +359,7 @@ def work_order_detail(request, wo_id):
     - التحقق من صلاحيات المستخدم
     - تحديث حالة أمر الشغل
     - تحديث حالة الجهاز
+    - عرض قطع الغيار المطلوبة
     """
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     comments = work_order.comments.all().order_by('created_at')
@@ -373,6 +376,17 @@ def work_order_detail(request, wo_id):
         request.user.is_superuser or 
         request.user.groups.filter(name='Supervisor').exists() or
         work_order.assignee == request.user
+    )
+    
+    # صلاحيات إدارة قطع الغيار
+    can_request_parts = (
+        work_order.assignee == request.user or 
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists()
+    )
+    can_issue_parts = (
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists()
     )
     
     # نموذج تحديث حالة أمر الشغل
@@ -410,6 +424,16 @@ def work_order_detail(request, wo_id):
     # تم إزالة نموذج التعليقات مؤقتاً حتى يتم تطبيق نموذج WorkOrderComment
     comment_form = None
     
+    # جلب قطع الغيار المطلوبة
+    parts_requested = work_order.parts_used.all().order_by('-requested_at')
+    
+    # إحصائيات قطع الغيار
+    parts_stats = {
+        'total_requested': parts_requested.count(),
+        'total_issued': parts_requested.filter(status='issued').count(),
+        'total_cost': parts_requested.aggregate(total=Sum('total_cost'))['total'] or 0,
+    }
+    
     # Check if device needs status change from inspection to working
     device_needs_status_change = (
         work_order.service_request and 
@@ -425,6 +449,10 @@ def work_order_detail(request, wo_id):
         'comment_form': comment_form,
         'can_update_status': can_update_status,
         'device_needs_status_change': device_needs_status_change,
+        'parts_requested': parts_requested,
+        'parts_stats': parts_stats,
+        'can_request_parts': can_request_parts,
+        'can_issue_parts': can_issue_parts,
     }
     
     return render(request, 'maintenance/cmms/work_order_detail.html', context)
@@ -1674,3 +1702,192 @@ def work_order_add_comment(request, wo_id):
             messages.error(request, 'لا يمكن إضافة تعليق فارغ')
     
     return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+
+# =============== Work Order Parts Management ===============
+@login_required
+def work_order_parts_list(request, wo_id):
+    """عرض قائمة قطع الغيار المطلوبة لأمر الشغل"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        if work_order.assignee != request.user and work_order.service_request.reporter != request.user:
+            messages.error(request, 'ليس لديك صلاحية لعرض قطع الغيار لهذا الأمر')
+            return redirect('maintenance:cmms:work_order_detail', wo_id=wo_id)
+    
+    parts_requested = work_order.parts_used.all().order_by('-requested_at')
+    
+    # صلاحيات المستخدم
+    can_request_parts = (
+        work_order.assignee == request.user or 
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists()
+    )
+    can_issue_parts = (
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists()
+    )
+    
+    # إحصائيات قطع الغيار
+    parts_stats = {
+        'total_requested': parts_requested.count(),
+        'total_issued': parts_requested.filter(status='issued').count(),
+        'total_cost': parts_requested.aggregate(total=Sum('total_cost'))['total'] or 0,
+    }
+    
+    context = {
+        'work_order': work_order,
+        'parts_requested': parts_requested,
+        'can_request_parts': can_request_parts,
+        'can_issue_parts': can_issue_parts,
+        'parts_stats': parts_stats,
+    }
+    
+    return render(request, 'maintenance/cmms/work_order_parts_list.html', context)
+
+@login_required
+def work_order_part_request(request, wo_id):
+    """طلب قطع غيار جديدة لأمر الشغل"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        if work_order.assignee != request.user:
+            messages.error(request, 'ليس لديك صلاحية لطلب قطع غيار لهذا الأمر')
+            return redirect('maintenance:cmms:work_order_detail', wo_id=wo_id)
+    
+    if request.method == 'POST':
+        form = WorkOrderPartRequestForm(request.POST)
+        if form.is_valid():
+            part_request = form.save(commit=False)
+            part_request.work_order = work_order
+            part_request.requested_by = request.user
+            part_request.requested_at = timezone.now()
+            part_request.status = 'requested'
+            part_request.save()
+            
+            messages.success(request, 'تم طلب قطع الغيار بنجاح')
+            return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    else:
+        form = WorkOrderPartRequestForm()
+    
+    context = {
+        'form': form,
+        'work_order': work_order,
+        'title': 'طلب قطع غيار جديدة',
+    }
+    
+    return render(request, 'maintenance/cmms/work_order_part_request_form.html', context)
+
+@login_required
+def work_order_part_issue(request, wo_id, part_id):
+    """صرف قطع الغيار المطلوبة"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    work_order_part = get_object_or_404(WorkOrderPart, id=part_id, work_order=work_order)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        messages.error(request, 'ليس لديك صلاحية لصرف قطع الغيار')
+        return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    
+    if request.method == 'POST':
+        form = WorkOrderPartIssueForm(request.POST, instance=work_order_part)
+        if form.is_valid():
+            part_request = form.save(commit=False)
+            part_request.issued_by = request.user
+            part_request.issued_at = timezone.now()
+            part_request.status = 'issued'
+            
+            # تحديث المخزون
+            spare_part = work_order_part.spare_part
+            if spare_part.current_stock >= part_request.quantity_used:
+                spare_part.current_stock -= part_request.quantity_used
+                spare_part.save()
+                
+                # حساب التكلفة الإجمالية
+                if spare_part.unit_cost:
+                    part_request.total_cost = spare_part.unit_cost * part_request.quantity_used
+                
+                part_request.save()
+                messages.success(request, 'تم صرف قطع الغيار بنجاح')
+            else:
+                messages.error(request, 'المخزون غير كافي لصرف الكمية المطلوبة')
+                return redirect('maintenance:cmms:work_order_part_issue', wo_id=work_order.id, part_id=part_id)
+            
+            return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    else:
+        form = WorkOrderPartIssueForm(instance=work_order_part)
+    
+    context = {
+        'form': form,
+        'work_order': work_order,
+        'work_order_part': work_order_part,
+        'title': 'صرف قطع الغيار',
+    }
+    
+    return render(request, 'maintenance/cmms/work_order_part_issue_form.html', context)
+
+@login_required
+def work_order_part_cancel(request, wo_id, part_id):
+    """إلغاء طلب قطع غيار"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    work_order_part = get_object_or_404(WorkOrderPart, id=part_id, work_order=work_order)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        if work_order.assignee != request.user:
+            messages.error(request, 'ليس لديك صلاحية لإلغاء طلب قطع الغيار')
+            return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    
+    # التحقق من أن الطلب لم يتم صرفه بعد
+    if work_order_part.status != 'requested':
+        messages.error(request, 'لا يمكن إلغاء طلب تم صرفه بالفعل')
+        return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    
+    work_order_part.delete()
+    messages.success(request, 'تم إلغاء طلب قطع الغيار بنجاح')
+    
+    return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+
+@login_required
+def work_order_part_return(request, wo_id, part_id):
+    """إرجاع قطع غيار مصروفة"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    work_order_part = get_object_or_404(WorkOrderPart, id=part_id, work_order=work_order)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        if work_order.assignee != request.user:
+            messages.error(request, 'ليس لديك صلاحية لإرجاع قطع الغيار')
+            return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    
+    # التحقق من أن القطعة تم صرفها
+    if work_order_part.status != 'issued' or work_order_part.quantity_used <= 0:
+        messages.error(request, 'لا يمكن إرجاع قطعة لم يتم صرفها')
+        return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+    
+    if request.method == 'POST':
+        return_quantity = int(request.POST.get('return_quantity', 0))
+        
+        if return_quantity > 0 and return_quantity <= work_order_part.quantity_used:
+            # إرجاع الكمية للمخزون
+            spare_part = work_order_part.spare_part
+            spare_part.current_stock += return_quantity
+            spare_part.save()
+            
+            # تحديث الكمية المستخدمة
+            work_order_part.quantity_used -= return_quantity
+            if work_order_part.quantity_used == 0:
+                work_order_part.status = 'returned'
+            
+            # تحديث التكلفة
+            if spare_part.unit_cost:
+                work_order_part.total_cost = spare_part.unit_cost * work_order_part.quantity_used
+            
+            work_order_part.save()
+            
+            messages.success(request, f'تم إرجاع {return_quantity} قطعة للمخزون بنجاح')
+        else:
+            messages.error(request, 'كمية الإرجاع غير صحيحة')
+    
+    return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)

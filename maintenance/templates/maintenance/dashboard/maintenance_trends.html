@@ -1,0 +1,563 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}اتجاهات الصيانة | لوحة التحكم{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2 class="page-title">اتجاهات الصيانة</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'maintenance:dashboard:cmms_dashboard' %}">لوحة التحكم</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">اتجاهات الصيانة</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- فلاتر التقرير -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="form-inline">
+                        <div class="form-group mx-sm-3 mb-2">
+                            <label for="date_range" class="mr-2">الفترة الزمنية:</label>
+                            <select class="form-control" id="date_range" name="date_range">
+                                <option value="last_30_days" {% if date_range == 'last_30_days' %}selected{% endif %}>آخر 30 يوم</option>
+                                <option value="last_90_days" {% if date_range == 'last_90_days' %}selected{% endif %}>آخر 90 يوم</option>
+                                <option value="last_6_months" {% if date_range == 'last_6_months' %}selected{% endif %}>آخر 6 أشهر</option>
+                                <option value="last_year" {% if date_range == 'last_year' %}selected{% endif %}>آخر سنة</option>
+                                <option value="custom" {% if date_range == 'custom' %}selected{% endif %}>مخصص</option>
+                            </select>
+                        </div>
+                        <div class="form-group mx-sm-3 mb-2 custom-date-range" {% if date_range != 'custom' %}style="display: none;"{% endif %}>
+                            <label for="start_date" class="mr-2">من:</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group mx-sm-3 mb-2 custom-date-range" {% if date_range != 'custom' %}style="display: none;"{% endif %}>
+                            <label for="end_date" class="mr-2">إلى:</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group mx-sm-3 mb-2">
+                            <label for="department" class="mr-2">القسم:</label>
+                            <select class="form-control" id="department" name="department">
+                                <option value="all">جميع الأقسام</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if department == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary mb-2">تطبيق</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بطاقات المؤشرات الرئيسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي طلبات الصيانة</h5>
+                    <h2 class="text-primary">{{ maintenance_stats.total_requests }}</h2>
+                    <p class="text-muted">خلال الفترة المحددة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط وقت الاستجابة</h5>
+                    <h2 class="text-success">{{ maintenance_stats.avg_response_time|floatformat:1 }}</h2>
+                    <p class="text-muted">ساعة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط وقت الإصلاح</h5>
+                    <h2 class="text-info">{{ maintenance_stats.avg_repair_time|floatformat:1 }}</h2>
+                    <p class="text-muted">ساعة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">نسبة الصيانة الوقائية</h5>
+                    <h2 class="text-{{ maintenance_stats.preventive_ratio_color }}">{{ maintenance_stats.preventive_ratio|floatformat:1 }}%</h2>
+                    <p class="text-muted">من إجمالي الصيانة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- اتجاهات طلبات الصيانة -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">اتجاهات طلبات الصيانة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="maintenanceRequestsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- توزيع أنواع الصيانة -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع أنواع الصيانة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="maintenanceTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع أسباب الأعطال</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="failureReasonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مؤشرات الأداء الرئيسية للصيانة -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">مؤشرات الأداء الرئيسية للصيانة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="maintenanceKPIChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تكاليف الصيانة -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">تكاليف الصيانة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="maintenanceCostChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- توزيع الصيانة حسب الأقسام -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع الصيانة حسب الأقسام</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="departmentMaintenanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع الصيانة حسب نوع الجهاز</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="deviceTypeMaintenanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تحليل الاتجاهات الموسمية -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">تحليل الاتجاهات الموسمية للصيانة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="seasonalTrendsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // عرض/إخفاء حقول التاريخ المخصص
+    document.getElementById('date_range').addEventListener('change', function() {
+        const customDateFields = document.querySelectorAll('.custom-date-range');
+        if (this.value === 'custom') {
+            customDateFields.forEach(field => field.style.display = 'block');
+        } else {
+            customDateFields.forEach(field => field.style.display = 'none');
+        }
+    });
+
+    // اتجاهات طلبات الصيانة
+    const maintenanceRequestsCtx = document.getElementById('maintenanceRequestsChart').getContext('2d');
+    const maintenanceRequestsChart = new Chart(maintenanceRequestsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ maintenance_trends.time_periods|safe }},
+            datasets: [
+                {
+                    label: 'الصيانة التصحيحية',
+                    data: {{ maintenance_trends.corrective|safe }},
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'الصيانة الوقائية',
+                    data: {{ maintenance_trends.preventive|safe }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'الصيانة التنبؤية',
+                    data: {{ maintenance_trends.predictive|safe }},
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'عدد طلبات الصيانة'
+                    }
+                }
+            }
+        }
+    });
+
+    // توزيع أنواع الصيانة
+    const maintenanceTypeCtx = document.getElementById('maintenanceTypeChart').getContext('2d');
+    const maintenanceTypeChart = new Chart(maintenanceTypeCtx, {
+        type: 'pie',
+        data: {
+            labels: ['صيانة تصحيحية', 'صيانة وقائية', 'صيانة تنبؤية', 'معايرة', 'فحص دوري'],
+            datasets: [{
+                data: [
+                    {{ maintenance_type.corrective }},
+                    {{ maintenance_type.preventive }},
+                    {{ maintenance_type.predictive }},
+                    {{ maintenance_type.calibration }},
+                    {{ maintenance_type.inspection }}
+                ],
+                backgroundColor: [
+                    '#dc3545',
+                    '#28a745',
+                    '#17a2b8',
+                    '#6f42c1',
+                    '#fd7e14'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // توزيع أسباب الأعطال
+    const failureReasonCtx = document.getElementById('failureReasonChart').getContext('2d');
+    const failureReasonChart = new Chart(failureReasonCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ failure_reasons.reasons|safe }},
+            datasets: [{
+                data: {{ failure_reasons.counts|safe }},
+                backgroundColor: [
+                    '#fd7e14',
+                    '#20c997',
+                    '#17a2b8',
+                    '#6f42c1',
+                    '#28a745',
+                    '#6c757d',
+                    '#dc3545',
+                    '#ffc107'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // مؤشرات الأداء الرئيسية للصيانة
+    const maintenanceKPICtx = document.getElementById('maintenanceKPIChart').getContext('2d');
+    const maintenanceKPIChart = new Chart(maintenanceKPICtx, {
+        type: 'line',
+        data: {
+            labels: {{ kpi_trends.time_periods|safe }},
+            datasets: [
+                {
+                    label: 'متوسط وقت الاستجابة (ساعة)',
+                    data: {{ kpi_trends.response_time|safe }},
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'متوسط وقت الإصلاح (ساعة)',
+                    data: {{ kpi_trends.repair_time|safe }},
+                    borderColor: '#fd7e14',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'نسبة الالتزام بالـ SLA (%)',
+                    data: {{ kpi_trends.sla_compliance|safe }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'الوقت (ساعة)'
+                    }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'النسبة المئوية (%)'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+
+    // تكاليف الصيانة
+    const maintenanceCostCtx = document.getElementById('maintenanceCostChart').getContext('2d');
+    const maintenanceCostChart = new Chart(maintenanceCostCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ cost_trends.time_periods|safe }},
+            datasets: [
+                {
+                    label: 'تكلفة قطع الغيار',
+                    data: {{ cost_trends.parts_cost|safe }},
+                    backgroundColor: '#17a2b8'
+                },
+                {
+                    label: 'تكلفة العمالة',
+                    data: {{ cost_trends.labor_cost|safe }},
+                    backgroundColor: '#fd7e14'
+                },
+                {
+                    label: 'تكاليف أخرى',
+                    data: {{ cost_trends.other_cost|safe }},
+                    backgroundColor: '#6c757d'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'التكلفة (ريال)'
+                    }
+                }
+            }
+        }
+    });
+
+    // توزيع الصيانة حسب الأقسام
+    const departmentMaintenanceCtx = document.getElementById('departmentMaintenanceChart').getContext('2d');
+    const departmentMaintenanceChart = new Chart(departmentMaintenanceCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ department_maintenance.departments|safe }},
+            datasets: [
+                {
+                    label: 'الصيانة التصحيحية',
+                    data: {{ department_maintenance.corrective|safe }},
+                    backgroundColor: '#dc3545'
+                },
+                {
+                    label: 'الصيانة الوقائية',
+                    data: {{ department_maintenance.preventive|safe }},
+                    backgroundColor: '#28a745'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // توزيع الصيانة حسب نوع الجهاز
+    const deviceTypeMaintenanceCtx = document.getElementById('deviceTypeMaintenanceChart').getContext('2d');
+    const deviceTypeMaintenanceChart = new Chart(deviceTypeMaintenanceCtx, {
+        type: 'horizontalBar',
+        data: {
+            labels: {{ device_type_maintenance.device_types|safe }},
+            datasets: [
+                {
+                    label: 'الصيانة التصحيحية',
+                    data: {{ device_type_maintenance.corrective|safe }},
+                    backgroundColor: '#dc3545'
+                },
+                {
+                    label: 'الصيانة الوقائية',
+                    data: {{ device_type_maintenance.preventive|safe }},
+                    backgroundColor: '#28a745'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    beginAtZero: true
+                },
+                y: {
+                    stacked: true
+                }
+            }
+        }
+    });
+
+    // تحليل الاتجاهات الموسمية
+    const seasonalTrendsCtx = document.getElementById('seasonalTrendsChart').getContext('2d');
+    const seasonalTrendsChart = new Chart(seasonalTrendsCtx, {
+        type: 'line',
+        data: {
+            labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+            datasets: [
+                {
+                    label: 'العام الحالي',
+                    data: {{ seasonal_trends.current_year|safe }},
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'العام السابق',
+                    data: {{ seasonal_trends.previous_year|safe }},
+                    borderColor: '#6c757d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'عدد طلبات الصيانة'
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

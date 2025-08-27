@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-plus"></i>
+                            {{ title }}
+                        </h4>
+                        <a href="{% url 'maintenance:cmms:work_order_parts_list' work_order.id %}" 
+                           class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> رجوع
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- معلومات أمر الشغل -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> معلومات أمر الشغل:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>الرقم:</strong> {{ work_order.wo_number }}</p>
+                                <p><strong>العنوان:</strong> {{ work_order.title }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>الجهاز:</strong> {{ work_order.service_request.device.name }}</p>
+                                <p><strong>القسم:</strong> {{ work_order.service_request.device.department.name }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- نموذج طلب قطع الغيار -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.spare_part.id_for_label }}">
+                                        {{ form.spare_part.label }}
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.spare_part }}
+                                    {% if form.spare_part.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.spare_part.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        اختر قطعة الغيار المناسبة لفئة الجهاز
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.quantity_requested.id_for_label }}">
+                                        {{ form.quantity_requested.label }}
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.quantity_requested }}
+                                    {% if form.quantity_requested.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.quantity_requested.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}">
+                                {{ form.notes.label }}
+                            </label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.notes.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                اكتب ملاحظات حول سبب طلب هذه القطعة أو كيفية استخدامها
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> حفظ الطلب
+                            </button>
+                            <a href="{% url 'maintenance:cmms:work_order_parts_list' work_order.id %}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- معلومات إضافية -->
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-lightbulb"></i> نصائح:</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> تأكد من اختيار القطعة المناسبة للجهاز</li>
+                        <li><i class="fas fa-check text-success"></i> حدد الكمية المطلوبة بدقة</li>
+                        <li><i class="fas fa-check text-success"></i> اكتب ملاحظات واضحة حول الاستخدام</li>
+                        <li><i class="fas fa-check text-success"></i> يمكنك إلغاء الطلب قبل الصرف إذا لزم الأمر</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-info-circle"></i> معلومات:</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-info text-info"></i> سيتم ربط الطلب تلقائياً بأمر الشغل</li>
+                        <li><i class="fas fa-info text-info"></i> يمكن للمشرف أو المدير صرف القطع المطلوبة</li>
+                        <li><i class="fas fa-info text-info"></i> سيتم تحديث المخزون عند الصرف</li>
+                        <li><i class="fas fa-info text-info"></i> يمكن إرجاع القطع غير المستخدمة</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

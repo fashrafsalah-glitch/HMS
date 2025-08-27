@@ -45,7 +45,7 @@
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">{% trans "معاملات قطع الغيار" %}</h1>
-        <a href="{% url 'maintenance:spare_part_transaction_create' %}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+        <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
             <i class="fas fa-plus fa-sm text-white-50"></i> {% trans "إضافة معاملة جديدة" %}
         </a>
     </div>
@@ -320,4 +320,325 @@
         });
     });
 </script>
+{% endblock %}
+    <div class="card shadow mb-4">
+
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+
+            <h6 class="m-0 font-weight-bold text-primary">{% trans "قائمة المعاملات" %}</h6>
+
+            <div class="dropdown no-arrow">
+
+                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+
+                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+
+                </a>
+
+                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+
+                    <div class="dropdown-header">{% trans "خيارات:" %}</div>
+
+                    <a class="dropdown-item" href="{% url 'maintenance:spare_part_transaction_export_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+
+                        <i class="fas fa-file-csv fa-sm fa-fw mr-2 text-gray-400"></i>{% trans "تصدير CSV" %}
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="table-responsive">
+
+                <table class="table table-bordered" id="transactionsTable" width="100%" cellspacing="0">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>{% trans "رقم المعاملة" %}</th>
+
+                            <th>{% trans "قطعة الغيار" %}</th>
+
+                            <th>{% trans "نوع المعاملة" %}</th>
+
+                            <th>{% trans "الكمية" %}</th>
+
+                            <th>{% trans "التاريخ" %}</th>
+
+                            <th>{% trans "رقم المرجع" %}</th>
+
+                            <th>{% trans "الجهاز" %}</th>
+
+                            <th>{% trans "أمر العمل" %}</th>
+
+                            <th>{% trans "بواسطة" %}</th>
+
+                            <th>{% trans "إجراءات" %}</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for transaction in transactions %}
+
+                        <tr>
+
+                            <td>{{ transaction.id }}</td>
+
+                            <td>
+
+                                <a href="{% url 'maintenance:spare_part_detail' transaction.spare_part.id %}">
+
+                                    {{ transaction.spare_part.name }}
+
+                                </a>
+
+                            </td>
+
+                            <td>
+
+                                {% if transaction.transaction_type == 'IN' %}
+
+                                <span class="transaction-in"><i class="fas fa-arrow-down"></i> {% trans "إضافة" %}</span>
+
+                                {% elif transaction.transaction_type == 'OUT' %}
+
+                                <span class="transaction-out"><i class="fas fa-arrow-up"></i> {% trans "صرف" %}</span>
+
+                                {% elif transaction.transaction_type == 'ADJUST' %}
+
+                                <span class="transaction-adjust"><i class="fas fa-sync-alt"></i> {% trans "تعديل" %}</span>
+
+                                {% elif transaction.transaction_type == 'RETURN' %}
+
+                                <span class="transaction-return"><i class="fas fa-undo"></i> {% trans "مرتجع" %}</span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>{{ transaction.quantity }} {{ transaction.spare_part.get_unit_display }}</td>
+
+                            <td>{{ transaction.transaction_date|date:"Y-m-d" }}</td>
+
+                            <td>{{ transaction.reference_number|default:"-" }}</td>
+
+                            <td>
+
+                                {% if transaction.device %}
+
+                                <a href="{% url 'maintenance:device_detail' transaction.device.id %}">
+
+                                    {{ transaction.device.name }}
+
+                                </a>
+
+                                {% else %}
+
+                                -
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% if transaction.work_order %}
+
+                                <a href="{% url 'maintenance:work_order_detail' transaction.work_order.id %}">
+
+                                    {{ transaction.work_order.wo_number }}
+
+                                </a>
+
+                                {% else %}
+
+                                -
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>{{ transaction.created_by.get_full_name }}</td>
+
+                            <td>
+
+                                <a href="{% url 'maintenance:spare_part_transaction_update' transaction.id %}" class="btn btn-sm btn-primary">
+
+                                    <i class="fas fa-edit"></i>
+
+                                </a>
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td colspan="10" class="text-center">{% trans "لا توجد معاملات" %}</td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            
+
+            <!-- Pagination -->
+
+            {% if transactions.has_other_pages %}
+
+            <div class="pagination justify-content-center mt-4">
+
+                <ul class="pagination">
+
+                    {% if transactions.has_previous %}
+
+                    <li class="page-item">
+
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; {% trans "الأول" %}</a>
+
+                    </li>
+
+                    <li class="page-item">
+
+                        <a class="page-link" href="?page={{ transactions.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{% trans "السابق" %}</a>
+
+                    </li>
+
+                    {% endif %}
+
+                    
+
+                    {% for i in transactions.paginator.page_range %}
+
+                        {% if transactions.number == i %}
+
+                        <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+
+                        {% elif i > transactions.number|add:'-3' and i < transactions.number|add:'3' %}
+
+                        <li class="page-item">
+
+                            <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+
+                        </li>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                    
+
+                    {% if transactions.has_next %}
+
+                    <li class="page-item">
+
+                        <a class="page-link" href="?page={{ transactions.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{% trans "التالي" %}</a>
+
+                    </li>
+
+                    <li class="page-item">
+
+                        <a class="page-link" href="?page={{ transactions.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{% trans "الأخير" %} &raquo;</a>
+
+                    </li>
+
+                    {% endif %}
+
+                </ul>
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block extra_js %}
+
+<script src="{% static 'vendor/datatables/jquery.dataTables.min.js' %}"></script>
+
+<script src="{% static 'vendor/datatables/dataTables.bootstrap4.min.js' %}"></script>
+
+<script src="{% static 'vendor/select2/select2.min.js' %}"></script>
+
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+
+<script>
+
+    $(document).ready(function() {
+
+        // Initialize Select2
+
+        $('.select2').select2({
+
+            placeholder: "{% trans 'اختر قطعة غيار' %}",
+
+            allowClear: true
+
+        });
+
+        
+
+        // Initialize Flatpickr for date pickers
+
+        $(".datepicker").flatpickr({
+
+            dateFormat: "Y-m-d",
+
+            allowInput: true
+
+        });
+
+        
+
+        // Initialize DataTable with pagination disabled (using Django's pagination)
+
+        $('#transactionsTable').DataTable({
+
+            "paging": false,
+
+            "searching": false,
+
+            "ordering": true,
+
+            "info": false,
+
+            "language": {
+
+                "emptyTable": "{% trans 'لا توجد بيانات متاحة في الجدول' %}",
+
+                "zeroRecords": "{% trans 'لم يتم العثور على سجلات مطابقة' %}"
+
+            }
+
+        });
+
+    });
+
+</script>
+
 {% endblock %}

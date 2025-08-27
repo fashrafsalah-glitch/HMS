@@ -182,12 +182,12 @@ class CMMSScheduler:
         
         # الأجهزة التي تحتاج معايرة خلال 30 يوم
         devices_needing_calibration = Device.objects.filter(
-            calibrations__next_calibration_date__lte=warning_date,
-            calibrations__next_calibration_date__gte=today
+            calibration_records__next_calibration_date__lte=warning_date,
+            calibration_records__next_calibration_date__gte=today
         ).distinct()
         
         for device in devices_needing_calibration:
-            latest_calibration = device.calibrations.filter(
+            latest_calibration = device.calibration_records.filter(
                 next_calibration_date__lte=warning_date
             ).order_by('-calibration_date').first()
             

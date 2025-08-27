@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}الموافقة على الطلب{% endblock %}
+
+{% block extra_css %}
+<style>
+    .request-details {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .approval-form {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .stock-warning {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="text-primary">
+                <i class="fas fa-check-circle"></i>
+                الموافقة على طلب قطعة غيار
+            </h2>
+            <p class="text-muted">مراجعة والموافقة على الطلب رقم: {{ spare_request.request_number }}</p>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'maintenance:spare_parts:pending_requests' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-right"></i>
+                العودة للطلبات المعلقة
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Request Details -->
+        <div class="col-md-6">
+            <div class="request-details">
+                <h5 class="mb-3">
+                    <i class="fas fa-info-circle text-primary"></i>
+                    تفاصيل الطلب
+                </h5>
+                
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>رقم الطلب:</strong></p>
+                        <p class="text-muted">{{ spare_request.request_number }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>تاريخ الطلب:</strong></p>
+                        <p class="text-muted">{{ spare_request.created_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>مقدم الطلب:</strong></p>
+                        <p class="text-muted">{{ spare_request.requester.get_full_name }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>الأولوية:</strong></p>
+                        <span class="badge badge-{{ spare_request.priority }} badge-lg">
+                            {{ spare_request.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6><strong>قطعة الغيار:</strong></h6>
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>الاسم:</strong></p>
+                        <p class="text-muted">{{ spare_request.spare_part.name }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>الرقم التسلسلي:</strong></p>
+                        <p class="text-muted">{{ spare_request.spare_part.part_number|default:"غير محدد" }}</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>الكمية المطلوبة:</strong></p>
+                        <p class="text-primary font-weight-bold">{{ spare_request.quantity_requested }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>المخزون المتاح:</strong></p>
+                        <p class="{% if spare_request.spare_part.current_stock < spare_request.quantity_requested %}text-danger{% else %}text-success{% endif %} font-weight-bold">
+                            {{ spare_request.spare_part.current_stock }}
+                        </p>
+                    </div>
+                </div>
+
+                {% if spare_request.work_order %}
+                <hr>
+                <h6><strong>أمر العمل المرتبط:</strong></h6>
+                <p class="text-muted">{{ spare_request.work_order.work_order_number }}</p>
+                {% endif %}
+
+                {% if spare_request.device %}
+                <hr>
+                <h6><strong>الجهاز المرتبط:</strong></h6>
+                <p class="text-muted">{{ spare_request.device.name }}</p>
+                {% endif %}
+
+                {% if spare_request.reason %}
+                <hr>
+                <h6><strong>سبب الطلب:</strong></h6>
+                <p class="text-muted">{{ spare_request.reason }}</p>
+                {% endif %}
+
+                {% if spare_request.notes %}
+                <hr>
+                <h6><strong>ملاحظات:</strong></h6>
+                <p class="text-muted">{{ spare_request.notes }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Approval Form -->
+        <div class="col-md-6">
+            {% if spare_request.spare_part.current_stock < spare_request.quantity_requested %}
+            <div class="stock-warning">
+                <h6 class="text-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    تحذير: مخزون غير كافي
+                </h6>
+                <p class="mb-0">
+                    المخزون المتاح ({{ spare_request.spare_part.current_stock }}) أقل من الكمية المطلوبة ({{ spare_request.quantity_requested }}).
+                    يمكنك الموافقة على كمية أقل أو رفض الطلب.
+                </p>
+            </div>
+            {% endif %}
+
+            <div class="approval-form">
+                <h5 class="mb-3">
+                    <i class="fas fa-edit text-success"></i>
+                    نموذج الموافقة
+                </h5>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.quantity_approved.id_for_label }}">
+                            {{ form.quantity_approved.label }}
+                        </label>
+                        {{ form.quantity_approved }}
+                        {% if form.quantity_approved.help_text %}
+                        <small class="form-text text-muted">{{ form.quantity_approved.help_text }}</small>
+                        {% endif %}
+                        {% if form.quantity_approved.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.quantity_approved.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.approval_notes.id_for_label }}">
+                            {{ form.approval_notes.label }}
+                        </label>
+                        {{ form.approval_notes }}
+                        {% if form.approval_notes.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.approval_notes.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <button type="submit" name="action" value="approve" class="btn btn-success btn-block">
+                                    <i class="fas fa-check"></i>
+                                    موافقة على الطلب
+                                </button>
+                            </div>
+                            <div class="col-sm-6">
+                                <button type="button" class="btn btn-danger btn-block" data-toggle="modal" data-target="#rejectModal">
+                                    <i class="fas fa-times"></i>
+                                    رفض الطلب
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Stock Information -->
+            <div class="approval-form mt-3">
+                <h6 class="mb-3">
+                    <i class="fas fa-warehouse text-info"></i>
+                    معلومات المخزون
+                </h6>
+                
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>المخزون الحالي:</strong></p>
+                        <p class="text-muted">{{ spare_request.spare_part.current_stock }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>الحد الأدنى:</strong></p>
+                        <p class="text-muted">{{ spare_request.spare_part.minimum_stock }}</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-6">
+                        <p><strong>المخزون بعد الموافقة:</strong></p>
+                        <p id="stock-after" class="font-weight-bold">-</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p><strong>الموقع:</strong></p>
+                        <p class="text-muted">{{ spare_request.spare_part.location|default:"غير محدد" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">رفض الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="rejection_reason">سبب الرفض:</label>
+                        <textarea name="rejection_reason" id="rejection_reason" 
+                                class="form-control" rows="3" required 
+                                placeholder="اذكر سبب رفض الطلب"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" name="action" value="reject" class="btn btn-danger">تأكيد الرفض</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInput = document.getElementById('{{ form.quantity_approved.id_for_label }}');
+    const stockAfter = document.getElementById('stock-after');
+    const currentStock = {{ spare_request.spare_part.current_stock }};
+    
+    function updateStockAfter() {
+        const approvedQuantity = parseInt(quantityInput.value) || 0;
+        const remaining = currentStock - approvedQuantity;
+        
+        stockAfter.textContent = remaining;
+        stockAfter.className = remaining < {{ spare_request.spare_part.minimum_stock }} ? 
+            'font-weight-bold text-danger' : 'font-weight-bold text-success';
+    }
+    
+    quantityInput.addEventListener('input', updateStockAfter);
+    updateStockAfter(); // Initial calculation
+});
+</script>
+{% endblock %}

@@ -23,6 +23,13 @@ urlpatterns = [
     path('work-orders/<int:wo_id>/update-status/', views_cmms.work_order_update_status, name='work_order_update_status'),
     path('work-orders/<int:wo_id>/add-comment/', views_cmms.work_order_add_comment, name='work_order_add_comment'),
     
+    # إدارة قطع الغيار في أوامر الشغل
+    path('work-orders/<int:wo_id>/parts/', views_cmms.work_order_parts_list, name='work_order_parts_list'),
+    path('work-orders/<int:wo_id>/parts/request/', views_cmms.work_order_part_request, name='work_order_part_request'),
+    path('work-orders/<int:wo_id>/parts/<int:part_id>/issue/', views_cmms.work_order_part_issue, name='work_order_part_issue'),
+    path('work-orders/<int:wo_id>/parts/<int:part_id>/cancel/', views_cmms.work_order_part_cancel, name='work_order_part_cancel'),
+    path('work-orders/<int:wo_id>/parts/<int:part_id>/return/', views_cmms.work_order_part_return, name='work_order_part_return'),
+    
     # إدارة SLA
     path('sla/', views_cmms.sla_list, name='sla_list'),
     path('sla/create/', views_cmms.sla_create, name='sla_create'),

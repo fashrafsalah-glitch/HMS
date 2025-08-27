@@ -18,6 +18,7 @@ urlpatterns = [
     path('transactions/create/', views_spare_parts.spare_part_transaction_create, name='spare_part_transaction_create'),
     path('<int:part_id>/transactions/create/', views_spare_parts.spare_part_transaction_create, name='spare_part_transaction_create_for_part'),
     path('export-csv/', views_spare_parts.export_spare_parts_csv, name='export_spare_parts_csv'),
+    path('transactions/', views_spare_parts.spare_part_transaction_list, name='spare_part_transaction_list'),
     
     # Purchase Order URLs - Temporarily disabled until models are created
     # path('purchase-orders/', views_spare_parts.purchase_order_list, name='purchase_order_list'),
@@ -43,6 +44,17 @@ urlpatterns = [
     path('devices/<int:device_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_device'),
     path('work-orders/<int:work_order_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_work_order'),
     path('downtimes/<int:pk>/update/', views_spare_parts.downtime_update, name='downtime_update'),
+    
+    # Inventory Management URLs - نظام إدارة المخزون
+    path('inventory/dashboard/', views_spare_parts.inventory_dashboard, name='inventory_dashboard'),
+    path('inventory/requests/pending/', views_spare_parts.pending_requests, name='pending_requests'),
+    path('inventory/requests/<int:request_id>/approve/', views_spare_parts.approve_request, name='approve_request'),
+    path('inventory/requests/<int:request_id>/fulfill/', views_spare_parts.fulfill_request, name='fulfill_request'),
+    path('inventory/requests/<int:request_id>/reject/', views_spare_parts.reject_request, name='reject_request'),
+    path('requests/create/', views_spare_parts.request_spare_part, name='request_spare_part'),
+    path('requests/create/work-order/<int:work_order_id>/', views_spare_parts.request_spare_part, name='request_spare_part_for_work_order'),
+    path('requests/create/device/<int:device_id>/', views_spare_parts.request_spare_part, name='request_spare_part_for_device'),
+    path('requests/my/', views_spare_parts.my_requests, name='my_requests'),
     
     # API URLs - مفعلة الآن
     path('api/spare-parts/low-stock/', views_spare_parts.api_spare_parts_low_stock, name='api_spare_parts_low_stock'),

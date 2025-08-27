@@ -286,13 +286,13 @@
                 </h5>
                 
                 <div class="d-grid gap-2">
-                    <a href="{% url 'maintenance:service_request_create' %}" class="btn btn-outline-primary">
+                    <a href="{% url 'maintenance:cmms:service_request_create' %}" class="btn btn-outline-primary">
                         <i class="fas fa-plus"></i> طلب خدمة جديد
                     </a>
-                    <a href="{% url 'maintenance:work_order_list' %}" class="btn btn-outline-info">
+                    <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-outline-info">
                         <i class="fas fa-tasks"></i> أوامر الشغل
                     </a>
-                    <a href="{% url 'maintenance:spare_part_list' %}" class="btn btn-outline-warning">
+                    <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-outline-warning">
                         <i class="fas fa-cogs"></i> قطع الغيار
                     </a>
                     <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-success">

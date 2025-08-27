@@ -11,6 +11,19 @@
   <h1 class="mb-4 text-center">CMMS & Spare Parts - Dashboard</h1>
   <p class="text-muted text-center">تجربة كل اللينكات بالترتيب الصحيح (من أول البلاغ لحد حل العطل)</p>
 
+  <!-- 0. Dashboard Links -->
+  <div class="card mb-4">
+    <div class="card-header bg-success text-white">0. Dashboard Links (لوحات التحكم)</div>
+    <div class="card-body">
+      <p>لوحات التحكم والتحليلات المختلفة للنظام</p>
+      <a href="{% url 'maintenance:dashboard:cmms_dashboard' %}" class="btn btn-primary btn-sm">CMMS Dashboard</a>
+      <a href="{% url 'maintenance:dashboard:device_performance_dashboard' %}" class="btn btn-outline-primary btn-sm">Device Performance</a>
+      <a href="{% url 'maintenance:dashboard:work_order_analytics' %}" class="btn btn-outline-primary btn-sm">Work Order Analytics</a>
+      <a href="{% url 'maintenance:dashboard:spare_parts_analytics' %}" class="btn btn-outline-primary btn-sm">Spare Parts Analytics</a>
+      <a href="{% url 'maintenance:dashboard:maintenance_trends' %}" class="btn btn-outline-primary btn-sm">Maintenance Trends</a>
+    </div>
+  </div>
+
   <!-- 1. Service Requests -->
   <div class="card mb-4">
     <div class="card-header bg-primary text-white">1. Service Requests (بلاغات)</div>
@@ -36,6 +49,13 @@
       <a href="{% url 'maintenance:cmms:technician_dashboard' %}" class="btn btn-outline-dark btn-sm">Technician Dashboard</a>
       <a href="{% url 'maintenance:cmms:work_order_update_status' 1 %}" class="btn btn-outline-warning btn-sm">Update Status (id=1)</a>
       <a href="{% url 'maintenance:cmms:work_order_add_comment' 1 %}" class="btn btn-outline-success btn-sm">Add Comment (id=1)</a>
+      
+      <!-- إدارة قطع الغيار -->
+      <hr class="my-2">
+      <p class="text-muted mb-2"><strong>إدارة قطع الغيار:</strong></p>
+      <a href="{% url 'maintenance:cmms:work_order_parts_list' 1 %}" class="btn btn-outline-info btn-sm">Parts List (WO=1)</a>
+      <a href="{% url 'maintenance:cmms:work_order_part_request' 1 %}" class="btn btn-outline-success btn-sm">Request Part (WO=1)</a>
+      <a href="{% url 'maintenance:cmms:work_order_part_issue' 1 1 %}" class="btn btn-outline-warning btn-sm">Issue Part (WO=1, Part=1)</a>
     </div>
   </div>
 
@@ -150,6 +170,7 @@
             <li>✅ التحليلات (Analytics)</li>
             <li>✅ APIs</li>
             <li>✅ التصدير (Export)</li>
+            <li>✅ إدارة قطع الغيار في أوامر الشغل (Work Order Parts)</li>
           </ul>
         </div>
         <div class="col-md-6">
@@ -163,8 +184,9 @@
       </div>
       <hr>
       <div class="alert alert-success">
-        <strong>🎉 النظام يعمل بنسبة 95%!</strong> 
+        <strong>🎉 النظام يعمل بنسبة 98%!</strong> 
         <br>كل الوظائف الأساسية مفعلة ومتاحة للاستخدام. 
+        <br>تم إضافة وظيفة إدارة قطع الغيار في أوامر الشغل بنجاح!
         <br>الوظائف المتبقية تحتاج فقط نماذج بسيطة لتصبح 100% مكتملة.
       </div>
     </div>

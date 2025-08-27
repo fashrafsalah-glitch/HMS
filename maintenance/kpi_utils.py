@@ -139,7 +139,7 @@ def calculate_pm_compliance(department_id=None, days=30):
     
     # جلب جداول الصيانة الوقائية المستحقة في الفترة
     pm_schedules = PreventiveMaintenanceSchedule.objects.filter(
-        status='active',
+        is_active=True,
         next_due_date__range=[start_date.date(), end_date.date()]
     )
     
@@ -264,8 +264,8 @@ def calculate_spare_parts_stats(department_id=None):
     # إجمالي قيمة المخزون
     total_inventory_value = 0
     for part in spare_parts:
-        if part.cost and part.quantity:
-            total_inventory_value += part.cost * part.quantity
+        if part.unit_cost and part.current_stock:
+            total_inventory_value += part.unit_cost * part.current_stock
     
     stats['total_inventory_value'] = total_inventory_value
     
@@ -295,7 +295,7 @@ def calculate_calibration_compliance(department_id=None, days=30):
     for device in devices:
         # آخر معايرة للجهاز
         from .models import CalibrationRecord
-        last_calibration = device.calibrations.filter(
+        last_calibration = device.calibration_records.filter(
             status='completed'
         ).order_by('-calibration_date').first()
         
@@ -442,7 +442,7 @@ def get_critical_alerts(department_id=None):
         })
     
     # قطع الغيار المنتهية
-    out_of_stock_parts = SparePart.objects.filter(status='out_of_stock')[:5]
+    out_of_stock_parts = SparePart.objects.filter(current_stock=0)[:5]
     for part in out_of_stock_parts:
         alerts.append({
             'type': 'out_of_stock',
@@ -467,7 +467,7 @@ def get_critical_alerts(department_id=None):
     
     # الأجهزة المحتاجة معايرة
     devices_need_calibration = Device.objects.filter(
-        calibrations__next_calibration_date__lte=timezone.now().date() + timedelta(days=7)
+        calibration_records__next_calibration_date__lte=timezone.now().date() + timedelta(days=7)
     ).distinct()[:5]
     
     if department_id:

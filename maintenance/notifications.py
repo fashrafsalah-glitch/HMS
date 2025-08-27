@@ -372,8 +372,8 @@ class NotificationScheduler:
         
         # البحث عن الأجهزة التي تحتاج معايرة
         devices_need_calibration = Device.objects.filter(
-            calibrations__next_calibration_date__lte=timezone.now().date() + timedelta(days=7),
-            calibrations__status='passed'
+            calibration_records__next_calibration_date__lte=timezone.now().date() + timedelta(days=7),
+            calibration_records__status='completed'
         ).distinct()
         
         for device in devices_need_calibration:

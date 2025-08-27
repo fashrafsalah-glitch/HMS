@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}الطلبات المعلقة - مدير المخزون{% endblock %}
+
+{% block extra_css %}
+<style>
+    .request-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-left: 4px solid #007bff;
+    }
+    .request-card.high-priority {
+        border-left-color: #dc3545;
+    }
+    .request-card.urgent-priority {
+        border-left-color: #e74c3c;
+        background: #fff5f5;
+    }
+    .request-card.medium-priority {
+        border-left-color: #ffc107;
+    }
+    .request-card.low-priority {
+        border-left-color: #28a745;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .priority-badge {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+    }
+    .stock-status {
+        font-weight: bold;
+    }
+    .stock-available {
+        color: #28a745;
+    }
+    .stock-low {
+        color: #ffc107;
+    }
+    .stock-out {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="text-primary">
+                        <i class="fas fa-clipboard-list"></i>
+                        الطلبات المعلقة
+                    </h2>
+                    <p class="text-muted">إدارة طلبات قطع الغيار من الفنيين</p>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:spare_parts:inventory_dashboard' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-right"></i>
+                        العودة للوحة التحكم
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="filter-card">
+                <form method="get" class="row">
+                    <div class="col-md-3">
+                        <label for="priority" class="form-label">الأولوية</label>
+                        <select name="priority" id="priority" class="form-control">
+                            <option value="">جميع الأولويات</option>
+                            {% for priority, label in priority_choices %}
+                                <option value="{{ priority }}" {% if current_priority == priority %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="spare_part" class="form-label">قطعة الغيار</label>
+                        <select name="spare_part" id="spare_part" class="form-control">
+                            <option value="">جميع قطع الغيار</option>
+                            {% for part in spare_parts %}
+                                <option value="{{ part.id }}" {% if current_part == part.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ part.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">البحث</label>
+                        <input type="text" name="search" id="search" class="form-control" 
+                               placeholder="رقم الطلب، اسم قطعة الغيار، أو اسم الطالب" 
+                               value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                                بحث
+                            </button>
+                            <a href="{% url 'maintenance:spare_parts:pending_requests' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                                مسح
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requests List -->
+    <div class="row">
+        <div class="col-12">
+            {% if requests %}
+                {% for request in requests %}
+                <div class="request-card {{ request.priority }}-priority">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5 class="mb-2">
+                                        <i class="fas fa-cog text-primary"></i>
+                                        {{ request.spare_part.name }}
+                                        <span class="badge badge-{{ request.priority }} priority-badge">
+                                            {{ request.get_priority_display }}
+                                        </span>
+                                    </h5>
+                                    <p class="mb-1">
+                                        <strong>رقم الطلب:</strong> {{ request.request_number }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>الطالب:</strong> {{ request.requester.get_full_name }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>الكمية المطلوبة:</strong> {{ request.quantity_requested }}
+                                    </p>
+                                    {% if request.reason %}
+                                    <p class="mb-1">
+                                        <strong>السبب:</strong> {{ request.reason }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <strong>تاريخ الطلب:</strong> {{ request.created_at|date:"d/m/Y H:i" }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>المخزون المتاح:</strong> 
+                                        <span class="stock-status {% if request.spare_part.current_stock >= request.quantity_requested %}stock-available{% elif request.spare_part.current_stock > 0 %}stock-low{% else %}stock-out{% endif %}">
+                                            {{ request.spare_part.current_stock }}
+                                        </span>
+                                    </p>
+                                    {% if request.work_order %}
+                                    <p class="mb-1">
+                                        <strong>أمر العمل:</strong> 
+                                        <a href="{% url 'maintenance:work_order_detail' request.work_order.id %}" class="text-primary">
+                                            {{ request.work_order.work_order_number }}
+                                        </a>
+                                    </p>
+                                    {% endif %}
+                                    {% if request.device %}
+                                    <p class="mb-1">
+                                        <strong>الجهاز:</strong> {{ request.device.name }}
+                                    </p>
+                                    {% endif %}
+                                    {% if request.notes %}
+                                    <p class="mb-1">
+                                        <strong>ملاحظات:</strong> {{ request.notes }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="action-buttons">
+                                {% if request.spare_part.current_stock >= request.quantity_requested %}
+                                    <!-- يمكن الموافقة والصرف مباشرة -->
+                                    <button type="button" class="btn btn-success" 
+                                            onclick="approveAndFulfill({{ request.id }}, '{{ request.request_number }}', '{{ request.spare_part.name }}', {{ request.quantity_requested }})">
+                                        <i class="fas fa-check-double"></i>
+                                        موافقة وصرف
+                                    </button>
+                                {% else %}
+                                    <!-- مخزون غير كافي -->
+                                    <button type="button" class="btn btn-warning" disabled>
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        مخزون غير كافي
+                                    </button>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-primary" 
+                                        onclick="approveOnly({{ request.id }}, '{{ request.request_number }}')">
+                                    <i class="fas fa-check"></i>
+                                    موافقة فقط
+                                </button>
+                                
+                                <button type="button" class="btn btn-danger" 
+                                        onclick="rejectRequest({{ request.id }}, '{{ request.request_number }}')">
+                                    <i class="fas fa-times"></i>
+                                    رفض
+                                </button>
+                                
+                                <button type="button" class="btn btn-info" 
+                                        onclick="addTransaction({{ request.spare_part.id }}, '{{ request.spare_part.name }}')">
+                                    <i class="fas fa-plus"></i>
+                                    إضافة معاملة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if requests.has_other_pages %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination justify-content-center">
+                                {% if requests.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ requests.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                            السابق
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in requests.paginator.page_range %}
+                                    {% if requests.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if requests.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ requests.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                            التالي
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">لا توجد طلبات معلقة</h4>
+                    <p class="text-muted">جميع الطلبات تم معالجتها أو لا توجد طلبات جديدة</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Approve and Fulfill Modal -->
+<div class="modal fade" id="approveAndFulfillModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">موافقة وصرف الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="approveAndFulfillForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>هل أنت متأكد من الموافقة على الطلب وصرف قطعة الغيار؟</p>
+                    <div class="alert alert-info">
+                        <strong>رقم الطلب:</strong> <span id="fulfillRequestNumber"></span><br>
+                        <strong>قطعة الغيار:</strong> <span id="fulfillPartName"></span><br>
+                        <strong>الكمية:</strong> <span id="fulfillQuantity"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="fulfillNotes">ملاحظات الصرف (اختياري)</label>
+                        <textarea name="notes" id="fulfillNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">موافقة وصرف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Only Modal -->
+<div class="modal fade" id="approveOnlyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">موافقة على الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="approveOnlyForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>هل أنت متأكد من الموافقة على هذا الطلب؟</p>
+                    <div class="alert alert-info">
+                        <strong>رقم الطلب:</strong> <span id="approveRequestNumber"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="approveNotes">ملاحظات الموافقة (اختياري)</label>
+                        <textarea name="notes" id="approveNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">موافقة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">رفض الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="rejectForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>هل أنت متأكد من رفض هذا الطلب؟</p>
+                    <div class="alert alert-warning">
+                        <strong>رقم الطلب:</strong> <span id="rejectRequestNumber"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="rejectReason">سبب الرفض <span class="text-danger">*</span></label>
+                        <textarea name="reason" id="rejectReason" class="form-control" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">رفض الطلب</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إضافة معاملة مخزون</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="addTransactionForm" method="post" action="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>قطعة الغيار:</strong> <span id="transactionPartName"></span>
+                    </div>
+                    <input type="hidden" name="spare_part" id="transactionPartId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="transactionType">نوع المعاملة <span class="text-danger">*</span></label>
+                                <select name="transaction_type" id="transactionType" class="form-control" required>
+                                    <option value="">اختر نوع المعاملة</option>
+                                    <option value="in">وارد (إضافة للمخزون)</option>
+                                    <option value="out">صادر (خصم من المخزون)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="transactionQuantity">الكمية <span class="text-danger">*</span></label>
+                                <input type="number" name="quantity" id="transactionQuantity" class="form-control" min="1" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionNotes">ملاحظات</label>
+                        <textarea name="notes" id="transactionNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">إضافة المعاملة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function approveAndFulfill(requestId, requestNumber, partName, quantity) {
+    document.getElementById('fulfillRequestNumber').textContent = requestNumber;
+    document.getElementById('fulfillPartName').textContent = partName;
+    document.getElementById('fulfillQuantity').textContent = quantity;
+    
+    const form = document.getElementById('approveAndFulfillForm');
+    form.action = `/maintenance/spare-parts/requests/${requestId}/fulfill/`;
+    
+    $('#approveAndFulfillModal').modal('show');
+}
+
+function approveOnly(requestId, requestNumber) {
+    document.getElementById('approveRequestNumber').textContent = requestNumber;
+    
+    const form = document.getElementById('approveOnlyForm');
+    form.action = `/maintenance/spare-parts/requests/${requestId}/approve/`;
+    
+    $('#approveOnlyModal').modal('show');
+}
+
+function rejectRequest(requestId, requestNumber) {
+    document.getElementById('rejectRequestNumber').textContent = requestNumber;
+    
+    const form = document.getElementById('rejectForm');
+    form.action = `/maintenance/spare-parts/requests/${requestId}/reject/`;
+    
+    $('#rejectModal').modal('show');
+}
+
+function addTransaction(partId, partName) {
+    document.getElementById('transactionPartName').textContent = partName;
+    document.getElementById('transactionPartId').value = partId;
+    
+    $('#addTransactionModal').modal('show');
+}
+
+// Auto-submit forms and show success messages
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = ['approveAndFulfillForm', 'approveOnlyForm', 'rejectForm', 'addTransactionForm'];
+    
+    forms.forEach(formId => {
+        document.getElementById(formId).addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('حدث خطأ: ' + (data.error || 'خطأ غير معروف'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('حدث خطأ في الاتصال');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

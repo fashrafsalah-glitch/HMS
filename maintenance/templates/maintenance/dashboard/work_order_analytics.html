@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تحليلات أوامر الشغل | لوحة التحكم{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2 class="page-title">تحليلات أوامر الشغل</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'maintenance:dashboard:cmms_dashboard' %}">لوحة التحكم</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">تحليلات أوامر الشغل</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- بطاقات المؤشرات الرئيسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">إجمالي أوامر الشغل</h5>
+                    <h2 class="text-primary">{{ work_order_stats.total_work_orders }}</h2>
+                    <p class="text-muted">في آخر 30 يوم</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط وقت الإنجاز</h5>
+                    <h2 class="text-success">{{ work_order_stats.avg_completion_time|floatformat:1 }}</h2>
+                    <p class="text-muted">ساعة</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">نسبة الالتزام بالـ SLA</h5>
+                    <h2 class="text-{{ work_order_stats.sla_compliance_color }}">{{ work_order_stats.sla_compliance|floatformat:1 }}%</h2>
+                    <p class="text-muted">من إجمالي الأوامر</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">أوامر الشغل المتأخرة</h5>
+                    <h2 class="text-danger">{{ work_order_stats.overdue_work_orders }}</h2>
+                    <p class="text-muted">تجاوزت الوقت المحدد</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- توزيع أوامر الشغل حسب الحالة -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع أوامر الشغل حسب الحالة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="workOrderStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع أوامر الشغل حسب النوع</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="workOrderTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أوامر الشغل حسب الفني -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">أوامر الشغل حسب الفني</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الفني</th>
+                                    <th>إجمالي الأوامر</th>
+                                    <th>المكتملة</th>
+                                    <th>المتأخرة</th>
+                                    <th>متوسط وقت الإنجاز</th>
+                                    <th>نسبة الالتزام بالـ SLA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for technician in technician_stats %}
+                                <tr>
+                                    <td>{{ technician.name }}</td>
+                                    <td>{{ technician.total_work_orders }}</td>
+                                    <td>{{ technician.completed_work_orders }}</td>
+                                    <td>{{ technician.overdue_work_orders }}</td>
+                                    <td>{{ technician.avg_completion_time|floatformat:1 }} ساعة</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-{{ technician.sla_compliance_color }}" 
+                                                role="progressbar" 
+                                                style="width: {{ technician.sla_compliance }}%" 
+                                                aria-valuenow="{{ technician.sla_compliance }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ technician.sla_compliance }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">لا توجد بيانات متاحة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- اتجاهات أوامر الشغل -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">اتجاهات أوامر الشغل (آخر 12 أسبوع)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="workOrderTrendsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- أوامر الشغل حسب القسم -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">أوامر الشغل حسب القسم</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="departmentWorkOrdersChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">أوامر الشغل حسب الأولوية</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="priorityWorkOrdersChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // توزيع أوامر الشغل حسب الحالة
+    const workOrderStatusCtx = document.getElementById('workOrderStatusChart').getContext('2d');
+    const workOrderStatusChart = new Chart(workOrderStatusCtx, {
+        type: 'pie',
+        data: {
+            labels: ['جديد', 'مسند', 'قيد التنفيذ', 'في انتظار قطع غيار', 'تم الحل', 'مغلق', 'ملغي'],
+            datasets: [{
+                data: [
+                    {{ work_order_status.new }},
+                    {{ work_order_status.assigned }},
+                    {{ work_order_status.in_progress }},
+                    {{ work_order_status.wait_parts }},
+                    {{ work_order_status.resolved }},
+                    {{ work_order_status.closed }},
+                    {{ work_order_status.cancelled }}
+                ],
+                backgroundColor: [
+                    '#17a2b8',
+                    '#6f42c1',
+                    '#fd7e14',
+                    '#ffc107',
+                    '#20c997',
+                    '#28a745',
+                    '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // توزيع أوامر الشغل حسب النوع
+    const workOrderTypeCtx = document.getElementById('workOrderTypeChart').getContext('2d');
+    const workOrderTypeChart = new Chart(workOrderTypeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['صيانة تصحيحية', 'صيانة وقائية', 'فحص', 'معايرة', 'ترقية', 'تركيب'],
+            datasets: [{
+                data: [
+                    {{ work_order_type.corrective }},
+                    {{ work_order_type.preventive }},
+                    {{ work_order_type.inspection }},
+                    {{ work_order_type.calibration }},
+                    {{ work_order_type.upgrade }},
+                    {{ work_order_type.installation }}
+                ],
+                backgroundColor: [
+                    '#fd7e14',
+                    '#20c997',
+                    '#17a2b8',
+                    '#6f42c1',
+                    '#28a745',
+                    '#6c757d'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // اتجاهات أوامر الشغل
+    const workOrderTrendsCtx = document.getElementById('workOrderTrendsChart').getContext('2d');
+    const workOrderTrendsChart = new Chart(workOrderTrendsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ work_order_trends.weeks|safe }},
+            datasets: [
+                {
+                    label: 'أوامر الشغل الجديدة',
+                    data: {{ work_order_trends.new_orders|safe }},
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'أوامر الشغل المكتملة',
+                    data: {{ work_order_trends.completed_orders|safe }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // أوامر الشغل حسب القسم
+    const departmentWorkOrdersCtx = document.getElementById('departmentWorkOrdersChart').getContext('2d');
+    const departmentWorkOrdersChart = new Chart(departmentWorkOrdersCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ department_work_orders.departments|safe }},
+            datasets: [{
+                label: 'عدد أوامر الشغل',
+                data: {{ department_work_orders.counts|safe }},
+                backgroundColor: '#6f42c1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // أوامر الشغل حسب الأولوية
+    const priorityWorkOrdersCtx = document.getElementById('priorityWorkOrdersChart').getContext('2d');
+    const priorityWorkOrdersChart = new Chart(priorityWorkOrdersCtx, {
+        type: 'pie',
+        data: {
+            labels: ['حرجة', 'عالية', 'متوسطة', 'منخفضة'],
+            datasets: [{
+                data: [
+                    {{ work_order_priority.critical }},
+                    {{ work_order_priority.high }},
+                    {{ work_order_priority.medium }},
+                    {{ work_order_priority.low }}
+                ],
+                backgroundColor: [
+                    '#dc3545',
+                    '#fd7e14',
+                    '#ffc107',
+                    '#20c997'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

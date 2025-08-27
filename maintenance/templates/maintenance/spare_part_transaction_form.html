@@ -114,9 +114,9 @@
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">حفظ</button>
                         {% if spare_part %}
-                        <a href="{% url 'spare_part_detail' spare_part.id %}" class="btn btn-secondary">إلغاء</a>
+                        <a href="{% url 'maintenance:spare_parts:spare_part_detail' pk=spare_part.id %}" class="btn btn-secondary">إلغاء</a>
                         {% else %}
-                        <a href="{% url 'spare_part_list' %}" class="btn btn-secondary">إلغاء</a>
+                        <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-secondary">إلغاء</a>
                         {% endif %}
                     </div>
                 </form>
@@ -131,135 +131,51 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
     $(document).ready(function() {
-        // تفعيل Select2 للحقول
+        // تفعيل Select2 للحقول (إذا كانت موجودة)
+        {% if form.spare_part %}
         $('#{{ form.spare_part.id_for_label }}').select2({
             placeholder: "اختر قطعة الغيار",
             allowClear: true,
             width: '100%'
         });
+        {% endif %}
         
-        $('#{{ form.work_order.id_for_label }}').select2({
-            placeholder: "اختر أمر العمل",
-            allowClear: true,
-            width: '100%'
-        });
-        
-        $('#{{ form.device.id_for_label }}').select2({
-            placeholder: "اختر الجهاز",
-            allowClear: true,
-            width: '100%'
-        });
-        
-        // تفعيل Flatpickr لحقل التاريخ
+        // تفعيل Flatpickr لحقل التاريخ (إذا كان موجوداً)
+        {% if form.transaction_date %}
         flatpickr("#{{ form.transaction_date.id_for_label }}", {
             dateFormat: "Y-m-d",
             defaultDate: "today"
         });
-        
-        // تحديث حقل الجهاز عند اختيار أمر عمل
-        $('#{{ form.work_order.id_for_label }}').on('change', function() {
-            var workOrderId = $(this).val();
-            if (workOrderId) {
-                $.ajax({
-                    url: '{% url "api_work_order_device" %}',
-                    data: {
-                        'work_order_id': workOrderId
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        if (data.device_id) {
-                            $('#{{ form.device.id_for_label }}').val(data.device_id).trigger('change');
-                        }
-                    }
-                });
-            }
-        });
-        
-        // تحديث أوامر العمل عند اختيار جهاز
-        $('#{{ form.device.id_for_label }}').on('change', function() {
-            var deviceId = $(this).val();
-            if (deviceId) {
-                $.ajax({
-                    url: '{% url "api_device_work_orders" %}',
-                    data: {
-                        'device_id': deviceId
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        var workOrderSelect = $('#{{ form.work_order.id_for_label }}');
-                        var currentValue = workOrderSelect.val();
-                        
-                        workOrderSelect.empty();
-                        workOrderSelect.append('<option value="">---------</option>');
-                        
-                        $.each(data, function(index, workOrder) {
-                            workOrderSelect.append('<option value="' + workOrder.id + '">' + 
-                                                 workOrder.wo_number + ' - ' + workOrder.description + '</option>');
-                        });
-                        
-                        // إعادة تحديد القيمة السابقة إذا كانت موجودة
-                        if (currentValue) {
-                            workOrderSelect.val(currentValue);
-                        }
-                        
-                        workOrderSelect.trigger('change');
-                    }
-                });
-            }
-        });
+        {% endif %}
         
         // التحقق من الكمية المتاحة عند تغيير نوع المعاملة أو الكمية
         function validateQuantity() {
             var transactionType = $('#{{ form.transaction_type.id_for_label }}').val();
             var quantity = parseFloat($('#{{ form.quantity.id_for_label }}').val()) || 0;
             
-            if (transactionType === 'ISSUE' || transactionType === 'ADJUST_DOWN') {
+            if (transactionType === 'out' && quantity > 0) {
                 {% if spare_part %}
-                var currentQuantity = {{ spare_part.quantity }};
-                {% else %}
-                var sparePartId = $('#{{ form.spare_part.id_for_label }}').val();
-                if (!sparePartId) return;
-                
-                $.ajax({
-                    url: '{% url "api_spare_part_quantity" %}',
-                    data: {
-                        'spare_part_id': sparePartId
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        var currentQuantity = data.quantity;
-                        checkQuantity(currentQuantity, quantity);
+                var currentQuantity = {{ spare_part.current_stock|default:0 }};
+                if (quantity > currentQuantity) {
+                    // إضافة تحذير إذا كانت الكمية المطلوبة أكبر من المتاحة
+                    if ($('#quantity-warning').length === 0) {
+                        $('<div id="quantity-warning" class="alert alert-warning">' +
+                          '<i class="icon fas fa-exclamation-triangle"></i> ' +
+                          'تحذير: الكمية المطلوبة (' + quantity + ') أكبر من الكمية المتاحة (' + currentQuantity + ')' +
+                          '</div>').insertAfter('#{{ form.quantity.id_for_label }}');
                     }
-                });
-                return;
+                } else {
+                    // إزالة التحذير إذا كانت الكمية مناسبة
+                    $('#quantity-warning').remove();
+                }
                 {% endif %}
-                
-                checkQuantity(currentQuantity, quantity);
             } else {
                 // إزالة أي تحذيرات سابقة
                 $('#quantity-warning').remove();
             }
         }
         
-        function checkQuantity(currentQuantity, requestedQuantity) {
-            if (requestedQuantity > currentQuantity) {
-                // إضافة تحذير إذا كانت الكمية المطلوبة أكبر من المتاحة
-                if ($('#quantity-warning').length === 0) {
-                    $('<div id="quantity-warning" class="alert alert-warning">' +
-                      '<i class="icon fas fa-exclamation-triangle"></i> ' +
-                      'تحذير: الكمية المطلوبة (' + requestedQuantity + ') أكبر من الكمية المتاحة (' + currentQuantity + ')' +
-                      '</div>').insertAfter('#{{ form.quantity.id_for_label }}');
-                }
-            } else {
-                // إزالة التحذير إذا كانت الكمية مناسبة
-                $('#quantity-warning').remove();
-            }
-        }
-        
         $('#{{ form.transaction_type.id_for_label }}, #{{ form.quantity.id_for_label }}').on('change', validateQuantity);
-        $('#{{ form.spare_part.id_for_label }}').on('change', function() {
-            setTimeout(validateQuantity, 500); // تأخير للسماح بتحميل البيانات
-        });
         
         // التحقق من الكمية عند تحميل الصفحة
         validateQuantity();

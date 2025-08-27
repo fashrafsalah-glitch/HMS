@@ -290,51 +290,31 @@ class CalibrationForm(forms.Form):
         return cleaned_data
 
 
-class SparePartTransactionForm(forms.Form):
-    """نموذج معاملات قطع الغيار (مؤقت)"""
+class SparePartTransactionForm(forms.ModelForm):
+    """نموذج معاملات قطع الغيار"""
     
-    TRANSACTION_TYPES = [
-        ('in', 'وارد'),
-        ('out', 'صادر'),
-        ('adjustment', 'تعديل'),
-        ('return', 'إرجاع'),
-    ]
-    
-    transaction_type = forms.ChoiceField(
-        choices=TRANSACTION_TYPES,
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label='نوع المعاملة'
-    )
-    
-    quantity = forms.IntegerField(
-        min_value=1,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'الكمية'
-        }),
-        label='الكمية'
-    )
-    
-    reference_number = forms.CharField(
-        max_length=100,
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'رقم المرجع'
-        }),
-        label='رقم المرجع'
-    )
-    
-    notes = forms.CharField(
-        max_length=500,
-        required=False,
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 3,
-            'placeholder': 'ملاحظات'
-        }),
-        label='ملاحظات'
-    )
+    class Meta:
+        model = SparePartTransaction
+        fields = ['transaction_type', 'quantity', 'reference_number', 'notes', 'work_order', 'device']
+        widgets = {
+            'transaction_type': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'الكمية',
+                'min': '1'
+            }),
+            'reference_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'رقم المرجع'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'ملاحظات'
+            }),
+            'work_order': forms.Select(attrs={'class': 'form-control'}),
+            'device': forms.Select(attrs={'class': 'form-control'}),
+        }
 
     def __init__(self, *args, **kwargs):
         self.spare_part = kwargs.pop('spare_part', None)
@@ -358,5 +338,195 @@ class SparePartTransactionForm(forms.Form):
                 raise forms.ValidationError(
                     f'الكمية المطلوبة ({quantity}) أكبر من المخزون المتاح ({self.spare_part.current_stock})'
                 )
+        
+        return cleaned_data
+
+
+class SparePartRequestForm(forms.ModelForm):
+    """نموذج طلب قطعة غيار"""
+    
+    class Meta:
+        model = SparePartRequest
+        fields = ['spare_part', 'quantity_requested', 'priority', 'work_order', 'device', 'reason', 'notes']
+        widgets = {
+            'spare_part': forms.Select(attrs={'class': 'form-control'}),
+            'quantity_requested': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'placeholder': 'الكمية المطلوبة'
+            }),
+            'priority': forms.Select(attrs={'class': 'form-control'}),
+            'work_order': forms.Select(attrs={'class': 'form-control'}),
+            'device': forms.Select(attrs={'class': 'form-control'}),
+            'reason': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'اذكر سبب الطلب'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'ملاحظات إضافية (اختياري)'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        work_order = kwargs.pop('work_order', None)
+        device = kwargs.pop('device', None)
+        super().__init__(*args, **kwargs)
+        
+        # تحديد قطع الغيار المتاحة فقط
+        self.fields['spare_part'].queryset = SparePart.objects.filter(
+            status='available'
+        ).order_by('name')
+        
+        # تحديد أوامر العمل المفتوحة فقط
+        self.fields['work_order'].queryset = WorkOrder.objects.filter(
+            status__in=['open', 'in_progress']
+        ).order_by('-created_at')
+        self.fields['work_order'].required = False
+        
+        # تحديد الأجهزة المتاحة
+        self.fields['device'].queryset = Device.objects.filter(
+            status='active'
+        ).order_by('name')
+        self.fields['device'].required = False
+        
+        # تحديد القيم الافتراضية
+        if work_order:
+            self.fields['work_order'].initial = work_order
+            if work_order.service_request.device:
+                self.fields['device'].initial = work_order.service_request.device
+        
+        if device:
+            self.fields['device'].initial = device
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        spare_part = cleaned_data.get('spare_part')
+        quantity_requested = cleaned_data.get('quantity_requested')
+        
+        if spare_part and quantity_requested:
+            # التحقق من توفر المخزون
+            if quantity_requested > spare_part.current_stock:
+                raise forms.ValidationError(
+                    f'الكمية المطلوبة ({quantity_requested}) أكبر من المخزون المتاح ({spare_part.current_stock})'
+                )
+        
+        return cleaned_data
+
+
+class RequestApprovalForm(forms.Form):
+    """نموذج الموافقة على طلب قطعة غيار"""
+    
+    quantity_approved = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'الكمية المعتمدة'
+        }),
+        label='الكمية المعتمدة'
+    )
+    
+    approval_notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'ملاحظات الموافقة (اختياري)'
+        }),
+        label='ملاحظات الموافقة'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        self.spare_request = kwargs.pop('spare_request', None)
+        super().__init__(*args, **kwargs)
+        
+        if self.spare_request:
+            # تحديد الكمية الافتراضية
+            self.fields['quantity_approved'].initial = self.spare_request.quantity_requested
+            
+            # تحديد الحد الأقصى للكمية
+            max_quantity = min(
+                self.spare_request.quantity_requested,
+                self.spare_request.spare_part.current_stock
+            )
+            self.fields['quantity_approved'].widget.attrs['max'] = max_quantity
+            self.fields['quantity_approved'].help_text = f'الحد الأقصى: {max_quantity}'
+    
+    def clean_quantity_approved(self):
+        quantity_approved = self.cleaned_data['quantity_approved']
+        
+        if self.spare_request:
+            # التحقق من عدم تجاوز الكمية المطلوبة
+            if quantity_approved > self.spare_request.quantity_requested:
+                raise forms.ValidationError(
+                    f'الكمية المعتمدة لا يمكن أن تتجاوز الكمية المطلوبة ({self.spare_request.quantity_requested})'
+                )
+            
+            # التحقق من توفر المخزون
+            if quantity_approved > self.spare_request.spare_part.current_stock:
+                raise forms.ValidationError(
+                    f'الكمية المعتمدة تتجاوز المخزون المتاح ({self.spare_request.spare_part.current_stock})'
+                )
+        
+        return quantity_approved
+
+
+class SupplierForm(forms.ModelForm):
+    """نموذج إدارة الموردين"""
+    
+    class Meta:
+        model = Supplier
+        fields = ['name', 'contact_person', 'email', 'phone', 'address', 'notes']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'اسم المورد'}),
+            'contact_person': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'الشخص المسؤول'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'البريد الإلكتروني'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'رقم الهاتف'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'العنوان'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'ملاحظات إضافية'}),
+        }
+
+
+class SparePartForm(forms.ModelForm):
+    """نموذج إدارة قطع الغيار"""
+    
+    class Meta:
+        model = SparePart
+        fields = [
+            'name', 'part_number', 'description', 'device_category', 'manufacturer', 
+            'model_number', 'unit', 'current_stock', 'minimum_stock', 'maximum_stock', 
+            'unit_cost', 'primary_supplier', 'storage_location', 'status', 'is_critical'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'اسم قطعة الغيار'}),
+            'part_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'الرقم التسلسلي'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'وصف قطعة الغيار'}),
+            'device_category': forms.Select(attrs={'class': 'form-control'}),
+            'manufacturer': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'الشركة المصنعة'}),
+            'model_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'رقم الموديل'}),
+            'unit': forms.Select(attrs={'class': 'form-control'}),
+            'current_stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'minimum_stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'maximum_stock': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'unit_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'primary_supplier': forms.Select(attrs={'class': 'form-control'}),
+            'storage_location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'موقع التخزين'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'is_critical': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        minimum_stock = cleaned_data.get('minimum_stock')
+        maximum_stock = cleaned_data.get('maximum_stock')
+        current_stock = cleaned_data.get('current_stock')
+        
+        if minimum_stock and maximum_stock and minimum_stock > maximum_stock:
+            raise forms.ValidationError('الحد الأدنى للمخزون لا يمكن أن يكون أكبر من الحد الأقصى')
+        
+        if current_stock and maximum_stock and current_stock > maximum_stock:
+            raise forms.ValidationError('المخزون الحالي لا يمكن أن يتجاوز الحد الأقصى')
         
         return cleaned_data

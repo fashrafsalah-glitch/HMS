@@ -7,13 +7,27 @@
 <style>
 /* Dark/Light Mode Variables */
 :root {
-    --bg-primary: #ffffff;
+    --bg-primary: #8a4f4f;
     --bg-secondary: #f8f9fa;
     --text-primary: #212529;
     --text-secondary: #6c757d;
     --border-color: #dee2e6;
     --shadow-light: rgba(0,0,0,0.1);
     --shadow-dark: rgba(0,0,0,0.15);
+    --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --device-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --dashboard-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    --cmms-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --animation-duration: 0.4s;
+    --animation-duration-slow: 0.8s;
+    --animation-duration-fast: 0.2s;
+    --primary-glow: 0 0 20px rgba(79, 70, 229, 0.4);
+    --success-glow: 0 0 20px rgba(16, 185, 129, 0.4);
+    --warning-glow: 0 0 20px rgba(245, 158, 11, 0.4);
+    --danger-glow: 0 0 20px rgba(239, 68, 68, 0.4);
+    --info-glow: 0 0 20px rgba(59, 130, 246, 0.4);
+    --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    --glass-effect: rgba(255, 255, 255, 0.1);
 }
 
 [data-bs-theme="dark"] {
@@ -34,6 +48,7 @@ body.dark-mode {
     --border-color: #495057;
     --shadow-light: rgba(0,0,0,0.3);
     --shadow-dark: rgba(0,0,0,0.4);
+    background-image: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 90%);
 }
 
 /* Enhanced Dashboard Cards */
@@ -41,14 +56,59 @@ body.dark-mode {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    box-shadow: 0 8px 30px var(--shadow-light);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 30px var(--shadow-light);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    position: relative;
+    z-index: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: fadeInUp 0.8s ease-out;
+    transform-origin: center;
+    animation-fill-mode: both;
+    transform: translateZ(0);
+    background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+    animation-duration: var(--animation-duration);
+}
+
+.dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: var(--card-gradient);
+    transform: rotate(30deg);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity var(--animation-duration) ease-in-out;
+}
+
+.dashboard-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 20px;
+    background: linear-gradient(90deg, transparent, var(--glass-effect), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.8s ease;
+}
+
+.dashboard-card:hover::before {
+    opacity: 1;
+}
+
+.dashboard-card:hover::after {
+    transform: translateX(100%);
 }
 
 .dashboard-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 50px var(--shadow-dark);
+    transform: translateY(-10px);
+    box-shadow: 0 20px 50px var(--shadow-dark), 0 0 30px rgba(255,255,255,0.1);
 }
 
 /* Improved Statistics Cards */
@@ -58,9 +118,14 @@ body.dark-mode {
     margin-bottom: 1rem;
     color: white;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: fadeInUp 0.6s ease-out;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .stat-card::before {
@@ -71,84 +136,172 @@ body.dark-mode {
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.6s;
+    transition: transform 0.8s ease;
+    transform: translateX(-100%);
+    z-index: 1;
 }
 
 .stat-card:hover::before {
-    left: 100%;
+    transform: translateX(100%);
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    top: -50%;
+    left: -50%;
+    z-index: 0;
+    transition: opacity 0.4s ease;
+    opacity: 0;
+}
+
+.stat-card:hover::after {
+    opacity: 1;
 }
 
 .stat-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--primary-glow);
+}
+
+.bg-primary:hover {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--primary-glow);
+}
+
+.bg-success:hover {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--success-glow);
+}
+
+.bg-warning:hover {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--warning-glow);
+}
+
+.bg-danger:hover {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--danger-glow);
+}
+
+.bg-info:hover {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3), var(--info-glow);
 }
 
 .stat-number {
     font-size: 2.8rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    animation: pulse 2s infinite ease-in-out;
+    position: relative;
+    z-index: 2;
+}
+
+.stat-icon {
+    position: absolute;
+    bottom: -15px;
+    right: -15px;
+    opacity: 0.15;
+    font-size: 5rem !important;
+    transition: all 0.5s ease;
+    transform: rotate(-15deg);
+    z-index: 1;
+}
+
+.stat-card:hover .stat-icon {
+    opacity: 0.25;
+    transform: rotate(0deg) scale(1.1);
 }
 
 .stat-label {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
     opacity: 0.95;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 2;
 }
 
 /* Enhanced Section Headers */
 .section-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    background: var(--primary-gradient);
     color: white;
-    padding: 2.5rem 2rem;
+    padding: 3rem 2rem;
     border-radius: 20px;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 15px 40px rgba(79, 70, 229, 0.4);
     position: relative;
     overflow: hidden;
+    animation: fadeInDown 0.7s ease-out;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.section-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+    z-index: 1;
 }
 
 .section-header::after {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 100px;
-    height: 100px;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    top: -50px;
+    right: -50px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
     border-radius: 50%;
-    transform: translate(30px, -30px);
+    z-index: 0;
+    animation: pulse 5s infinite ease-in-out;
 }
 
 .section-header h1 {
-    font-size: 2.5rem;
+    font-size: 2.8rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(to right, #ffffff, #e0e0e0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .section-header p {
-    font-size: 1.2rem;
-    opacity: 0.9;
+    font-size: 1.3rem;
+    opacity: 0.95;
     font-weight: 500;
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* Improved Action Buttons */
 .quick-action-btn {
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
+    border-radius: 14px;
+    padding: 1.1rem 1.6rem;
     font-weight: 600;
-    font-size: 0.95rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    margin: 0.3rem;
+    font-size: 1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0.4rem;
     position: relative;
     overflow: hidden;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.7rem;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+    animation: fadeIn 0.6s ease-out;
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
 }
 
 .quick-action-btn::before {
@@ -158,28 +311,208 @@ body.dark-mode {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.5s;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: transform 0.6s ease;
+    transform: translateX(-100%);
+    z-index: 1;
 }
 
 .quick-action-btn:hover::before {
-    left: 100%;
+    transform: translateX(100%);
+}
+
+.quick-action-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 0;
+}
+
+.quick-action-btn:hover::after {
+    opacity: 1;
 }
 
 .quick-action-btn:hover {
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+}
+
+.quick-action-btn i {
+    transition: all 0.4s ease;
+    position: relative;
+    z-index: 2;
+    transform-origin: center;
+}
+
+.quick-action-btn:hover i {
+    transform: scale(1.3) rotate(10deg);
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    animation: pulse 1s infinite ease-in-out;
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInDown {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from { 
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from { 
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 /* Enhanced Section Backgrounds */
 .device-maintenance-section {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: var(--device-gradient);
     color: white;
+    animation: slideInRight 0.6s ease-out;
 }
 
 .general-maintenance-section {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    background: var(--cmms-gradient);
     color: white;
+    animation: slideInLeft 0.6s ease-out;
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Hover Effects */
+.btn-outline-light {
+    border-width: 2px;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-outline-light::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: -1;
+    transform: skewX(-15deg);
+}
+
+.btn-outline-light:hover {
+    color: #000 !important;
+    text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    transform: translateY(-3px);
+}
+
+.btn-outline-light:hover::after {
+    left: 0;
+}
+
+@keyframes fadeInUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInDown {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from { 
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from { 
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 /* Improved Activity Sections */
@@ -319,7 +652,7 @@ h1, h2, h3, h4, h5, h6 {
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4" dir="rtl">
+<div class="container-fluid mt-4" dir="rtl" style="animation: fadeIn 0.8s ease-out;">
     <!-- Header Section -->
     <div class="section-header">
         <h1 class="mb-2">🏥 نظام إدارة الصيانة المتكامل</h1>
@@ -344,47 +677,53 @@ h1, h2, h3, h4, h5, h6 {
                     <!-- إحصائيات الأجهزة -->
                     <div class="row g-3 mb-4">
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-primary">
+                            <div class="stat-card bg-primary" style="animation-delay: 0.1s;">
                                 <div class="stat-number">{{ total_devices }}</div>
                                 <div class="stat-label">إجمالي الأجهزة</div>
+                                <div class="stat-icon"><i class="fas fa-laptop-medical fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-success">
+                            <div class="stat-card bg-success" style="animation-delay: 0.2s;">
                                 <div class="stat-number">{{ working_devices }}</div>
                                 <div class="stat-label">تعمل بشكل طبيعي</div>
+                                <div class="stat-icon"><i class="fas fa-check-circle fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-warning">
+                            <div class="stat-card bg-warning" style="animation-delay: 0.3s;">
                                 <div class="stat-number">{{ needs_maintenance }}</div>
                                 <div class="stat-label">تحتاج صيانة</div>
+                                <div class="stat-icon"><i class="fas fa-tools fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-danger">
+                            <div class="stat-card bg-danger" style="animation-delay: 0.4s;">
                                 <div class="stat-number">{{ out_of_order }}</div>
                                 <div class="stat-label">خارج الخدمة</div>
+                                <div class="stat-icon"><i class="fas fa-exclamation-triangle fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-info">
+                            <div class="stat-card bg-info" style="animation-delay: 0.5s;">
                                 <div class="stat-number">{{ needs_cleaning }}</div>
                                 <div class="stat-label">تحتاج تنظيف</div>
+                                <div class="stat-icon"><i class="fas fa-spray-can fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-secondary">
+                            <div class="stat-card bg-secondary" style="animation-delay: 0.6s;">
                                 <div class="stat-number">{{ needs_sterilization }}</div>
                                 <div class="stat-label">تحتاج تعقيم</div>
+                                <div class="stat-icon"><i class="fas fa-shield-virus fa-3x"></i></div>
                             </div>
                         </div>
                     </div>
                     
                     <!-- أزرار الإجراءات السريعة -->
                     <div class="text-center">
-                        <h5 class="text-white mb-3">الإجراءات السريعة</h5>
-                        <div class="d-flex flex-wrap justify-content-center">
+                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">الإجراءات السريعة</h5>
+                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
                             <a href="{% url 'maintenance:device_list' %}" class="btn btn-light quick-action-btn">
                                 <i class="fas fa-list"></i> عرض جميع الأجهزة
                             </a>
@@ -396,6 +735,47 @@ h1, h2, h3, h4, h5, h6 {
                             </a>
                             <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-outline-light quick-action-btn">
                                 <i class="fas fa-history"></i> سجل الاستخدام
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قسم لوحات التحكم والتحليلات -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="dashboard-card" style="background: var(--dashboard-gradient); color: white; animation: slideInRight 0.7s ease-out;">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="me-3">
+                            <i class="fas fa-chart-line fa-3x text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-white mb-1">📊 لوحات التحكم والتحليلات</h3>
+                            <p class="text-white-50 mb-0">مؤشرات الأداء الرئيسية وتحليلات الصيانة</p>
+                        </div>
+                    </div>
+                    
+                    <!-- أزرار لوحات التحكم -->
+                    <div class="text-center">
+                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">لوحات التحكم المتاحة</h5>
+                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
+                            <a href="{% url 'maintenance:dashboard:cmms_dashboard' %}" class="btn btn-light quick-action-btn">
+                                <i class="fas fa-tachometer-alt"></i> لوحة تحكم الصيانة
+                            </a>
+                            <a href="{% url 'maintenance:dashboard:device_performance_dashboard' %}" class="btn btn-outline-light quick-action-btn">
+                                <i class="fas fa-chart-bar"></i> أداء الأجهزة
+                            </a>
+                            <a href="{% url 'maintenance:dashboard:work_order_analytics' %}" class="btn btn-outline-light quick-action-btn">
+                                <i class="fas fa-tasks"></i> تحليلات أوامر الشغل
+                            </a>
+                            <a href="{% url 'maintenance:dashboard:spare_parts_analytics' %}" class="btn btn-outline-light quick-action-btn">
+                                <i class="fas fa-cogs"></i> تحليلات قطع الغيار
+                            </a>
+                            <a href="{% url 'maintenance:dashboard:maintenance_trends' %}" class="btn btn-outline-light quick-action-btn">
+                                <i class="fas fa-chart-line"></i> اتجاهات الصيانة
                             </a>
                         </div>
                     </div>
@@ -422,35 +802,39 @@ h1, h2, h3, h4, h5, h6 {
                     <!-- إحصائيات CMMS -->
                     <div class="row g-3 mb-4">
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-primary">
+                            <div class="stat-card bg-primary" style="animation-delay: 0.1s;">
                                 <div class="stat-number">{{ total_work_orders }}</div>
                                 <div class="stat-label">إجمالي أوامر الشغل</div>
+                                <div class="stat-icon"><i class="fas fa-clipboard-list fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-warning">
+                            <div class="stat-card bg-warning" style="animation-delay: 0.2s;">
                                 <div class="stat-number">{{ pending_work_orders }}</div>
                                 <div class="stat-label">أوامر شغل معلقة</div>
+                                <div class="stat-icon"><i class="fas fa-clock fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-info">
+                            <div class="stat-card bg-info" style="animation-delay: 0.3s;">
                                 <div class="stat-number">{{ total_service_requests }}</div>
                                 <div class="stat-label">طلبات الخدمة</div>
+                                <div class="stat-icon"><i class="fas fa-concierge-bell fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-danger">
+                            <div class="stat-card bg-danger" style="animation-delay: 0.4s;">
                                 <div class="stat-number">{{ pending_service_requests }}</div>
                                 <div class="stat-label">طلبات معلقة</div>
+                                <div class="stat-icon"><i class="fas fa-exclamation-circle fa-3x"></i></div>
                             </div>
                         </div>
                     </div>
                     
                     <!-- أزرار CMMS -->
                     <div class="text-center">
-                        <h5 class="text-white mb-3">إدارة الصيانة العامة</h5>
-                        <div class="d-flex flex-wrap justify-content-center">
+                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">إدارة الصيانة العامة</h5>
+                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
                             <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-light quick-action-btn">
                                 <i class="fas fa-clipboard-list"></i> أوامر الشغل
                             </a>
@@ -475,12 +859,12 @@ h1, h2, h3, h4, h5, h6 {
         <!-- آخر عمليات الصيانة -->
         <div class="col-lg-6 mb-4">
             <div class="dashboard-card">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-primary text-white" style="background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);">
                     <h5 class="mb-0"><i class="fas fa-history"></i> آخر عمليات الصيانة</h5>
                 </div>
                 <div class="card-body recent-activity">
                     {% for maintenance in recent_maintenance %}
-                    <div class="activity-item">
+                    <div class="activity-item" style="animation: fadeInRight 0.5s ease-out; animation-delay: calc(0.1s * {{ forloop.counter }}); transform: translateX(0);">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="mb-1">{{ maintenance.device.name }}</h6>
@@ -497,7 +881,7 @@ h1, h2, h3, h4, h5, h6 {
                         </div>
                     </div>
                     {% empty %}
-                    <div class="text-center text-muted py-4">
+                    <div class="text-center text-muted py-4" style="animation: fadeIn 1s ease-out;">
                         <i class="fas fa-info-circle fa-2x mb-2"></i>
                         <p>لا توجد عمليات صيانة حديثة</p>
                     </div>
@@ -509,12 +893,12 @@ h1, h2, h3, h4, h5, h6 {
         <!-- الأجهزة المستخدمة حالياً -->
         <div class="col-lg-6 mb-4">
             <div class="dashboard-card">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-success text-white" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
                     <h5 class="mb-0"><i class="fas fa-play-circle"></i> الأجهزة المستخدمة حالياً</h5>
                 </div>
                 <div class="card-body recent-activity">
                     {% for device in popular_devices %}
-                    <div class="activity-item">
+                    <div class="activity-item" style="animation: fadeInLeft 0.5s ease-out; animation-delay: calc(0.1s * {{ forloop.counter }}); transform: translateX(0);">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="mb-1">{{ device.name }}</h6>
@@ -526,11 +910,11 @@ h1, h2, h3, h4, h5, h6 {
                                     <i class="fas fa-map-marker-alt"></i> {{ device.department.name }} - {{ device.room|default:"غير محدد" }}
                                 </small>
                             </div>
-                            <span class="badge bg-success">قيد الاستخدام</span>
+                            <span class="badge bg-success" style="animation: pulse 2s infinite ease-in-out;">قيد الاستخدام</span>
                         </div>
                     </div>
                     {% empty %}
-                    <div class="text-center text-muted py-4">
+                    <div class="text-center text-muted py-4" style="animation: fadeIn 1s ease-out;">
                         <i class="fas fa-info-circle fa-2x mb-2"></i>
                         <p>لا توجد أجهزة مستخدمة حالياً</p>
                     </div>
@@ -543,30 +927,34 @@ h1, h2, h3, h4, h5, h6 {
     <!-- روابط سريعة إضافية -->
     <div class="row">
         <div class="col-12">
-            <div class="dashboard-card">
-                <div class="card-header bg-info text-white">
+            <div class="dashboard-card" style="animation: fadeInUp 0.8s ease-out; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+                <div class="card-header bg-info text-white" style="background: var(--card-gradient) !important;">
                     <h5 class="mb-0"><i class="fas fa-link"></i> روابط سريعة</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="background: var(--glass-effect); border-radius: 0 0 20px 20px;">
                     <div class="row g-3">
-                        <div class="col-lg-3 col-md-6">
-                            <a href="{% url 'maintenance:add_company' %}" class="btn btn-outline-primary w-100 quick-action-btn">
-                                <i class="fas fa-building"></i><br>إدارة الشركات
+                        <div class="col-lg-3 col-md-6" style="animation: fadeIn 0.5s ease-out; animation-delay: 0.1s; transform: translateY(0); transition: transform 0.3s ease-in-out;">
+                            <a href="{% url 'maintenance:add_company' %}" class="btn btn-outline-primary w-100 quick-action-btn" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <i class="fas fa-building fa-2x mb-2"></i>
+                                <span>إدارة الشركات</span>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <a href="{% url 'maintenance:add_device_type' %}" class="btn btn-outline-success w-100 quick-action-btn">
-                                <i class="fas fa-tags"></i><br>أنواع الأجهزة
+                        <div class="col-lg-3 col-md-6" style="animation: fadeIn 0.5s ease-out; animation-delay: 0.2s; transform: translateY(0); transition: transform 0.3s ease-in-out;">
+                            <a href="{% url 'maintenance:add_device_type' %}" class="btn btn-outline-success w-100 quick-action-btn" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <i class="fas fa-tags fa-2x mb-2"></i>
+                                <span>أنواع الأجهزة</span>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-warning w-100 quick-action-btn">
-                                <i class="fas fa-folder"></i><br>تصنيفات الأجهزة
+                        <div class="col-lg-3 col-md-6" style="animation: fadeIn 0.5s ease-out; animation-delay: 0.3s; transform: translateY(0); transition: transform 0.3s ease-in-out;">
+                            <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-warning w-100 quick-action-btn" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <i class="fas fa-folder fa-2x mb-2"></i>
+                                <span>تصنيفات الأجهزة</span>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <a href="{% url 'maintenance:add_device_usage' %}" class="btn btn-outline-info w-100 quick-action-btn">
-                                <i class="fas fa-clipboard"></i><br>استخدامات الأجهزة
+                        <div class="col-lg-3 col-md-6" style="animation: fadeIn 0.5s ease-out; animation-delay: 0.4s; transform: translateY(0); transition: transform 0.3s ease-in-out;">
+                            <a href="{% url 'maintenance:add_device_usage' %}" class="btn btn-outline-info w-100 quick-action-btn" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <i class="fas fa-clipboard fa-2x mb-2"></i>
+                                <span>استخدامات الأجهزة</span>
                             </a>
                         </div>
                     </div>

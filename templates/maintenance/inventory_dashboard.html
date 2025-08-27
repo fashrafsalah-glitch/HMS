@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}لوحة تحكم إدارة المخزون{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .stats-card.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .stats-card.success {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .stats-card.info {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .request-item {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid #007bff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .request-item.high-priority {
+        border-left-color: #dc3545;
+    }
+    .request-item.medium-priority {
+        border-left-color: #ffc107;
+    }
+    .request-item.low-priority {
+        border-left-color: #28a745;
+    }
+    .low-stock-item {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="text-primary">
+                <i class="fas fa-warehouse"></i>
+                لوحة تحكم إدارة المخزون
+            </h2>
+            <p class="text-muted">نظرة شاملة على حالة المخزون والطلبات</p>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_spare_parts }}</h3>
+                        <p class="mb-0">إجمالي قطع الغيار</p>
+                    </div>
+                    <i class="fas fa-cogs fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card warning">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ low_stock_count }}</h3>
+                        <p class="mb-0">مخزون منخفض</p>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ pending_requests_count }}</h3>
+                        <p class="mb-0">طلبات في الانتظار</p>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_stock_value|floatformat:0 }}</h3>
+                        <p class="mb-0">قيمة المخزون (ريال)</p>
+                    </div>
+                    <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Charts Section -->
+        <div class="col-lg-8">
+            <!-- Stock Status Chart -->
+            <div class="chart-container">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-pie text-primary"></i>
+                    توزيع حالة المخزون
+                </h5>
+                <canvas id="stockStatusChart" height="300"></canvas>
+            </div>
+
+            <!-- Monthly Transactions Chart -->
+            <div class="chart-container">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    معاملات المخزون الشهرية
+                </h5>
+                <canvas id="monthlyTransactionsChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <!-- Side Panel -->
+        <div class="col-lg-4">
+            <!-- Pending Requests -->
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list text-primary"></i>
+                        الطلبات المعلقة
+                    </h5>
+                    <a href="{% url 'maintenance:spare_parts:pending_requests' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل
+                    </a>
+                </div>
+                
+                {% if requests %}
+                    {% for request in requests %}
+                    <div class="request-item {{ request.priority }}-priority">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ request.spare_part.name }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    {{ request.requester.get_full_name }} - 
+                                    {{ request.created_at|date:"d/m/Y" }}
+                                </small>
+                                <br>
+                                <span class="badge badge-{{ request.priority }}">
+                                    {{ request.get_priority_display }}
+                                </span>
+                            </div>
+                            <span class="badge badge-secondary">{{ request.quantity_requested }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% elif recent_requests %}
+                    {% for request in recent_requests %}
+                    <div class="request-item {{ request.priority }}-priority">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ request.spare_part.name }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    {{ request.requester.get_full_name }} - 
+                                    {{ request.created_at|date:"d/m/Y" }}
+                                </small>
+                                <br>
+                                <span class="badge badge-{{ request.priority }}">
+                                    {{ request.get_priority_display }}
+                                </span>
+                            </div>
+                            <span class="badge badge-secondary">{{ request.quantity_requested }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-3">لا توجد طلبات معلقة</p>
+                {% endif %}
+            </div>
+
+            <!-- Low Stock Items -->
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                        مخزون منخفض
+                    </h5>
+                    <a href="{% url 'maintenance:spare_parts:spare_part_list' %}?low_stock=1" class="btn btn-sm btn-outline-warning">
+                        عرض الكل
+                    </a>
+                </div>
+                
+                {% if low_stock_items %}
+                    {% for item in low_stock_items %}
+                    <div class="low-stock-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ item.name }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    المخزون: {{ item.current_stock }} / الحد الأدنى: {{ item.minimum_stock }}
+                                </small>
+                            </div>
+                            <span class="badge badge-warning">{{ item.current_stock }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-3">جميع المخزونات في المستوى الطبيعي</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="mb-3">
+                    <i class="fas fa-bolt text-primary"></i>
+                    إجراءات سريعة
+                </h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{% url 'maintenance:spare_parts:request_spare_part' %}" class="btn btn-primary btn-block">
+                            <i class="fas fa-plus"></i>
+                            طلب قطعة غيار
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}" class="btn btn-success btn-block">
+                            <i class="fas fa-exchange-alt"></i>
+                            إضافة معاملة
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'maintenance:spare_parts:spare_part_create' %}" class="btn btn-info btn-block">
+                            <i class="fas fa-cog"></i>
+                            إضافة قطعة غيار
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'maintenance:spare_parts:supplier_create' %}" class="btn btn-secondary btn-block">
+                            <i class="fas fa-truck"></i>
+                            إضافة مورد
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Stock Status Pie Chart
+    const stockStatusCtx = document.getElementById('stockStatusChart').getContext('2d');
+    new Chart(stockStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['متاح', 'مخزون منخفض', 'نفد المخزون', 'غير متاح'],
+            datasets: [{
+                data: [
+                    {{ stock_status.available|default:0 }},
+                    {{ stock_status.low_stock|default:0 }},
+                    {{ stock_status.out_of_stock|default:0 }},
+                    {{ stock_status.unavailable|default:0 }}
+                ],
+                backgroundColor: [
+                    '#28a745',
+                    '#ffc107',
+                    '#dc3545',
+                    '#6c757d'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Monthly Transactions Line Chart
+    const monthlyCtx = document.getElementById('monthlyTransactionsChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: {{ monthly_labels|safe }},
+            datasets: [{
+                label: 'وارد',
+                data: {{ monthly_in|safe }},
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'صادر',
+                data: {{ monthly_out|safe }},
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

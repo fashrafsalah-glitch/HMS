@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load lab_filters %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .transaction-card {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    
+    .transaction-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .transaction-type {
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.85em;
+        font-weight: bold;
+    }
+    
+    .transaction-type.in {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .transaction-type.out {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .transaction-type.adjustment {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .quantity-change {
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+    
+    .quantity-change.positive {
+        color: #28a745;
+    }
+    
+    .quantity-change.negative {
+        color: #dc3545;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="text-primary">
+                <i class="fas fa-exchange-alt"></i>
+                {{ title }}
+            </h2>
+            <p class="text-muted">تتبع جميع معاملات المخزون وحركة قطع الغيار</p>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                إضافة معاملة جديدة
+            </a>
+            <a href="{% url 'maintenance:spare_parts:inventory_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right"></i>
+                العودة للوحة التحكم
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="stats-card">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h4>{{ page_obj.paginator.count }}</h4>
+                        <p class="mb-0">إجمالي المعاملات</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>{{ page_obj.paginator.count|add:0 }}</h4>
+                        <p class="mb-0">هذا الشهر</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>-</h4>
+                        <p class="mb-0">معاملات الإدخال</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>-</h4>
+                        <p class="mb-0">معاملات الإخراج</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-section">
+        <form method="get" class="row">
+            <div class="col-md-3">
+                <label for="transaction_type">نوع المعاملة:</label>
+                <select name="transaction_type" id="transaction_type" class="form-control">
+                    <option value="">جميع الأنواع</option>
+                    {% for value, label in transaction_types %}
+                        <option value="{{ value }}" {% if filters.transaction_type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="spare_part">قطعة الغيار:</label>
+                <select name="spare_part" id="spare_part" class="form-control">
+                    <option value="">جميع قطع الغيار</option>
+                    {% for part in spare_parts %}
+                        <option value="{{ part.id }}" {% if filters.spare_part == part.id|stringformat:"s" %}selected{% endif %}>
+                            {{ part.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="date_from">من تاريخ:</label>
+                <input type="date" name="date_from" id="date_from" class="form-control" 
+                       value="{{ filters.date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to">إلى تاريخ:</label>
+                <input type="date" name="date_to" id="date_to" class="form-control" 
+                       value="{{ filters.date_to }}">
+            </div>
+            <div class="col-md-2">
+                <label>&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-search"></i>
+                        بحث
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results -->
+    <div class="row">
+        <div class="col-12">
+            {% if page_obj %}
+                {% for transaction in page_obj %}
+                <div class="transaction-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h5 class="mb-1">{{ transaction.spare_part.name }}</h5>
+                            <small class="text-muted">{{ transaction.spare_part.part_number }}</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <span class="transaction-type {{ transaction.transaction_type }}">
+                                {{ transaction.get_transaction_type_display }}
+                            </span>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <span class="quantity-change {% if transaction.quantity > 0 %}positive{% else %}negative{% endif %}">
+                                {% if transaction.quantity > 0 %}+{% endif %}{{ transaction.quantity }}
+                            </span>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <strong>{{ transaction.spare_part.current_stock }}</strong>
+                            <br><small class="text-muted">المخزون الحالي</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <small class="text-muted">{{ transaction.transaction_date|date:"d/m/Y H:i" }}</small>
+                            <br><small class="text-muted">{{ transaction.created_by.get_full_name|default:transaction.created_by.username }}</small>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            {% if transaction.notes %}
+                                <i class="fas fa-comment text-info" title="{{ transaction.notes }}" data-toggle="tooltip"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if transaction.notes %}
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">
+                                <strong>ملاحظات:</strong> {{ transaction.notes }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    السابق
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    التالي
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle"></i>
+                    لا توجد معاملات مخزون حالياً.
+                    <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}" class="btn btn-primary btn-sm ml-2">
+                        إضافة معاملة جديدة
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // Auto-submit form on filter change
+    $('#transaction_type, #spare_part').change(function() {
+        $(this).closest('form').submit();
+    });
+});
+</script>
+{% endblock %}

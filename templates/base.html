@@ -551,6 +551,23 @@
                     <a class="nav-link {% if request.resolver_match.url_name == 'shift_swap_request_list' %}active{% endif %}" href="{% url 'hr:shift_swap_request_list' %}">
                         <i class="bi bi-arrow-left-right me-2"></i><span>{% trans "Shift Swaps" %}</span>
                     </a>
+                {% elif user.role == 'inventory_manager' %}
+                    <!-- Inventory Manager Navigation -->
+                    <a class="nav-link {% if request.resolver_match.url_name == 'inventory_dashboard' %}active{% endif %}" href="{% url 'maintenance:spare_parts:inventory_dashboard' %}">
+                        <i class="fas fa-warehouse me-2"></i><span>لوحة تحكم المخزون</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'pending_requests' %}active{% endif %}" href="{% url 'maintenance:spare_parts:pending_requests' %}">
+                        <i class="fas fa-clock me-2"></i><span>الطلبات المعلقة</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'spare_part_list' %}active{% endif %}" href="{% url 'maintenance:spare_parts:spare_part_list' %}">
+                        <i class="fas fa-cogs me-2"></i><span>قطع الغيار</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'spare_part_transaction_list' %}active{% endif %}" href="{% url 'maintenance:spare_parts:spare_part_transaction_list' %}">
+                        <i class="fas fa-exchange-alt me-2"></i><span>معاملات المخزون</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'supplier_list' %}active{% endif %}" href="{% url 'maintenance:spare_parts:supplier_list' %}">
+                        <i class="fas fa-truck me-2"></i><span>الموردين</span>
+                    </a>
                 {% elif user.role == 'technician' %}
                     <!-- Technician Navigation -->
                     <a class="nav-link {% if request.resolver_match.url_name == 'technician_dashboard' %}active{% endif %}" href="{% url 'maintenance:cmms:technician_dashboard' %}">
@@ -561,6 +578,12 @@
                     </a>
                     <a class="nav-link {% if request.resolver_match.url_name == 'service_request_list' %}active{% endif %}" href="{% url 'maintenance:cmms:service_request_list' %}">
                         <i class="fas fa-clipboard-list me-2"></i><span>{% trans "Service Requests" %}</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'my_requests' %}active{% endif %}" href="{% url 'maintenance:spare_parts:my_requests' %}">
+                        <i class="fas fa-list me-2"></i><span>طلبات قطع الغيار</span>
+                    </a>
+                    <a class="nav-link {% if request.resolver_match.url_name == 'request_spare_part' %}active{% endif %}" href="{% url 'maintenance:spare_parts:request_spare_part' %}">
+                        <i class="fas fa-plus-circle me-2"></i><span>طلب قطعة غيار</span>
                     </a>
                     <a class="nav-link {% if request.resolver_match.url_name == 'leave_request_list' %}active{% endif %}" href="{% url 'staff:leave_request_list' %}">
                         <i class="bi bi-calendar-x me-2"></i><span>{% trans "Leave Requests" %}</span>

@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}أداء الأجهزة | لوحة التحكم{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2 class="page-title">لوحة تحكم أداء الأجهزة</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'maintenance:dashboard:cmms_dashboard' %}">لوحة التحكم</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">أداء الأجهزة</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- بطاقات المؤشرات الرئيسية -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط وقت التشغيل</h5>
+                    <h2 class="text-primary">{{ device_stats.avg_uptime|floatformat:1 }}%</h2>
+                    <p class="text-muted">نسبة التشغيل الفعلي</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط MTBF</h5>
+                    <h2 class="text-success">{{ device_stats.avg_mtbf|floatformat:1 }}</h2>
+                    <p class="text-muted">متوسط الوقت بين الأعطال (أيام)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">متوسط MTTR</h5>
+                    <h2 class="text-warning">{{ device_stats.avg_mttr|floatformat:1 }}</h2>
+                    <p class="text-muted">متوسط وقت الإصلاح (ساعات)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <h5 class="card-title">الأجهزة المعطلة</h5>
+                    <h2 class="text-danger">{{ device_stats.down_devices_count }}</h2>
+                    <p class="text-muted">من إجمالي {{ device_stats.total_devices }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تصنيف الأجهزة حسب الأداء -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">تصنيف الأجهزة حسب الأداء</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="devicePerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">الأجهزة الأكثر تعطلاً</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>عدد الأعطال</th>
+                                    <th>إجمالي وقت التعطل</th>
+                                    <th>مؤشر الأداء</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in worst_performing_devices %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'maintenance:device_detail' device.id %}">{{ device.name }}</a>
+                                        <small class="text-muted d-block">{{ device.serial_number }}</small>
+                                    </td>
+                                    <td>{{ device.failures_count }}</td>
+                                    <td>{{ device.total_downtime }} ساعة</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-{{ device.performance_color }}" 
+                                                role="progressbar" 
+                                                style="width: {{ device.performance_score }}%" 
+                                                aria-valuenow="{{ device.performance_score }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ device.performance_score }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">لا توجد بيانات متاحة</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تحليل الأعطال والصيانة -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">تحليل الأعطال حسب النوع</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="failureTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- الأقسام الأكثر استخداماً للأجهزة -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">الأقسام الأكثر استخداماً للأجهزة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="departmentUsageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card dashboard-section">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">توزيع الأجهزة حسب العمر</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="deviceAgeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // بيانات تصنيف الأجهزة حسب الأداء
+    const devicePerformanceCtx = document.getElementById('devicePerformanceChart').getContext('2d');
+    const devicePerformanceChart = new Chart(devicePerformanceCtx, {
+        type: 'pie',
+        data: {
+            labels: ['ممتاز (90-100%)', 'جيد جداً (80-89%)', 'جيد (70-79%)', 'متوسط (50-69%)', 'ضعيف (<50%)'],
+            datasets: [{
+                data: [
+                    {{ device_performance_data.excellent }},
+                    {{ device_performance_data.very_good }},
+                    {{ device_performance_data.good }},
+                    {{ device_performance_data.fair }},
+                    {{ device_performance_data.poor }}
+                ],
+                backgroundColor: [
+                    '#28a745',
+                    '#20c997',
+                    '#17a2b8',
+                    '#ffc107',
+                    '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // بيانات تحليل الأعطال حسب النوع
+    const failureTypesCtx = document.getElementById('failureTypesChart').getContext('2d');
+    const failureTypesChart = new Chart(failureTypesCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ failure_types_labels|safe }},
+            datasets: [{
+                label: 'عدد الأعطال',
+                data: {{ failure_types_data|safe }},
+                backgroundColor: '#36a2eb'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // بيانات استخدام الأقسام للأجهزة
+    const departmentUsageCtx = document.getElementById('departmentUsageChart').getContext('2d');
+    const departmentUsageChart = new Chart(departmentUsageCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ department_usage_labels|safe }},
+            datasets: [{
+                data: {{ department_usage_data|safe }},
+                backgroundColor: [
+                    '#4bc0c0',
+                    '#ff6384',
+                    '#ffce56',
+                    '#9966ff',
+                    '#36a2eb',
+                    '#ff9f40'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // بيانات توزيع الأجهزة حسب العمر
+    const deviceAgeCtx = document.getElementById('deviceAgeChart').getContext('2d');
+    const deviceAgeChart = new Chart(deviceAgeCtx, {
+        type: 'bar',
+        data: {
+            labels: ['<1 سنة', '1-3 سنوات', '3-5 سنوات', '5-7 سنوات', '>7 سنوات'],
+            datasets: [{
+                label: 'عدد الأجهزة',
+                data: [
+                    {{ device_age_data.less_than_1_year }},
+                    {{ device_age_data.one_to_3_years }},
+                    {{ device_age_data.three_to_5_years }},
+                    {{ device_age_data.five_to_7_years }},
+                    {{ device_age_data.more_than_7_years }}
+                ],
+                backgroundColor: '#9966ff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

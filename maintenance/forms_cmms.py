@@ -227,3 +227,104 @@ class PMScheduleForm(forms.ModelForm):
                 self.fields['day_of_week'].widget = forms.HiddenInput()
             if instance.frequency != 'monthly':
                 self.fields['day_of_month'].widget = forms.HiddenInput()
+
+# =============== Work Order Parts Forms ===============
+class WorkOrderPartRequestForm(forms.ModelForm):
+    """نموذج طلب قطع الغيار من المخزن لأمر الشغل"""
+    
+    class Meta:
+        model = WorkOrderPart
+        fields = ['spare_part', 'quantity_requested', 'notes']
+        widgets = {
+            'spare_part': forms.Select(attrs={
+                'class': 'form-control',
+                'data-live-search': 'true'
+            }),
+            'quantity_requested': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'placeholder': 'الكمية المطلوبة'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'ملاحظات حول القطعة المطلوبة'
+            }),
+        }
+        labels = {
+            'spare_part': 'قطعة الغيار',
+            'quantity_requested': 'الكمية المطلوبة',
+            'notes': 'ملاحظات',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.work_order = kwargs.pop('work_order', None)
+        super().__init__(*args, **kwargs)
+        
+        # فلترة قطع الغيار حسب فئة الجهاز
+        if self.work_order and self.work_order.service_request.device:
+            device = self.work_order.service_request.device
+            if device.category:
+                self.fields['spare_part'].queryset = SparePart.objects.filter(
+                    device_category=device.category,
+                    current_stock__gt=0
+                ).order_by('name')
+        
+        # تنسيق الحقول
+        for field_name, field in self.fields.items():
+            if field_name != 'spare_part':
+                field.widget.attrs['class'] = 'form-control'
+    
+    def clean_quantity_requested(self):
+        quantity = self.cleaned_data['quantity_requested']
+        if quantity <= 0:
+            raise forms.ValidationError('يجب أن تكون الكمية أكبر من صفر')
+        return quantity
+
+class WorkOrderPartIssueForm(forms.ModelForm):
+    """نموذج صرف قطع الغيار لأمر الشغل"""
+    
+    class Meta:
+        model = WorkOrderPart
+        fields = ['quantity_used', 'notes']
+        widgets = {
+            'quantity_used': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'placeholder': 'الكمية المصروفة'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'ملاحظات حول الصرف'
+            }),
+        }
+        labels = {
+            'quantity_used': 'الكمية المصروفة',
+            'notes': 'ملاحظات',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # تنسيق الحقول
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+    
+    def clean_quantity_used(self):
+        quantity = self.cleaned_data['quantity_used']
+        instance = self.instance
+        
+        if quantity <= 0:
+            raise forms.ValidationError('يجب أن تكون الكمية أكبر من صفر')
+        
+        # التحقق من أن الكمية لا تتجاوز الكمية المطلوبة
+        if instance and quantity > instance.quantity_requested:
+            raise forms.ValidationError(f'الكمية المصروفة لا يمكن أن تتجاوز الكمية المطلوبة ({instance.quantity_requested})')
+        
+        # التحقق من توفر المخزون
+        if instance and instance.spare_part:
+            if quantity > instance.spare_part.current_stock:
+                raise forms.ValidationError(f'المخزون المتاح غير كافي. المتاح: {instance.spare_part.current_stock}')
+        
+        return quantity

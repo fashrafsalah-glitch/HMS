@@ -2,7 +2,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.db.models import Count, Q
+from django.db.models import Count, Avg, Sum, Q, F
 from django.utils import timezone
 from datetime import timedelta
 from .kpi_utils import (
@@ -129,7 +129,7 @@ def device_performance_dashboard(request):
         'page_title': 'أداء الأجهزة',
     }
     
-    return render(request, 'maintenance/device_performance_dashboard.html', context)
+    return render(request, 'maintenance/dashboard/device_performance_dashboard.html', context)
 
 @login_required
 def work_order_analytics(request):
@@ -187,7 +187,7 @@ def work_order_analytics(request):
         'page_title': 'تحليلات أوامر الشغل',
     }
     
-    return render(request, 'maintenance/work_order_analytics.html', context)
+    return render(request, 'maintenance/dashboard/work_order_analytics.html', context)
 
 @login_required
 def spare_parts_analytics(request):
@@ -204,13 +204,13 @@ def spare_parts_analytics(request):
     
     # قطع الغيار المحتاجة إعادة طلب
     parts_need_reorder = SparePart.objects.filter(
-        status__in=['low_stock', 'out_of_stock']
-    ).order_by('quantity')[:10]
+        Q(current_stock__lte=F('minimum_stock')) | Q(current_stock=0)
+    ).order_by('current_stock')[:10]
     
     # قطع الغيار الأغلى
     expensive_parts = SparePart.objects.filter(
-        cost__isnull=False
-    ).order_by('-cost')[:10]
+        unit_cost__isnull=False
+    ).order_by('-unit_cost')[:10]
     
     context = {
         'spare_parts_stats': spare_parts_stats,
@@ -220,7 +220,7 @@ def spare_parts_analytics(request):
         'page_title': 'تحليلات قطع الغيار',
     }
     
-    return render(request, 'maintenance/spare_parts_analytics.html', context)
+    return render(request, 'maintenance/dashboard/spare_parts_analytics.html', context)
 
 @login_required
 def maintenance_trends(request):
@@ -255,7 +255,7 @@ def maintenance_trends(request):
         'page_title': 'اتجاهات الصيانة',
     }
     
-    return render(request, 'maintenance/maintenance_trends.html', context)
+    return render(request, 'maintenance/dashboard/maintenance_trends.html', context)
 
 @login_required
 def dashboard_api_data(request):

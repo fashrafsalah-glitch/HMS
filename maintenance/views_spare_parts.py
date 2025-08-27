@@ -1,23 +1,457 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
-from django.db.models import Sum, Count, Q, F, ExpressionWrapper, fields
-from django.db.models.functions import Coalesce
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import Q, Sum, F
 from django.utils import timezone
-from datetime import datetime, timedelta
-import json
+from datetime import timedelta
+from django.http import HttpResponse, JsonResponse
 import csv
 
 from .models import (
-    Supplier, SparePart, Calibration, CalibrationRecord, DowntimeEvent,
+    Supplier, SparePart, SparePartRequest, SparePartTransaction, 
+    Calibration, CalibrationRecord, DowntimeEvent,
     Device, WorkOrder, DeviceDowntime
 )
-from .forms_spare_parts import (
-    SupplierForm, SparePartForm
+from .forms import (
+    SupplierForm, SparePartForm, SparePartTransactionForm,
+    CalibrationForm, DowntimeForm, SparePartRequestForm, RequestApprovalForm
 )
-from .forms import DowntimeForm
+
+# =============== Helper Functions ===============
+def is_inventory_manager(user):
+    """التحقق من صلاحيات مدير المخزون"""
+    return user.is_authenticated and (
+        user.is_superuser or 
+        user.role == 'inventory_manager'
+    )
+
+# =============== Inventory Management Views ===============
+@login_required
+def inventory_dashboard(request):
+    """لوحة تحكم مدير المخزون"""
+    
+    # إحصائيات المخزون الأساسية
+    total_spare_parts = SparePart.objects.count()
+    total_stock_value = sum(
+        part.get_total_value() for part in SparePart.objects.all()
+    )
+    
+    # قطع الغيار منخفضة المخزون
+    low_stock_parts = SparePart.objects.filter(
+        current_stock__lte=F('minimum_stock')
+    ).count()
+    
+    # قطع الغيار النافدة
+    out_of_stock_parts = SparePart.objects.filter(current_stock=0).count()
+    
+    # إحصائيات الطلبات
+    today = timezone.now().date()
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    
+    # طلبات اليوم
+    today_requests = SparePartRequest.objects.filter(
+        created_at__date=today
+    ).count()
+    
+    # طلبات في الانتظار
+    pending_requests = SparePartRequest.objects.filter(
+        status='pending'
+    ).count()
+    
+    # طلبات عاجلة
+    urgent_requests = SparePartRequest.objects.filter(
+        status='pending',
+        priority='urgent'
+    ).count()
+    
+    # طلبات الأسبوع الماضي
+    week_requests = SparePartRequest.objects.filter(
+        created_at__date__gte=week_ago
+    ).count()
+    
+    # إحصائيات المعاملات
+    today_transactions = SparePartTransaction.objects.filter(
+        transaction_date__date=today
+    ).count()
+    
+    week_transactions = SparePartTransaction.objects.filter(
+        transaction_date__date__gte=week_ago
+    ).count()
+    
+    # قيمة المعاملات الصادرة هذا الشهر
+    month_out_value = SparePartTransaction.objects.filter(
+        transaction_date__date__gte=month_ago,
+        transaction_type='out'
+    ).aggregate(
+        total=Sum('quantity')
+    )['total'] or 0
+    
+    # قوائم البيانات للعرض
+    recent_requests = SparePartRequest.objects.select_related(
+        'spare_part', 'requester', 'work_order'
+    ).order_by('-created_at')[:10]
+    
+    low_stock_items = SparePart.objects.filter(
+        current_stock__lte=F('minimum_stock')
+    ).order_by('current_stock')[:10]
+    
+    recent_transactions = SparePartTransaction.objects.select_related(
+        'spare_part', 'created_by'
+    ).order_by('-transaction_date')[:10]
+    
+    # أكثر قطع الغيار استخداماً (آخر 30 يوم)
+    most_used_parts = SparePartTransaction.objects.filter(
+        transaction_date__date__gte=month_ago,
+        transaction_type='out'
+    ).values(
+        'spare_part__name', 'spare_part__id'
+    ).annotate(
+        total_used=Sum('quantity')
+    ).order_by('-total_used')[:10]
+    
+    # بيانات المعاملات لآخر 7 أيام
+    chart_data = []
+    for i in range(7):
+        date = today - timedelta(days=i)
+        in_count = SparePartTransaction.objects.filter(
+            transaction_date__date=date,
+            transaction_type='in'
+        ).count()
+        out_count = SparePartTransaction.objects.filter(
+            transaction_date__date=date,
+            transaction_type='out'
+        ).count()
+        
+        chart_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'date_ar': date.strftime('%d/%m'),
+            'in': in_count,
+            'out': out_count
+        })
+    
+    chart_data.reverse()  # ترتيب تصاعدي
+    
+    # توزيع حالات الطلبات
+    request_status_data = []
+    for status, label in SparePartRequest.STATUS_CHOICES:
+        count = SparePartRequest.objects.filter(status=status).count()
+        if count > 0:
+            request_status_data.append({
+                'status': status,
+                'label': label,
+                'count': count
+            })
+    
+    context = {
+        # إحصائيات أساسية
+        'total_spare_parts': total_spare_parts,
+        'total_stock_value': total_stock_value,
+        'low_stock_parts': low_stock_parts,
+        'out_of_stock_parts': out_of_stock_parts,
+        
+        # إحصائيات الطلبات
+        'today_requests': today_requests,
+        'pending_requests': pending_requests,
+        'urgent_requests': urgent_requests,
+        'week_requests': week_requests,
+        
+        # إحصائيات المعاملات
+        'today_transactions': today_transactions,
+        'week_transactions': week_transactions,
+        'month_out_value': month_out_value,
+        
+        # قوائم البيانات
+        'recent_requests': recent_requests,
+        'low_stock_items': low_stock_items,
+        'recent_transactions': recent_transactions,
+        'most_used_parts': most_used_parts,
+        
+        # بيانات الرسوم البيانية
+        'chart_data': chart_data,
+        'request_status_data': request_status_data,
+        
+        # معلومات إضافية
+        'current_date': today,
+        'page_title': 'لوحة تحكم مدير المخزون',
+    }
+    
+    return render(request, 'maintenance/inventory_dashboard.html', context)
+
+@login_required
+def pending_requests(request):
+    """عرض الطلبات في الانتظار"""
+    requests_list = SparePartRequest.objects.filter(
+        status='pending'
+    ).select_related(
+        'spare_part', 'requester', 'work_order', 'device'
+    ).order_by('-priority', '-created_at')
+    
+    # فلترة حسب الأولوية
+    priority_filter = request.GET.get('priority')
+    if priority_filter:
+        requests_list = requests_list.filter(priority=priority_filter)
+    
+    # فلترة حسب قطعة الغيار
+    part_filter = request.GET.get('spare_part')
+    if part_filter:
+        requests_list = requests_list.filter(spare_part_id=part_filter)
+    
+    # البحث
+    search = request.GET.get('search')
+    if search:
+        requests_list = requests_list.filter(
+            Q(request_number__icontains=search) |
+            Q(spare_part__name__icontains=search) |
+            Q(requester__first_name__icontains=search) |
+            Q(requester__last_name__icontains=search)
+        )
+    
+    # تقسيم الصفحات
+    paginator = Paginator(requests_list, 20)
+    page_number = request.GET.get('page')
+    requests = paginator.get_page(page_number)
+    
+    # قائمة قطع الغيار للفلتر
+    spare_parts = SparePart.objects.all().order_by('name')
+    
+    context = {
+        'requests': requests,
+        'spare_parts': spare_parts,
+        'priority_choices': SparePartRequest.PRIORITY_CHOICES,
+        'current_priority': priority_filter,
+        'current_part': part_filter,
+        'search_query': search,
+        'page_title': 'الطلبات في الانتظار',
+    }
+    
+    return render(request, 'maintenance/pending_requests_manager.html', context)
+
+@login_required
+def approve_request(request, request_id):
+    """الموافقة على طلب قطعة غيار"""
+    spare_request = get_object_or_404(SparePartRequest, id=request_id)
+    
+    if not spare_request.can_approve():
+        messages.error(request, 'لا يمكن الموافقة على هذا الطلب')
+        return redirect('maintenance:spare_parts:pending_requests')
+    
+    if request.method == 'POST':
+        try:
+            approval_notes = request.POST.get('notes', '')
+            
+            # تحديث الطلب
+            spare_request.status = 'approved'
+            spare_request.quantity_approved = spare_request.quantity_requested
+            spare_request.approved_by = request.user
+            spare_request.approved_at = timezone.now()
+            spare_request.approval_notes = approval_notes
+            spare_request.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تمت الموافقة على الطلب {spare_request.request_number}'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    context = {
+        'spare_request': spare_request,
+        'page_title': f'الموافقة على الطلب {spare_request.request_number}',
+    }
+    
+    return render(request, 'maintenance/approve_request.html', context)
+
+@login_required
+def fulfill_request(request, request_id):
+    """تنفيذ طلب قطعة غيار"""
+    spare_request = get_object_or_404(SparePartRequest, id=request_id)
+    
+    if not spare_request.can_fulfill():
+        messages.error(request, 'لا يمكن تنفيذ هذا الطلب')
+        return redirect('maintenance:spare_parts:pending_requests')
+    
+    if request.method == 'POST':
+        try:
+            notes = request.POST.get('notes', '')
+            
+            # التحقق من توفر المخزون
+            if spare_request.quantity_requested > spare_request.spare_part.current_stock:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'المخزون غير كافي. المطلوب: {spare_request.quantity_requested}, المتاح: {spare_request.spare_part.current_stock}'
+                })
+            
+            # الموافقة على الطلب أولاً
+            spare_request.status = 'approved'
+            spare_request.quantity_approved = spare_request.quantity_requested
+            spare_request.approved_by = request.user
+            spare_request.approved_at = timezone.now()
+            spare_request.approval_notes = notes
+            
+            # إنشاء معاملة صرف
+            transaction = SparePartTransaction.objects.create(
+                spare_part=spare_request.spare_part,
+                transaction_type='out',
+                quantity=spare_request.quantity_approved,
+                reference_number=spare_request.request_number,
+                notes=f'تنفيذ طلب {spare_request.request_number}',
+                work_order=spare_request.work_order,
+                device=spare_request.device,
+                stock_before=spare_request.spare_part.current_stock,
+                stock_after=spare_request.spare_part.current_stock - spare_request.quantity_approved,
+                created_by=request.user
+            )
+            
+            # تحديث المخزون
+            spare_request.spare_part.current_stock -= spare_request.quantity_approved
+            spare_request.spare_part.update_status()
+            spare_request.spare_part.save()
+            
+            # تحديث الطلب
+            spare_request.status = 'fulfilled'
+            spare_request.fulfilled_by = request.user
+            spare_request.fulfilled_at = timezone.now()
+            spare_request.transaction = transaction
+            spare_request.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تم تنفيذ الطلب {spare_request.request_number} بنجاح'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    context = {
+        'spare_request': spare_request,
+        'page_title': f'تنفيذ الطلب {spare_request.request_number}',
+    }
+    
+    return render(request, 'maintenance/fulfill_request.html', context)
+
+@login_required
+def reject_request(request, request_id):
+    """رفض طلب قطعة غيار"""
+    spare_request = get_object_or_404(SparePartRequest, id=request_id)
+    
+    if request.method == 'POST':
+        try:
+            reason = request.POST.get('reason', '')
+            
+            spare_request.status = 'rejected'
+            spare_request.rejected_by = request.user
+            spare_request.rejected_at = timezone.now()
+            spare_request.rejection_reason = reason
+            spare_request.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تم رفض الطلب {spare_request.request_number}'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    context = {
+        'spare_request': spare_request,
+        'page_title': f'رفض الطلب {spare_request.request_number}',
+    }
+    
+    return render(request, 'maintenance/reject_request.html', context)
+
+@login_required
+def request_spare_part(request, work_order_id=None, device_id=None):
+    """طلب قطعة غيار من الفني"""
+    work_order = None
+    device = None
+    
+    if work_order_id:
+        work_order = get_object_or_404(WorkOrder, id=work_order_id)
+        if work_order.service_request.device:
+            device = work_order.service_request.device
+    
+    if device_id:
+        device = get_object_or_404(Device, id=device_id)
+    
+    if request.method == 'POST':
+        spare_part_id = request.POST.get('spare_part')
+        quantity = int(request.POST.get('quantity', 1))
+        priority = request.POST.get('priority', 'medium')
+        reason = request.POST.get('reason', '')
+        notes = request.POST.get('notes', '')
+        
+        spare_part = get_object_or_404(SparePart, id=spare_part_id)
+        
+        # إنشاء الطلب
+        spare_request = SparePartRequest.objects.create(
+            requester=request.user,
+            spare_part=spare_part,
+            quantity_requested=quantity,
+            priority=priority,
+            work_order=work_order,
+            device=device,
+            reason=reason,
+            notes=notes
+        )
+        
+        messages.success(request, f'تم إرسال طلب قطعة الغيار برقم {spare_request.request_number}')
+        
+        if work_order:
+            return redirect('maintenance:work_order_detail', pk=work_order.id)
+        elif device:
+            return redirect('maintenance:device_detail', pk=device.id)
+        else:
+            return redirect('maintenance:spare_parts:spare_part_list')
+    
+    # قائمة قطع الغيار
+    spare_parts = SparePart.objects.filter(status='available').order_by('name')
+    
+    context = {
+        'spare_parts': spare_parts,
+        'work_order': work_order,
+        'device': device,
+        'priority_choices': SparePartRequest.PRIORITY_CHOICES,
+        'page_title': 'طلب قطعة غيار',
+    }
+    
+    return render(request, 'maintenance/request_spare_part.html', context)
+
+@login_required
+def my_requests(request):
+    """عرض طلبات المستخدم الحالي"""
+    requests_list = SparePartRequest.objects.filter(
+        requester=request.user
+    ).select_related(
+        'spare_part', 'work_order', 'device', 'approved_by', 'fulfilled_by'
+    ).order_by('-created_date')
+    
+    # فلترة حسب الحالة
+    status_filter = request.GET.get('status')
+    if status_filter:
+        requests_list = requests_list.filter(status=status_filter)
+    
+    # تقسيم الصفحات
+    paginator = Paginator(requests_list, 20)
+    page_number = request.GET.get('page')
+    requests = paginator.get_page(page_number)
+    
+    context = {
+        'requests': requests,
+        'status_choices': SparePartRequest.STATUS_CHOICES,
+        'current_status': status_filter,
+        'page_title': 'طلباتي',
+    }
+    
+    return render(request, 'maintenance/my_requests.html', context)
 
 # =============== Supplier Views ===============
 @login_required
@@ -159,16 +593,18 @@ def spare_part_list(request):
 def spare_part_detail(request, pk):
     """عرض تفاصيل قطعة الغيار"""
     spare_part = get_object_or_404(SparePart, pk=pk)
-    # transactions = SparePartTransaction.objects.filter(spare_part=spare_part).order_by('-transaction_date')
-    transactions = []  # Placeholder until SparePartTransaction model is created
+    transactions = spare_part.transactions.all().order_by('-transaction_date')
     compatible_devices = spare_part.compatible_devices.all()
     
     # حساب إحصائيات الاستخدام
+    in_transactions = transactions.filter(transaction_type='in')
+    out_transactions = transactions.filter(transaction_type='out')
+    
     usage_stats = {
-        'total_used': 0,  # Placeholder
-        'total_received': 0,  # Placeholder
-        'last_used': None,  # Placeholder
-        'last_received': None,  # Placeholder
+        'total_used': sum(t.quantity for t in out_transactions),
+        'total_received': sum(t.quantity for t in in_transactions),
+        'last_used': out_transactions.first().transaction_date if out_transactions.exists() else None,
+        'last_received': in_transactions.first().transaction_date if in_transactions.exists() else None,
     }
     
     context = {
@@ -225,13 +661,54 @@ def spare_part_transaction_create(request, part_id=None):
         spare_part = get_object_or_404(SparePart, pk=part_id)
     
     if request.method == 'POST':
-        # form = SparePartTransactionForm(request.POST)
-        # Placeholder - SparePartTransactionForm not available yet
-        messages.error(request, 'وظيفة المعاملات غير متاحة حالياً')
-        return redirect('maintenance:spare_parts:spare_part_detail', pk=spare_part.pk if spare_part else part_id)
+        form = SparePartTransactionForm(request.POST, spare_part=spare_part)
+        if form.is_valid():
+            # حفظ المعاملة
+            transaction = form.save(commit=False)
+            transaction.spare_part = spare_part
+            transaction.created_by = request.user
+            transaction.stock_before = spare_part.current_stock
+            
+            # تحديث المخزون حسب نوع المعاملة
+            transaction_type = form.cleaned_data['transaction_type']
+            quantity = form.cleaned_data['quantity']
+            
+            if transaction_type == 'in':
+                spare_part.current_stock += quantity
+                messages.success(request, f'تم إضافة {quantity} قطعة للمخزون')
+            elif transaction_type == 'out':
+                if spare_part.current_stock >= quantity:
+                    spare_part.current_stock -= quantity
+                    messages.success(request, f'تم خصم {quantity} قطعة من المخزون')
+                else:
+                    messages.error(request, f'المخزون الحالي ({spare_part.current_stock}) غير كافي لخصم {quantity} قطعة')
+                    return render(request, 'maintenance/spare_part_transaction_form.html', {
+                        'form': form,
+                        'spare_part': spare_part,
+                        'title': 'إضافة حركة قطعة غيار'
+                    })
+            elif transaction_type == 'adjustment':
+                # تعديل المخزون إلى قيمة محددة
+                spare_part.current_stock = quantity
+                messages.success(request, f'تم تعديل المخزون إلى {quantity} قطعة')
+            elif transaction_type == 'return':
+                spare_part.current_stock += quantity
+                messages.success(request, f'تم إرجاع {quantity} قطعة للمخزون')
+            
+            # حفظ المخزون الجديد وحالة قطعة الغيار
+            transaction.stock_after = spare_part.current_stock
+            spare_part.update_status()  # تحديث الحالة بناءً على المخزون الجديد
+            spare_part.save()
+            
+            # حفظ المعاملة
+            transaction.save()
+            
+            if spare_part:
+                return redirect('maintenance:spare_parts:spare_part_detail', pk=spare_part.pk)
+            else:
+                return redirect('maintenance:spare_parts:spare_part_list')
     else:
-        # Placeholder form
-        form = None
+        form = SparePartTransactionForm(spare_part=spare_part)
     
     context = {
         'form': form,
@@ -485,6 +962,54 @@ def downtime_update(request, pk):
         'downtime': downtime,
     }
     return render(request, 'maintenance/downtime_form.html', context)
+
+
+@login_required
+def spare_part_transaction_list(request):
+    """عرض قائمة معاملات قطع الغيار"""
+    transactions = SparePartTransaction.objects.select_related(
+        'spare_part', 'created_by'
+    ).order_by('-transaction_date')
+    
+    # Filters
+    transaction_type = request.GET.get('transaction_type')
+    spare_part_id = request.GET.get('spare_part')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    
+    if transaction_type:
+        transactions = transactions.filter(transaction_type=transaction_type)
+    
+    if spare_part_id:
+        transactions = transactions.filter(spare_part_id=spare_part_id)
+    
+    if date_from:
+        transactions = transactions.filter(transaction_date__date__gte=date_from)
+    
+    if date_to:
+        transactions = transactions.filter(transaction_date__date__lte=date_to)
+    
+    # Pagination
+    paginator = Paginator(transactions, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get spare parts for filter dropdown
+    spare_parts = SparePart.objects.all().order_by('name')
+    
+    context = {
+        'page_obj': page_obj,
+        'spare_parts': spare_parts,
+        'title': 'معاملات المخزون',
+        'transaction_types': SparePartTransaction.TRANSACTION_TYPES,
+        'filters': {
+            'transaction_type': transaction_type,
+            'spare_part': spare_part_id,
+            'date_from': date_from,
+            'date_to': date_to,
+        }
+    }
+    return render(request, 'maintenance/spare_part_transaction_list.html', context)
 
 # =============== API Views ===============
 @login_required

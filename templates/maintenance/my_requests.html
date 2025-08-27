@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}طلباتي{% endblock %}
+
+{% block extra_css %}
+<style>
+    .request-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-left: 4px solid #007bff;
+    }
+    .request-card.pending {
+        border-left-color: #ffc107;
+    }
+    .request-card.approved {
+        border-left-color: #28a745;
+    }
+    .request-card.rejected {
+        border-left-color: #dc3545;
+    }
+    .request-card.fulfilled {
+        border-left-color: #17a2b8;
+    }
+    .request-card.cancelled {
+        border-left-color: #6c757d;
+    }
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .status-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .status-timeline::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 15px;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -25px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #28a745;
+    }
+    .timeline-item.pending::before {
+        background: #ffc107;
+    }
+    .timeline-item.rejected::before {
+        background: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="text-primary">
+                <i class="fas fa-user-clock"></i>
+                طلباتي
+            </h2>
+            <p class="text-muted">جميع طلبات قطع الغيار التي قدمتها</p>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'maintenance:spare_parts:request_spare_part' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                طلب جديد
+            </a>
+            <a href="{% url 'maintenance:spare_parts:inventory_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right"></i>
+                العودة
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-section">
+        <form method="get" class="row">
+            <div class="col-md-3">
+                <label for="status">الحالة:</label>
+                <select name="status" id="status" class="form-control">
+                    <option value="">جميع الحالات</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>في الانتظار</option>
+                    <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>موافق عليه</option>
+                    <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>مرفوض</option>
+                    <option value="fulfilled" {% if request.GET.status == 'fulfilled' %}selected{% endif %}>تم التنفيذ</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>ملغي</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="priority">الأولوية:</label>
+                <select name="priority" id="priority" class="form-control">
+                    <option value="">جميع الأولويات</option>
+                    <option value="high" {% if request.GET.priority == 'high' %}selected{% endif %}>عالية</option>
+                    <option value="medium" {% if request.GET.priority == 'medium' %}selected{% endif %}>متوسطة</option>
+                    <option value="low" {% if request.GET.priority == 'low' %}selected{% endif %}>منخفضة</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="search">البحث:</label>
+                <input type="text" name="search" id="search" class="form-control" 
+                       value="{{ request.GET.search }}" placeholder="اسم قطعة الغيار أو رقم الطلب">
+            </div>
+            <div class="col-md-3">
+                <label>&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        بحث
+                    </button>
+                    <a href="{% url 'maintenance:spare_parts:my_requests' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ summary.pending }}</h4>
+                            <p class="mb-0">في الانتظار</p>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ summary.approved }}</h4>
+                            <p class="mb-0">موافق عليه</p>
+                        </div>
+                        <i class="fas fa-check fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ summary.fulfilled }}</h4>
+                            <p class="mb-0">تم التنفيذ</p>
+                        </div>
+                        <i class="fas fa-shipping-fast fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ summary.rejected }}</h4>
+                            <p class="mb-0">مرفوض</p>
+                        </div>
+                        <i class="fas fa-times fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requests List -->
+    <div class="row">
+        {% for spare_request in requests %}
+        <div class="col-12">
+            <div class="request-card {{ spare_request.status }}">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cog text-primary"></i>
+                                {{ spare_request.spare_part.name }}
+                            </h5>
+                            <span class="badge badge-{{ spare_request.status }} badge-lg">
+                                {{ spare_request.get_status_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1">
+                                    <strong>رقم الطلب:</strong> {{ spare_request.request_number }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>تاريخ الطلب:</strong> {{ spare_request.created_date|date:"d/m/Y H:i" }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>الكمية المطلوبة:</strong> {{ spare_request.quantity_requested }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>الأولوية:</strong>
+                                    <span class="badge badge-{{ spare_request.priority }}">
+                                        {{ spare_request.get_priority_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                {% if spare_request.work_order %}
+                                <p class="mb-1">
+                                    <strong>أمر العمل:</strong> {{ spare_request.work_order.work_order_number }}
+                                </p>
+                                {% endif %}
+                                {% if spare_request.device %}
+                                <p class="mb-1">
+                                    <strong>الجهاز:</strong> {{ spare_request.device.name }}
+                                </p>
+                                {% endif %}
+                                {% if spare_request.quantity_approved %}
+                                <p class="mb-1">
+                                    <strong>الكمية المعتمدة:</strong> {{ spare_request.quantity_approved }}
+                                </p>
+                                {% endif %}
+                                {% if spare_request.approved_at %}
+                                <p class="mb-1">
+                                    <strong>تاريخ الموافقة:</strong> {{ spare_request.approved_at|date:"d/m/Y H:i" }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if spare_request.reason %}
+                        <div class="mt-2">
+                            <strong>السبب:</strong>
+                            <p class="text-muted mb-0">{{ spare_request.reason|truncatechars:100 }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <!-- Status Timeline -->
+                        <div class="status-timeline">
+                            <div class="timeline-item">
+                                <small class="text-muted">{{ spare_request.created_date|date:"d/m/Y H:i" }}</small>
+                                <p class="mb-0"><strong>تم تقديم الطلب</strong></p>
+                            </div>
+                            
+                            {% if spare_request.approved_at %}
+                            <div class="timeline-item">
+                                <small class="text-muted">{{ spare_request.approved_at|date:"d/m/Y H:i" }}</small>
+                                <p class="mb-0"><strong>تمت الموافقة</strong></p>
+                                <small class="text-muted">بواسطة: {{ spare_request.approved_by.get_full_name }}</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if spare_request.fulfilled_at %}
+                            <div class="timeline-item">
+                                <small class="text-muted">{{ spare_request.fulfilled_at|date:"d/m/Y H:i" }}</small>
+                                <p class="mb-0"><strong>تم التنفيذ</strong></p>
+                                <small class="text-muted">بواسطة: {{ spare_request.fulfilled_by.get_full_name }}</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if spare_request.status == 'rejected' %}
+                            <div class="timeline-item rejected">
+                                <small class="text-muted">{{ spare_request.updated_at|date:"d/m/Y H:i" }}</small>
+                                <p class="mb-0"><strong>تم الرفض</strong></p>
+                                {% if spare_request.rejection_reason %}
+                                <small class="text-muted">{{ spare_request.rejection_reason }}</small>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if spare_request.status == 'pending' %}
+                            <div class="timeline-item pending">
+                                <p class="mb-0"><strong>في انتظار الموافقة</strong></p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="mt-3">
+                            {% if spare_request.status == 'pending' %}
+                            <button type="button" class="btn btn-sm btn-danger" 
+                                    onclick="cancelRequest({{ spare_request.id }})">
+                                <i class="fas fa-times"></i>
+                                إلغاء الطلب
+                            </button>
+                            {% endif %}
+                            
+                            <button type="button" class="btn btn-sm btn-info" 
+                                    data-toggle="modal" data-target="#detailsModal{{ spare_request.id }}">
+                                <i class="fas fa-eye"></i>
+                                تفاصيل
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle"></i>
+                لم تقدم أي طلبات بعد.
+                <a href="{% url 'maintenance:spare_parts:request_spare_part' %}" class="btn btn-primary btn-sm ml-2">
+                    تقديم طلب جديد
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            السابق
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            التالي
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Cancel Request Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إلغاء الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="cancelForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟</p>
+                    <div class="form-group">
+                        <label for="cancellation_reason">سبب الإلغاء (اختياري):</label>
+                        <textarea name="cancellation_reason" id="cancellation_reason" 
+                                class="form-control" rows="3" 
+                                placeholder="اذكر سبب إلغاء الطلب"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">تراجع</button>
+                    <button type="submit" class="btn btn-danger">تأكيد الإلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function cancelRequest(requestId) {
+    $('#cancelForm').attr('action', '/maintenance/spare-parts/requests/' + requestId + '/cancel/');
+    $('#cancelModal').modal('show');
+}
+</script>
+{% endblock %}
