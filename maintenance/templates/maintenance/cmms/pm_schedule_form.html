@@ -11,8 +11,8 @@
         {% if schedule %}تعديل جدول صيانة{% else %}إضافة جدول صيانة جديد{% endif %}
     </h1>
     <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
-        <li class="breadcrumb-item"><a href="{% url 'pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'maintenance:cmms:pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
         <li class="breadcrumb-item active">
             {% if schedule %}تعديل جدول صيانة{% else %}إضافة جدول صيانة جديد{% endif %}
         </li>
@@ -112,11 +112,11 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label for="{{ form.assignee.id_for_label }}" class="form-label">الفني المسؤول</label>
-                            {{ form.assignee }}
-                            {% if form.assignee.errors %}
+                            <label for="{{ form.assigned_to.id_for_label }}" class="form-label">الفني المسؤول</label>
+                            {{ form.assigned_to }}
+                            {% if form.assigned_to.errors %}
                             <div class="text-danger">
-                                {{ form.assignee.errors }}
+                                {{ form.assigned_to.errors }}
                             </div>
                             {% endif %}
                             <small class="form-text text-muted">يمكن تعيين فني لاحقًا</small>
@@ -133,7 +133,7 @@
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'pm_schedule_list' %}" class="btn btn-secondary">
+                            <a href="{% url 'maintenance:cmms:pm_schedule_list' %}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> إلغاء
                             </a>
                             <button type="submit" class="btn btn-primary">
@@ -180,7 +180,7 @@
 <script>
     $(document).ready(function() {
         // Initialize select2 for dropdowns
-        $('#id_device, #id_job_plan, #id_assignee').select2({
+        $('#id_device, #id_job_plan, #id_assigned_to').select2({
             width: '100%'
         });
         

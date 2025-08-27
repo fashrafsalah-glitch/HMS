@@ -43,7 +43,7 @@ urlpatterns = [
 
     # تعديل وحذف الشركات
     path('company/edit/<int:pk>/', views.edit_company, name='edit_company'),
-    path('company/delete/<int:pk>/', views.delete_company, name='delete_company'),
+    path('company/delete/<int:pk>/', views.edit_company, name='delete_company'),
 
     # تعديل وحذف نوع الجهاز
     path('device-type/edit/<int:pk>/', views.edit_device_type, name='edit_device_type'),
@@ -99,6 +99,9 @@ urlpatterns = [
         
     # CMMS URLs
     path('cmms/', include('maintenance.urls_cmms', namespace='cmms')),
+    
+    # Dashboard URLs
+    path('dashboard/', include('maintenance.urls_dashboard', namespace='dashboard')),
     
     # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
     path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),

@@ -11,7 +11,7 @@
                 <div class="card-header">
                     <h3 class="card-title">معلومات قطعة الغيار</h3>
                     <div class="card-tools">
-                        <a href="{% url 'spare_parts:spare_part_update' spare_part.id %}" class="btn btn-warning btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:spare_part_update' spare_part.pk %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
                     </div>
@@ -32,40 +32,59 @@
                         <table class="table table-bordered">
                             <tbody>
                                 <tr>
-                                    <th style="width: 40%">الكمية الحالية</th>
+                                    <th style="width: 40%">المخزون الحالي</th>
                                     <td>
-                                        <span class="badge {% if spare_part.quantity <= spare_part.min_quantity %}badge-danger{% else %}badge-success{% endif %}">
-                                            {{ spare_part.quantity }} {{ spare_part.unit }}
+                                        <span class="badge badge-{% if spare_part.current_stock <= spare_part.minimum_stock %}danger{% elif spare_part.current_stock <= spare_part.minimum_stock|add:5 %}warning{% else %}success{% endif %}">
+                                            {{ spare_part.current_stock }} {{ spare_part.unit }}
                                         </span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>الحد الأدنى</th>
-                                    <td>{{ spare_part.min_quantity }} {{ spare_part.unit }}</td>
+                                    <td>{{ spare_part.minimum_stock }} {{ spare_part.unit }}</td>
                                 </tr>
                                 <tr>
-                                    <th>الموقع</th>
-                                    <td>{{ spare_part.location|default:"-" }}</td>
+                                    <th>الحد الأقصى</th>
+                                    <td>{{ spare_part.maximum_stock|default:"غير محدد" }} {{ spare_part.unit }}</td>
+                                </tr>
+                                <tr>
+                                    <th>موقع التخزين</th>
+                                    <td>{{ spare_part.storage_location|default:"غير محدد" }}</td>
                                 </tr>
                                 <tr>
                                     <th>التكلفة</th>
-                                    <td>{{ spare_part.cost|default:"-" }}</td>
+                                    <td>{{ spare_part.unit_cost|default:"غير محدد" }} ريال</td>
                                 </tr>
                                 <tr>
-                                    <th>المورد</th>
+                                    <th>المورد الأساسي</th>
                                     <td>
-                                        {% if spare_part.supplier %}
-                                        <a href="{% url 'spare_parts:supplier_detail' spare_part.supplier.id %}">
-                                            {{ spare_part.supplier.name }}
+                                        {% if spare_part.primary_supplier %}
+                                        <a href="{% url 'maintenance:spare_parts:supplier_detail' spare_part.primary_supplier.pk %}">
+                                            {{ spare_part.primary_supplier.name }}
                                         </a>
                                         {% else %}
-                                        -
+                                        <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>مدة التوريد</th>
-                                    <td>{{ spare_part.lead_time_days|default:"-" }} يوم</td>
+                                    <th>الحالة</th>
+                                    <td>
+                                        <span class="badge badge-{% if spare_part.status == 'available' %}success{% elif spare_part.status == 'low_stock' %}warning{% elif spare_part.status == 'out_of_stock' %}danger{% else %}secondary{% endif %}">
+                                            {{ spare_part.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>نوع القطعة</th>
+                                    <td>
+                                        {% if spare_part.is_critical %}
+                                            <span class="badge badge-danger">حرج</span>
+                                        {% endif %}
+                                        {% if spare_part.is_consumable %}
+                                            <span class="badge badge-info">مستهلك</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -78,105 +97,53 @@
                     </div>
                     {% endif %}
                     
-                    {% if spare_part.notes %}
+                    {% if spare_part.datasheet %}
                     <div class="mt-3">
-                        <h5>ملاحظات</h5>
-                        <p>{{ spare_part.notes }}</p>
-                    </div>
-                    {% endif %}
-                    
-                    {% if spare_part.datasheet_url %}
-                    <div class="mt-3">
-                        <a href="{{ spare_part.datasheet_url }}" target="_blank" class="btn btn-info btn-block">
+                        <a href="{{ spare_part.datasheet.url }}" target="_blank" class="btn btn-info btn-block">
                             <i class="fas fa-file-pdf"></i> عرض ورقة البيانات
                         </a>
                     </div>
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{% url 'spare_parts:spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-block">
+                    <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' spare_part.pk %}" class="btn btn-success btn-block">
                         <i class="fas fa-exchange-alt"></i> تسجيل حركة
                     </a>
-                </div>
-            </div>
-            
-            <!-- إحصائيات الاستخدام -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">إحصائيات الاستخدام</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="info-box bg-success">
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي الوارد</span>
-                                    <span class="info-box-number">{{ usage_stats.total_received }} {{ spare_part.unit }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="info-box bg-danger">
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي المنصرف</span>
-                                    <span class="info-box-number">{{ usage_stats.total_used }} {{ spare_part.unit }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-3">
-                        <p><strong>آخر استلام:</strong> 
-                            {% if usage_stats.last_received %}
-                            {{ usage_stats.last_received.transaction_date|date:"Y-m-d" }} 
-                            ({{ usage_stats.last_received.quantity }} {{ spare_part.unit }})
-                            {% else %}
-                            لا يوجد
-                            {% endif %}
-                        </p>
-                        <p><strong>آخر صرف:</strong> 
-                            {% if usage_stats.last_used %}
-                            {{ usage_stats.last_used.transaction_date|date:"Y-m-d" }} 
-                            ({{ usage_stats.last_used.quantity }} {{ spare_part.unit }})
-                            {% else %}
-                            لا يوجد
-                            {% endif %}
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
         
         <div class="col-md-8">
-            <!-- الأجهزة المتوافقة -->
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">الأجهزة المتوافقة</h3>
                 </div>
                 <div class="card-body">
-                    {% if compatible_devices %}
+                    {% if spare_part.compatible_devices.all %}
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
+                        <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th>اسم الجهاز</th>
-                                    <th>الموديل</th>
-                                    <th>الرقم التسلسلي</th>
+                                    <th>النوع</th>
                                     <th>القسم</th>
-                                    <th>الإجراءات</th>
+                                    <th>الحالة</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for device in compatible_devices %}
+                                {% for device in spare_part.compatible_devices.all %}
                                 <tr>
-                                    <td>{{ device.name }}</td>
-                                    <td>{{ device.model }}</td>
-                                    <td>{{ device.serial_number }}</td>
+                                    <td>
+                                        <a href="{% url 'maintenance:device_detail' device.pk %}">
+                                            {{ device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ device.device_type.name|default:"غير محدد" }}</td>
                                     <td>{{ device.department.name }}</td>
                                     <td>
-                                        <a href="{% url 'device_detail' device.id %}" class="btn btn-info btn-sm">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
+                                        <span class="badge badge-{% if device.status == 'working' %}success{% elif device.status == 'needs_maintenance' %}warning{% else %}danger{% endif %}">
+                                            {{ device.get_status_display }}
+                                        </span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -184,50 +151,39 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-center">لا توجد أجهزة متوافقة</p>
+                    <p class="text-muted text-center">لا توجد أجهزة متوافقة محددة</p>
                     {% endif %}
                 </div>
             </div>
             
-            <!-- سجل الحركات -->
-            <div class="card">
+            <div class="card mt-3">
                 <div class="card-header">
-                    <h3 class="card-title">سجل الحركات</h3>
+                    <h3 class="card-title">سجل الحركة</h3>
                 </div>
                 <div class="card-body">
                     {% if transactions %}
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
+                        <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th>التاريخ</th>
-                                    <th>نوع الحركة</th>
+                                    <th>النوع</th>
                                     <th>الكمية</th>
-                                    <th>أمر العمل</th>
-                                    <th>المستخدم</th>
+                                    <th>المرجع</th>
                                     <th>ملاحظات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for transaction in transactions %}
                                 <tr>
-                                    <td>{{ transaction.transaction_date|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ transaction.created_at|date:"Y-m-d H:i" }}</td>
                                     <td>
-                                        <span class="badge {% if transaction.transaction_type == 'IN' %}badge-success{% else %}badge-danger{% endif %}">
-                                            {% if transaction.transaction_type == 'IN' %}وارد{% else %}منصرف{% endif %}
+                                        <span class="badge badge-{% if transaction.transaction_type == 'in' %}success{% elif transaction.transaction_type == 'out' %}danger{% else %}info{% endif %}">
+                                            {{ transaction.get_transaction_type_display }}
                                         </span>
                                     </td>
-                                    <td>{{ transaction.quantity }} {{ spare_part.unit }}</td>
-                                    <td>
-                                        {% if transaction.work_order %}
-                                        <a href="{% url 'work_order_detail' transaction.work_order.id %}">
-                                            {{ transaction.work_order.wo_number }}
-                                        </a>
-                                        {% else %}
-                                        -
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ transaction.created_by.get_full_name }}</td>
+                                    <td>{{ transaction.quantity }}</td>
+                                    <td>{{ transaction.reference_number|default:"-" }}</td>
                                     <td>{{ transaction.notes|default:"-" }}</td>
                                 </tr>
                                 {% endfor %}
@@ -235,8 +191,42 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-center">لا توجد حركات مسجلة</p>
+                    <p class="text-muted text-center">لا توجد حركات مسجلة</p>
                     {% endif %}
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">إحصائيات الاستخدام</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ usage_stats.total_used|default:0 }}</h4>
+                                <p class="text-muted">إجمالي المستخدم</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ usage_stats.total_received|default:0 }}</h4>
+                                <p class="text-muted">إجمالي المستلم</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">{{ usage_stats.last_used|default:"-" }}</h4>
+                                <p class="text-muted">آخر استخدام</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ usage_stats.last_received|default:"-" }}</h4>
+                                <p class="text-muted">آخر استلام</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

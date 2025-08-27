@@ -29,23 +29,23 @@ urlpatterns = [
     # path('purchase-orders/<int:pk>/receive/', views_spare_parts.purchase_order_receive_items, name='purchase_order_receive_items'),
     # path('purchase-orders/<int:pk>/print/', views_spare_parts.purchase_order_print, name='purchase_order_print'),
     
-    # Calibration URLs - Temporarily disabled until models are created
-    # path('calibrations/', views_spare_parts.calibration_list, name='calibration_list'),
-    # path('calibrations/<int:pk>/', views_spare_parts.calibration_detail, name='calibration_detail'),
-    # path('calibrations/create/', views_spare_parts.calibration_create, name='calibration_create'),
-    # path('devices/<int:device_id>/calibrations/create/', views_spare_parts.calibration_create, name='calibration_create_for_device'),
-    # path('calibrations/<int:pk>/update/', views_spare_parts.calibration_update, name='calibration_update'),
+    # Calibration URLs - مفعلة الآن
+    path('calibrations/', views_spare_parts.calibration_list, name='calibration_list'),
+    path('calibrations/<int:pk>/', views_spare_parts.calibration_detail, name='calibration_detail'),
+    path('calibrations/create/', views_spare_parts.calibration_create, name='calibration_create'),
+    path('devices/<int:device_id>/calibrations/create/', views_spare_parts.calibration_create, name='calibration_create_for_device'),
+    path('calibrations/<int:pk>/update/', views_spare_parts.calibration_update, name='calibration_update'),
     
-    # Downtime URLs - Temporarily disabled until models are created
-    # path('downtimes/', views_spare_parts.downtime_list, name='downtime_list'),
-    # path('downtimes/<int:pk>/', views_spare_parts.downtime_detail, name='downtime_detail'),
-    # path('downtimes/create/', views_spare_parts.downtime_create, name='downtime_create'),
-    # path('devices/<int:device_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_device'),
-    # path('work-orders/<int:work_order_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_work_order'),
-    # path('downtimes/<int:pk>/update/', views_spare_parts.downtime_update, name='downtime_update'),
+    # Downtime URLs - مفعلة الآن
+    path('downtimes/', views_spare_parts.downtime_list, name='downtime_list'),
+    path('downtimes/<int:pk>/', views_spare_parts.downtime_detail, name='downtime_detail'),
+    path('downtimes/create/', views_spare_parts.downtime_create, name='downtime_create'),
+    path('devices/<int:device_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_device'),
+    path('work-orders/<int:work_order_id>/downtimes/create/', views_spare_parts.downtime_create, name='downtime_create_for_work_order'),
+    path('downtimes/<int:pk>/update/', views_spare_parts.downtime_update, name='downtime_update'),
     
-    # API URLs - Temporarily disabled until models are created
-    # path('api/spare-parts/low-stock/', views_spare_parts.api_spare_parts_low_stock, name='api_spare_parts_low_stock'),
-    # path('api/calibrations/due/', views_spare_parts.api_calibrations_due, name='api_calibrations_due'),
-    # path('api/devices/<int:device_id>/downtime-stats/', views_spare_parts.api_device_downtime_stats, name='api_device_downtime_stats'),
+    # API URLs - مفعلة الآن
+    path('api/spare-parts/low-stock/', views_spare_parts.api_spare_parts_low_stock, name='api_spare_parts_low_stock'),
+    path('api/calibrations/due/', views_spare_parts.api_calibrations_due, name='api_calibrations_due'),
+    path('api/devices/<int:device_id>/downtime-stats/', views_spare_parts.api_device_downtime_stats, name='api_device_downtime_stats'),
 ]

@@ -11,7 +11,7 @@
                 <div class="card-header">
                     <h3 class="card-title">قائمة المعايرات</h3>
                     <div class="card-tools">
-                        <a href="{% url 'calibration_create' %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:calibration_create' %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus"></i> إضافة معايرة جديدة
                         </a>
                     </div>
@@ -22,28 +22,29 @@
                         <div class="col-md-12">
                             <form method="get" class="form-inline">
                                 <div class="input-group mr-2">
-                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ search_query }}">
                                 </div>
                                 <div class="input-group mr-2">
                                     <select name="status" class="form-control">
                                         <option value="">-- الحالة --</option>
-                                        <option value="PASS" {% if request.GET.status == 'PASS' %}selected{% endif %}>ناجح</option>
-                                        <option value="FAIL" {% if request.GET.status == 'FAIL' %}selected{% endif %}>راسب</option>
-                                        <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>معلق</option>
+                                        {% for status_choice in status_choices %}
+                                        <option value="{{ status_choice.0 }}" {% if selected_status == status_choice.0 %}selected{% endif %}>
+                                            {{ status_choice.1 }}
+                                        </option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="input-group mr-2">
-                                    <select name="due_filter" class="form-control">
+                                    <select name="due" class="form-control">
                                         <option value="">-- تاريخ الاستحقاق --</option>
-                                        <option value="overdue" {% if request.GET.due_filter == 'overdue' %}selected{% endif %}>متأخر</option>
-                                        <option value="due_soon" {% if request.GET.due_filter == 'due_soon' %}selected{% endif %}>قريب (30 يوم)</option>
-                                        <option value="future" {% if request.GET.due_filter == 'future' %}selected{% endif %}>مستقبلي</option>
+                                        <option value="overdue" {% if due_filter == 'overdue' %}selected{% endif %}>متأخر</option>
+                                        <option value="upcoming" {% if due_filter == 'upcoming' %}selected{% endif %}>قريب (30 يوم)</option>
                                     </select>
                                 </div>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-search"></i> بحث
                                 </button>
-                                <a href="{% url 'calibration_list' %}" class="btn btn-secondary ml-2">
+                                <a href="{% url 'maintenance:spare_parts:calibration_list' %}" class="btn btn-secondary ml-2">
                                     <i class="fas fa-sync"></i> إعادة تعيين
                                 </a>
                             </form>
@@ -51,63 +52,98 @@
                     </div>
                     
                     <!-- جدول المعايرات -->
-                    {% if calibrations %}
+                    {% if page_obj %}
                     <div class="table-responsive">
                         <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
-                                    <th>الجهاز</th>
-                                    <th>تاريخ المعايرة</th>
-                                    <th>تاريخ الاستحقاق التالي</th>
-                                    <th>الحالة</th>
+                                    <th>
+                                        <a href="?{% if 'device__name' in sort_by %}sort_by=-device__name{% else %}sort_by=device__name{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}">
+                                            الجهاز
+                                            {% if sort_by == 'device__name' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-device__name' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'calibration_date' in sort_by %}sort_by=-calibration_date{% else %}sort_by=calibration_date{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}">
+                                            تاريخ المعايرة
+                                            {% if sort_by == 'calibration_date' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-calibration_date' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'next_calibration_date' in sort_by %}sort_by=-next_calibration_date{% else %}sort_by=next_calibration_date{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}">
+                                            تاريخ الاستحقاق التالي
+                                            {% if sort_by == 'next_calibration_date' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-next_calibration_date' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'status' in sort_by %}sort_by=-status{% else %}sort_by=status{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}">
+                                            الحالة
+                                            {% if sort_by == 'status' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-status' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
                                     <th>رقم الشهادة</th>
-                                    <th>تم بواسطة</th>
+                                    <th>جهة المعايرة</th>
+                                    <th>التكلفة</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for calibration in calibrations %}
+                                {% for calibration in page_obj %}
                                 <tr>
                                     <td>
-                                        <a href="{% url 'device_detail' calibration.device.id %}">
+                                        <a href="{% url 'maintenance:device_detail' calibration.device.pk %}">
                                             {{ calibration.device.name }}
                                         </a>
                                     </td>
-                                    <td>{{ calibration.calibration_date|date:"Y-m-d" }}</td>
                                     <td>
-                                        {% if calibration.is_overdue %}
-                                        <span class="badge badge-danger">{{ calibration.next_due_date|date:"Y-m-d" }} (متأخر)</span>
-                                        {% elif calibration.is_due_soon %}
-                                        <span class="badge badge-warning">{{ calibration.next_due_date|date:"Y-m-d" }} (قريب)</span>
+                                        {% if calibration.calibration_date %}
+                                            {{ calibration.calibration_date|date:"Y-m-d" }}
                                         {% else %}
-                                        <span class="badge badge-success">{{ calibration.next_due_date|date:"Y-m-d" }}</span>
+                                            <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if calibration.status == 'PASS' %}
-                                        <span class="badge badge-success">ناجح</span>
-                                        {% elif calibration.status == 'FAIL' %}
-                                        <span class="badge badge-danger">راسب</span>
+                                        {% if calibration.next_calibration_date %}
+                                            {% if calibration.is_overdue %}
+                                            <span class="badge badge-danger">{{ calibration.next_calibration_date|date:"Y-m-d" }} (متأخر)</span>
+                                            {% elif calibration.is_due_soon %}
+                                            <span class="badge badge-warning">{{ calibration.next_calibration_date|date:"Y-m-d" }} (قريب)</span>
+                                            {% else %}
+                                            <span class="badge badge-success">{{ calibration.next_calibration_date|date:"Y-m-d" }}</span>
+                                            {% endif %}
                                         {% else %}
-                                        <span class="badge badge-warning">معلق</span>
+                                            <span class="text-muted">غير محدد</span>
                                         {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{% if calibration.status == 'completed' %}success{% elif calibration.status == 'due' %}warning{% elif calibration.status == 'overdue' %}danger{% else %}secondary{% endif %}">
+                                            {{ calibration.get_status_display }}
+                                        </span>
                                     </td>
                                     <td>{{ calibration.certificate_number|default:"-" }}</td>
-                                    <td>{{ calibration.performed_by }}</td>
+                                    <td>{{ calibration.calibration_agency|default:"-" }}</td>
+                                    <td>
+                                        {% if calibration.cost %}
+                                            {{ calibration.cost }} ريال
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         <div class="btn-group">
-                                            <a href="{% url 'calibration_detail' calibration.id %}" class="btn btn-info btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:calibration_detail' calibration.pk %}" class="btn btn-info btn-sm">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{% url 'calibration_update' calibration.id %}" class="btn btn-primary btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:calibration_update' calibration.pk %}" class="btn btn-warning btn-sm">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            {% if calibration.certificate_file %}
-                                            <a href="{{ calibration.certificate_file.url }}" target="_blank" class="btn btn-secondary btn-sm">
-                                                <i class="fas fa-file-pdf"></i>
-                                            </a>
-                                            {% endif %}
                                         </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">
+                                        لا توجد معايرات مسجلة
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -116,7 +152,51 @@
                     </div>
                     
                     <!-- ترقيم الصفحات -->
-                    {% include 'pagination.html' with page_obj=page_obj %}
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="تصفح المعايرات">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if due_filter %}&due={{ due_filter }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
                     {% else %}
                     <div class="alert alert-info text-center">
                         لا توجد معايرات مسجلة تطابق معايير البحث
@@ -128,7 +208,7 @@
     </div>
     
     <!-- إحصائيات المعايرة -->
-    <div class="row">
+    <div class="row mt-3">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
@@ -137,58 +217,27 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-3">
-                            <div class="info-box bg-danger">
-                                <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">متأخرة</span>
-                                    <span class="info-box-number">{{ stats.overdue_count }}</span>
-                                    <div class="progress">
-                                        <div class="progress-bar" style="width: {{ stats.overdue_percentage }}%"></div>
-                                    </div>
-                                    <span class="progress-description">{{ stats.overdue_percentage }}% من إجمالي المعايرات</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ page_obj.paginator.count|default:0 }}</h4>
+                                <p class="text-muted">إجمالي المعايرات</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-warning">
-                                <span class="info-box-icon"><i class="fas fa-clock"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">قريبة (30 يوم)</span>
-                                    <span class="info-box-number">{{ stats.due_soon_count }}</span>
-                                    <div class="progress">
-                                        <div class="progress-bar" style="width: {{ stats.due_soon_percentage }}%"></div>
-                                    </div>
-                                    <span class="progress-description">{{ stats.due_soon_percentage }}% من إجمالي المعايرات</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-success">{{ page_obj|length }}</h4>
+                                <p class="text-muted">المعايرات المكتملة</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-success">
-                                <span class="info-box-icon"><i class="fas fa-check"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">ناجحة</span>
-                                    <span class="info-box-number">{{ stats.pass_count }}</span>
-                                    <div class="progress">
-                                        <div class="progress-bar" style="width: {{ stats.pass_percentage }}%"></div>
-                                    </div>
-                                    <span class="progress-description">{{ stats.pass_percentage }}% من إجمالي المعايرات</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ page_obj|length }}</h4>
+                                <p class="text-muted">المعايرات المستحقة</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-info">
-                                <span class="info-box-icon"><i class="fas fa-calendar-check"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي المعايرات</span>
-                                    <span class="info-box-number">{{ stats.total_count }}</span>
-                                    <div class="progress">
-                                        <div class="progress-bar" style="width: 100%"></div>
-                                    </div>
-                                    <span class="progress-description">في النظام</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-danger">{{ page_obj|length }}</h4>
+                                <p class="text-muted">المعايرات المتأخرة</p>
                             </div>
                         </div>
                     </div>

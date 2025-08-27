@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إضافة SLA جديد{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-plus"></i>
+                        إضافة SLA جديد
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.name.id_for_label }}">اسم SLA:</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.name.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">مثال: عاجل، قياسي، منخفض الأولوية</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.description.id_for_label }}">الوصف:</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.response_time.id_for_label }}">وقت الاستجابة (ساعة):</label>
+                                {{ form.response_time }}
+                                {% if form.response_time.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.response_time.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">الوقت المستهدف للاستجابة الأولية</small>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.resolution_time.id_for_label }}">وقت الحل (ساعة):</label>
+                                {{ form.resolution_time }}
+                                {% if form.resolution_time.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.resolution_time.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">الوقت المستهدف لحل المشكلة</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                إضافة SLA
+                            </button>
+                            <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-apply form-control class to form inputs
+    const inputs = document.querySelectorAll('input, select, textarea');
+    inputs.forEach(function(input) {
+        if (!input.classList.contains('btn')) {
+            input.classList.add('form-control');
+        }
+    });
+});
+</script>
+{% endblock %}

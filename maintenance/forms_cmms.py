@@ -197,7 +197,7 @@ class PMScheduleForm(forms.ModelForm):
     
     class Meta:
         model = PreventiveMaintenanceSchedule
-        fields = ['name', 'description', 'device', 'job_plan', 'frequency', 'interval_days', 'start_date', 'end_date']
+        fields = ['name', 'description', 'device', 'job_plan', 'frequency', 'interval_days', 'start_date', 'end_date', 'assigned_to']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
@@ -218,7 +218,7 @@ class PMScheduleForm(forms.ModelForm):
         
         # تحديد الفنيين المتاحين للتعيين
         technicians = User.objects.filter(groups__name='Technician')
-        self.fields['assignee'].queryset = technicians
+        self.fields['assigned_to'].queryset = technicians
         
         # إخفاء حقول معينة حسب التكرار المختار
         instance = kwargs.get('instance')

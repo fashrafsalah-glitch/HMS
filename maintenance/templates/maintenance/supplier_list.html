@@ -22,7 +22,7 @@
                         <div class="col-md-12">
                             <form method="get" class="form-inline">
                                 <div class="input-group mr-2">
-                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+                                    <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ search_query }}">
                                 </div>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-search"></i> بحث
@@ -35,38 +35,105 @@
                     </div>
                     
                     <!-- جدول الموردين -->
-                    {% if suppliers %}
+                    {% if page_obj %}
                     <div class="table-responsive">
                         <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
-                                    <th>الاسم</th>
-                                    <th>جهة الاتصال</th>
-                                    <th>البريد الإلكتروني</th>
-                                    <th>رقم الهاتف</th>
+                                    <th>
+                                        <a href="?{% if 'name' in sort_by %}sort_by=-name{% else %}sort_by=name{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            الاسم
+                                            {% if sort_by == 'name' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-name' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'contact_person' in sort_by %}sort_by=-contact_person{% else %}sort_by=contact_person{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            جهة الاتصال
+                                            {% if sort_by == 'contact_person' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-contact_person' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'email' in sort_by %}sort_by=-email{% else %}sort_by=email{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            البريد الإلكتروني
+                                            {% if sort_by == 'email' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-email' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% if 'phone' in sort_by %}sort_by=-phone{% else %}sort_by=phone{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            رقم الهاتف
+                                            {% if sort_by == 'phone' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-phone' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        </a>
+                                    </th>
                                     <th>العنوان</th>
+                                    <th>الحالة</th>
+                                    <th>التقييم</th>
                                     <th>عدد قطع الغيار</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for supplier in suppliers %}
+                                {% for supplier in page_obj %}
                                 <tr>
-                                    <td>{{ supplier.name }}</td>
+                                    <td>
+                                        <a href="{% url 'maintenance:spare_parts:supplier_detail' supplier.pk %}">
+                                            {{ supplier.name }}
+                                        </a>
+                                    </td>
                                     <td>{{ supplier.contact_person|default:"-" }}</td>
-                                    <td>{{ supplier.email|default:"-" }}</td>
-                                    <td>{{ supplier.phone|default:"-" }}</td>
-                                    <td>{{ supplier.address|default:"-" }}</td>
-                                    <td>{{ supplier.sparepart_set.count }}</td>
+                                    <td>
+                                        {% if supplier.email %}
+                                            <a href="mailto:{{ supplier.email }}">{{ supplier.email }}</a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if supplier.phone %}
+                                            <a href="tel:{{ supplier.phone }}">{{ supplier.phone }}</a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if supplier.address %}
+                                            {{ supplier.address }}
+                                            {% if supplier.city %}, {{ supplier.city }}{% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{% if supplier.status == 'active' %}success{% elif supplier.status == 'inactive' %}secondary{% else %}warning{% endif %}">
+                                            {{ supplier.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if supplier.rating %}
+                                            <div class="text-warning">
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= supplier.rating %}
+                                                        <i class="fas fa-star"></i>
+                                                    {% else %}
+                                                        <i class="far fa-star"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-info">{{ supplier.primary_parts.count }}</span>
+                                    </td>
                                     <td>
                                         <div class="btn-group">
-                                            <a href="{% url 'maintenance:spare_parts:supplier_detail' supplier.id %}" class="btn btn-info btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:supplier_detail' supplier.pk %}" class="btn btn-info btn-sm">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{% url 'maintenance:spare_parts:supplier_update' supplier.id %}" class="btn btn-warning btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:supplier_update' supplier.pk %}" class="btn btn-warning btn-sm">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="{% url 'maintenance:spare_parts:spare_part_list' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_list' %}?supplier={{ supplier.pk }}" class="btn btn-success btn-sm">
                                                 <i class="fas fa-tools"></i>
                                             </a>
                                         </div>
@@ -78,7 +145,51 @@
                     </div>
                     
                     <!-- ترقيم الصفحات -->
-                    {% include 'pagination.html' with page_obj=page_obj %}
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="تصفح الموردين">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
                     {% else %}
                     <div class="alert alert-info text-center">
                         لا يوجد موردين مسجلين تطابق معايير البحث
@@ -99,42 +210,27 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-3">
-                            <div class="info-box bg-info">
-                                <span class="info-box-icon"><i class="fas fa-building"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي الموردين</span>
-                                    <span class="info-box-number">{{ stats.total_suppliers }}</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ page_obj.paginator.count|default:0 }}</h4>
+                                <p class="text-muted">إجمالي الموردين</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-success">
-                                <span class="info-box-icon"><i class="fas fa-tools"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي قطع الغيار</span>
-                                    <span class="info-box-number">{{ stats.total_parts }}</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-success">{{ page_obj|length }}</h4>
+                                <p class="text-muted">الموردين النشطين</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-warning">
-                                <span class="info-box-icon"><i class="fas fa-shopping-cart"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">إجمالي أوامر الشراء</span>
-                                    <span class="info-box-number">{{ stats.total_purchase_orders }}</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-info">{{ page_obj|length }}</h4>
+                                <p class="text-muted">الموردين المميزين</p>
                             </div>
                         </div>
-                        
                         <div class="col-md-3">
-                            <div class="info-box bg-danger">
-                                <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">قطع غيار منخفضة المخزون</span>
-                                    <span class="info-box-number">{{ stats.low_stock_parts }}</span>
-                                </div>
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ page_obj|length }}</h4>
+                                <p class="text-muted">الموردين الجدد</p>
                             </div>
                         </div>
                     </div>

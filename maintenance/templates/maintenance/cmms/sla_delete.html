@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}حذف SLA - {{ sla.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        تأكيد حذف SLA
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>تحذير:</strong> هذا الإجراء لا يمكن التراجع عنه!
+                    </div>
+                    
+                    <p class="mb-3">هل أنت متأكد من حذف اتفاقية مستوى الخدمة التالية؟</p>
+                    
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ sla.name }}</h5>
+                            <p class="card-text">{{ sla.description }}</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>وقت الاستجابة:</strong> {{ sla.response_time }} ساعة
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>وقت الحل:</strong> {{ sla.resolution_time }} ساعة
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" class="mt-3">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> 
+                                نعم، احذف SLA
+                            </button>
+                            <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

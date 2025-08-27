@@ -1,3 +1,19 @@
+"""
+ملف views_accessory.py - إدارة ملحقات الأجهزة الطبية
+
+هذا الملف بيحتوي على كل الـ views اللي بتتعامل مع ملحقات الأجهزة في النظام:
+- عرض قائمة الملحقات
+- إضافة ملحق جديد
+- تعديل الملحقات الموجودة
+- حذف الملحقات
+- مسح الباركود للملحقات
+- طلبات نقل الملحقات
+- الموافقة على النقل
+- سجل النقل
+
+الملف بيستخدم نظام QR codes لتتبع الملحقات وبيحافظ على سجل كامل لجميع العمليات
+"""
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.http import JsonResponse
@@ -14,18 +30,23 @@ from .forms import DeviceAccessoryForm, AccessoryTransactionForm, AccessoryScanF
 
 
 class DeviceAccessoryListView(LoginRequiredMixin, ListView):
+    """
+    عرض قائمة ملحقات الجهاز - كل الملحقات بتاع جهاز معين أو كل الملحقات
+    """
     model = DeviceAccessory
     template_name = 'maintenance/accessory_list.html'
     context_object_name = 'accessories'
-    paginate_by = 20
+    paginate_by = 20  # عدد الملحقات في الصفحة الواحدة
 
     def get_queryset(self):
+        """جيب الملحقات - إما بتاع جهاز معين أو كل الملحقات"""
         device_id = self.kwargs.get('device_id')
         if device_id:
             return DeviceAccessory.objects.filter(device_id=device_id)
         return DeviceAccessory.objects.all()
 
     def get_context_data(self, **kwargs):
+        """أضف معلومات الجهاز للـ context عشان نعرف إيه الجهاز اللي بنشوف ملحقاته"""
         context = super().get_context_data(**kwargs)
         device_id = self.kwargs.get('device_id')
         if device_id:
@@ -34,60 +55,85 @@ class DeviceAccessoryListView(LoginRequiredMixin, ListView):
 
 
 class DeviceAccessoryCreateView(LoginRequiredMixin, CreateView):
+    """
+    إضافة ملحق جديد لجهاز معين
+    """
     model = DeviceAccessory
     form_class = DeviceAccessoryForm
     template_name = 'maintenance/accessory_form.html'
 
     def get_context_data(self, **kwargs):
+        """أضف معلومات الجهاز للـ context"""
         context = super().get_context_data(**kwargs)
         device_id = self.kwargs.get('device_id')
         context['device'] = get_object_or_404(Device, id=device_id)
         return context
 
     def form_valid(self, form):
+        """لما النموذج يكون صحيح، ربط الملحق بالجهاز"""
         device_id = self.kwargs.get('device_id')
         form.instance.device = get_object_or_404(Device, id=device_id)
         messages.success(self.request, 'تم إضافة الملحق بنجاح')
         return super().form_valid(form)
 
     def get_success_url(self):
+        """رجع لصفحة ملحقات الجهاز بعد الإضافة"""
         return reverse('maintenance:device_accessories', kwargs={'device_id': self.object.device.id})
 
 
 class DeviceAccessoryUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    تعديل ملحق موجود
+    """
     model = DeviceAccessory
     form_class = DeviceAccessoryForm
     template_name = 'maintenance/accessory_form.html'
 
     def get_context_data(self, **kwargs):
+        """أضف معلومات الجهاز للـ context عشان النموذج يعرف إيه الجهاز"""
         context = super().get_context_data(**kwargs)
-        # Ensure 'device' is available in the template context for URL reversing and titles
+        # تأكد إن 'device' متاح في الـ template context للـ URL reversing والعناوين
         context['device'] = self.object.device
         return context
 
     def form_valid(self, form):
+        """لما النموذج يكون صحيح، اعرض رسالة نجاح"""
         messages.success(self.request, 'تم تحديث الملحق بنجاح')
         return super().form_valid(form)
 
     def get_success_url(self):
+        """رجع لصفحة ملحقات الجهاز بعد التعديل"""
         return reverse('maintenance:device_accessories', kwargs={'device_id': self.object.device.id})
 
 
 class DeviceAccessoryDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    حذف ملحق من الجهاز
+    """
     model = DeviceAccessory
     template_name = 'maintenance/accessory_confirm_delete.html'
 
     def get_success_url(self):
+        """رجع لصفحة ملحقات الجهاز بعد الحذف"""
         return reverse('maintenance:device_accessories', kwargs={'device_id': self.object.device.id})
 
     def delete(self, request, *args, **kwargs):
+        """اعرض رسالة نجاح لما يتم الحذف"""
         messages.success(self.request, 'تم حذف الملحق بنجاح')
         return super().delete(request, *args, **kwargs)
 
 
 @login_required
 def accessory_scan_page(request, device_id):
-    """Page for scanning accessory barcodes"""
+    """
+    صفحة مسح الباركود للملحقات - بتسمح للمستخدمين بمسح QR codes للملحقات
+    
+    الوظائف:
+    - مسح باركود الملحق
+    - تسجيل نوع العملية (تسليم، إرجاع، صيانة)
+    - تحديث حالة الملحق
+    - عرض العمليات الحديثة
+    """
     device = get_object_or_404(Device, id=device_id)
     
     if request.method == 'POST':
@@ -97,16 +143,17 @@ def accessory_scan_page(request, device_id):
             transaction_type = form.cleaned_data['transaction_type']
             notes = form.cleaned_data['notes']
             
-            # Try to find accessory by QR token or barcode
+            # حاول تلاقي الملحق بالـ QR token أو الباركود
             try:
                 if barcode.startswith('accessory:'):
+                    # لو الباركود بيبدأ بـ accessory: استخرج الـ ID
                     accessory_id = barcode.split(':')[1]
                     accessory = DeviceAccessory.objects.get(id=accessory_id, device=device)
                 else:
-                    # Try to find by qr_token field
+                    # حاول تلاقي بالـ qr_token field
                     accessory = DeviceAccessory.objects.get(qr_token=barcode, device=device)
                 
-                # Create transaction
+                # أنشئ عملية جديدة
                 AccessoryTransaction.objects.create(
                     accessory=accessory,
                     transaction_type=transaction_type,
@@ -117,13 +164,13 @@ def accessory_scan_page(request, device_id):
                     confirmed_at=timezone.now()
                 )
                 
-                # Update accessory status based on transaction type
+                # حدث حالة الملحق حسب نوع العملية
                 if transaction_type == 'handover':
-                    accessory.status = 'in_use'
+                    accessory.status = 'in_use'  # قيد الاستخدام
                 elif transaction_type == 'return':
-                    accessory.status = 'available'
+                    accessory.status = 'available'  # متاح
                 elif transaction_type == 'maintenance':
-                    accessory.status = 'maintenance'
+                    accessory.status = 'maintenance'  # في الصيانة
                 
                 accessory.save()
                 
@@ -137,7 +184,7 @@ def accessory_scan_page(request, device_id):
     else:
         form = AccessoryScanForm()
     
-    # Get recent transactions for this device's accessories
+    # جيب العمليات الحديثة لملحقات هذا الجهاز
     recent_transactions = AccessoryTransaction.objects.filter(
         accessory__device=device
     ).order_by('-created_at')[:10]
@@ -153,10 +200,14 @@ def accessory_scan_page(request, device_id):
 @login_required
 @require_POST
 def verify_device_accessories(request, device_id):
-    """API endpoint to verify all device accessories are available for transfer"""
+    """
+    API endpoint للتحقق من إن جميع ملحقات الجهاز متاحة للنقل
+    
+    الوظيفة: بتتحقق من إن كل الملحقات في حالة 'متاح' قبل ما يتم نقل الجهاز
+    """
     device = get_object_or_404(Device, id=device_id)
     
-    # Get all accessories for this device
+    # جيب كل الملحقات بتاعة هذا الجهاز
     accessories = device.accessories.all()
     missing_accessories = []
     
@@ -184,7 +235,9 @@ def verify_device_accessories(request, device_id):
 
 @login_required
 def accessory_detail(request, pk):
-    """Detail view for a specific accessory"""
+    """
+    عرض تفاصيل ملحق معين مع سجل العمليات بتاعه
+    """
     accessory = get_object_or_404(DeviceAccessory, id=pk)
     transactions = accessory.transactions.order_by('-created_at')
     
@@ -197,9 +250,13 @@ def accessory_detail(request, pk):
 
 @login_required
 def accessory_qr_print(request, pk):
-    """Generate QR code for printing accessory labels"""
+    """
+    توليد QR code لطباعة ملصقات الملحقات
+    
+    الوظيفة: بتتأكد من وجود QR token وصورة، وتولدهم لو مش موجودين
+    """
     accessory = get_object_or_404(DeviceAccessory, id=pk)
-    # Ensure QR token and image exist
+    # تأكد من وجود QR token والصورة
     if not accessory.qr_token:
         accessory.qr_token = accessory.generate_qr_token()
     if not accessory.qr_code:
@@ -215,7 +272,11 @@ def accessory_qr_print(request, pk):
 
 @login_required
 def transfer_accessory(request, pk):
-    """Request transfer of accessory to another device/department"""
+    """
+    طلب نقل ملحق لجهاز/قسم تاني
+    
+    الوظيفة: بتسمح للمستخدمين بطلب نقل ملحق من مكان لآخر
+    """
     accessory = get_object_or_404(DeviceAccessory, id=pk)
     
     if request.method == 'POST':
@@ -243,7 +304,14 @@ def transfer_accessory(request, pk):
 
 @login_required
 def approve_accessory_transfer(request, transfer_id):
-    """Approve accessory transfer request"""
+    """
+    الموافقة على طلب نقل ملحق
+    
+    الوظائف:
+    - الموافقة على النقل وتحديث موقع الملحق
+    - رفض النقل مع سبب
+    - إنشاء سجل النقل
+    """
     transfer_request = get_object_or_404(AccessoryTransferRequest, id=transfer_id)
     
     if request.method == 'POST':
@@ -251,13 +319,13 @@ def approve_accessory_transfer(request, transfer_id):
         
         if action == 'approve':
             with transaction.atomic():
-                # Approve the transfer
+                # وافق على النقل
                 transfer_request.is_approved = True
                 transfer_request.approved_by = request.user
                 transfer_request.approved_at = timezone.now()
                 transfer_request.save()
                 
-                # Update accessory location
+                # حدث موقع الملحق
                 accessory = transfer_request.accessory
                 old_device = accessory.device
                 
@@ -266,7 +334,7 @@ def approve_accessory_transfer(request, transfer_id):
                 
                 accessory.save()
                 
-                # Create transfer log
+                # أنشئ سجل النقل
                 AccessoryTransferLog.objects.create(
                     accessory=accessory,
                     from_device=transfer_request.from_device,
@@ -282,6 +350,7 @@ def approve_accessory_transfer(request, transfer_id):
                 messages.success(request, f'تم الموافقة على نقل الملحق {accessory.name} بنجاح')
                 
         elif action == 'reject':
+            # رفض النقل مع سبب
             transfer_request.rejection_reason = request.POST.get('rejection_reason', '')
             transfer_request.approved_by = request.user
             transfer_request.approved_at = timezone.now()
@@ -294,10 +363,14 @@ def approve_accessory_transfer(request, transfer_id):
 
 @login_required
 def accessory_transfer_history(request, pk):
-    """View transfer history for an accessory"""
+    """
+    عرض سجل نقل ملحق معين
+    
+    الوظيفة: بتعرض كل طلبات النقل وسجلات النقل الفعلية لملحق معين
+    """
     accessory = get_object_or_404(DeviceAccessory, id=pk)
     
-    # Get transfer requests and logs
+    # جيب طلبات النقل والسجلات
     transfer_requests = AccessoryTransferRequest.objects.filter(
         accessory=accessory
     ).select_related(

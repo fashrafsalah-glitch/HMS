@@ -81,7 +81,7 @@
                 قائمة جداول الصيانة الوقائية
             </div>
             <div>
-                <a href="{% url 'pm_schedule_create' %}" class="btn btn-primary btn-sm">
+                <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus"></i> إضافة جدول جديد
                 </a>
             </div>
@@ -245,7 +245,7 @@
             
             {% else %}
             <div class="alert alert-info">
-                لا توجد جداول صيانة وقائية مسجلة حتى الآن. <a href="{% url 'pm_schedule_create' %}">إضافة جدول جديد</a>
+                لا توجد جداول صيانة وقائية مسجلة حتى الآن. <a href="{% url 'maintenance:cmms:pm_schedule_create' %}">إضافة جدول جديد</a>
             </div>
             {% endif %}
         </div>

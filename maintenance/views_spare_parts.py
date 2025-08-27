@@ -11,13 +11,13 @@ import json
 import csv
 
 from .models import (
-    Supplier, SparePart
+    Supplier, SparePart, Calibration, CalibrationRecord, DowntimeEvent,
+    Device, WorkOrder, DeviceDowntime
 )
 from .forms_spare_parts import (
     SupplierForm, SparePartForm
 )
 from .forms import DowntimeForm
-from .models import Device, WorkOrder, DowntimeEvent
 
 # =============== Supplier Views ===============
 @login_required
@@ -76,7 +76,7 @@ def supplier_create(request):
         if form.is_valid():
             supplier = form.save()
             messages.success(request, f'تم إنشاء المورد {supplier.name} بنجاح')
-            return redirect('supplier_detail', pk=supplier.pk)
+            return redirect('maintenance:spare_parts:supplier_detail', pk=supplier.pk)
     else:
         form = SupplierForm()
     
@@ -95,7 +95,7 @@ def supplier_update(request, pk):
         if form.is_valid():
             supplier = form.save()
             messages.success(request, f'تم تحديث بيانات المورد {supplier.name} بنجاح')
-            return redirect('supplier_detail', pk=supplier.pk)
+            return redirect('maintenance:spare_parts:supplier_detail', pk=supplier.pk)
     else:
         form = SupplierForm(instance=supplier)
     
@@ -129,11 +129,11 @@ def spare_part_list(request):
     
     low_stock = request.GET.get('low_stock')
     if low_stock == 'true':
-        spare_parts = spare_parts.filter(quantity__lte=F('min_quantity'))
+        spare_parts = spare_parts.filter(current_stock__lte=F('minimum_stock'))
     
     # الترتيب
     sort_by = request.GET.get('sort_by', 'name')
-    if sort_by not in ['name', 'part_number', 'quantity', 'primary_supplier__name']:
+    if sort_by not in ['name', 'part_number', 'current_stock', 'primary_supplier__name']:
         sort_by = 'name'
     spare_parts = spare_parts.order_by(sort_by)
     
@@ -187,7 +187,7 @@ def spare_part_create(request):
         if form.is_valid():
             spare_part = form.save()
             messages.success(request, f'تم إنشاء قطعة الغيار {spare_part.name} بنجاح')
-            return redirect('spare_part_detail', pk=spare_part.pk)
+            return redirect('maintenance:spare_parts:spare_part_detail', pk=spare_part.pk)
     else:
         form = SparePartForm()
     
@@ -206,7 +206,7 @@ def spare_part_update(request, pk):
         if form.is_valid():
             spare_part = form.save()
             messages.success(request, f'تم تحديث بيانات قطعة الغيار {spare_part.name} بنجاح')
-            return redirect('spare_part_detail', pk=spare_part.pk)
+            return redirect('maintenance:spare_parts:spare_part_detail', pk=spare_part.pk)
     else:
         form = SparePartForm(instance=spare_part)
     
@@ -240,107 +240,11 @@ def spare_part_transaction_create(request, part_id=None):
     }
     return render(request, 'maintenance/spare_part_transaction_form.html', context)
 
-# =============== Purchase Order Views ===============
-# Commented out until PurchaseOrder models are created
-"""
-@login_required
-def purchase_order_list(request):
-    \"\"\"عرض قائمة طلبات الشراء\"\"\"
-    purchase_orders = PurchaseOrder.objects.all().select_related('primary_supplier')
-    
-    # البحث
-    search_query = request.GET.get('search', '')
-    if search_query:
-        purchase_orders = purchase_orders.filter(
-            Q(po_number__icontains=search_query) | 
-            Q(primary_supplier__name__icontains=search_query)
-        )
-    
-    # الفلترة
-    status = request.GET.get('status')
-    if status:
-        purchase_orders = purchase_orders.filter(status=status)
-    
-    supplier_id = request.GET.get('supplier')
-    if supplier_id:
-        purchase_orders = purchase_orders.filter(primary_supplier_id=supplier_id)
-    
-    # الترتيب
-    sort_by = request.GET.get('sort_by', '-ordered_date')
-    if sort_by not in ['po_number', 'primary_supplier__name', 'status', 'ordered_date', '-ordered_date']:
-        sort_by = '-ordered_date'
-    purchase_orders = purchase_orders.order_by(sort_by)
-    
-    # التصفيح
-    paginator = Paginator(purchase_orders, 10)  # 10 طلبات في كل صفحة
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # قائمة الموردين للفلترة
-    suppliers = Supplier.objects.filter(status='active').order_by('name')
-    
-    context = {
-        'page_obj': page_obj,
-        'search_query': search_query,
-        'sort_by': sort_by,
-        'suppliers': suppliers,
-        'selected_supplier': supplier_id,
-        'selected_status': status,
-        'status_choices': [],  # Placeholder
-    }
-    return render(request, 'maintenance/purchase_order_list.html', context)
-"""
-
-# Placeholder functions for purchase orders until models are created
-@login_required
-def purchase_order_detail(request, pk):
-    """عرض تفاصيل طلب الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_create(request):
-    """إنشاء طلب شراء جديد - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_update(request, pk):
-    """تحديث بيانات طلب الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_item_create(request, po_id):
-    """إضافة عنصر جديد لطلب الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_item_update(request, item_id):
-    """تحديث بيانات عنصر طلب الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_receive_items(request, pk):
-    """استلام عناصر طلب الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
-@login_required
-def purchase_order_print(request, pk):
-    """طباعة أمر الشراء - مؤقت"""
-    messages.info(request, 'وظائف أوامر الشراء غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
-
 # =============== Calibration Views ===============
-# Commented out until Calibration models are created
-"""
 @login_required
 def calibration_list(request):
-    \"\"\"عرض قائمة المعايرات\"\"\"
-    calibrations = Calibration.objects.all().select_related('device')
+    """عرض قائمة المعايرات"""
+    calibrations = CalibrationRecord.objects.all().select_related('device')
     
     # البحث
     search_query = request.GET.get('search', '')
@@ -354,10 +258,6 @@ def calibration_list(request):
     status = request.GET.get('status')
     if status:
         calibrations = calibrations.filter(status=status)
-    
-    calibration_type = request.GET.get('calibration_type')
-    if calibration_type:
-        calibrations = calibrations.filter(calibration_type=calibration_type)
     
     # الفلترة حسب تاريخ المعايرة القادمة
     due_filter = request.GET.get('due')
@@ -386,38 +286,64 @@ def calibration_list(request):
         'search_query': search_query,
         'sort_by': sort_by,
         'selected_status': status,
-        'selected_type': calibration_type,
         'due_filter': due_filter,
-        'status_choices': Calibration.STATUS_CHOICES,
-        'type_choices': Calibration.CALIBRATION_TYPE_CHOICES,
+        'status_choices': CalibrationRecord.STATUS_CHOICES,
     }
     return render(request, 'maintenance/calibration_list.html', context)
-"""
-
-# Placeholder functions for calibrations until models are created
-@login_required
-def calibration_list(request):
-    """عرض قائمة المعايرات - مؤقت"""
-    messages.info(request, 'وظائف المعايرة غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
 
 @login_required
 def calibration_detail(request, pk):
-    """عرض تفاصيل المعايرة - مؤقت"""
-    messages.info(request, 'وظائف المعايرة غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
+    """عرض تفاصيل المعايرة"""
+    calibration = get_object_or_404(CalibrationRecord, pk=pk)
+    
+    context = {
+        'calibration': calibration,
+    }
+    return render(request, 'maintenance/calibration_detail.html', context)
 
 @login_required
 def calibration_create(request, device_id=None):
-    """إنشاء معايرة جديدة - مؤقت"""
-    messages.info(request, 'وظائف المعايرة غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
+    """إنشاء معايرة جديدة"""
+    device = None
+    if device_id:
+        device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        # form = CalibrationForm(request.POST, request.FILES)
+        # Placeholder - CalibrationForm not available yet
+        messages.error(request, 'وظيفة إنشاء المعايرة غير متاحة حالياً')
+        return redirect('maintenance:spare_parts:calibration_list')
+    else:
+        # Placeholder form
+        form = None
+    
+    context = {
+        'form': form,
+        'title': 'إضافة معايرة جديدة',
+        'device': device,
+    }
+    return render(request, 'maintenance/calibration_form.html', context)
 
 @login_required
 def calibration_update(request, pk):
-    """تحديث بيانات المعايرة - مؤقت"""
-    messages.info(request, 'وظائف المعايرة غير متاحة حالياً')
-    return redirect('maintenance:spare_parts:spare_part_list')
+    """تحديث بيانات المعايرة"""
+    calibration = get_object_or_404(CalibrationRecord, pk=pk)
+    
+    if request.method == 'POST':
+        # form = CalibrationForm(request.POST, request.FILES, instance=calibration)
+        # Placeholder - CalibrationForm not available yet
+        messages.error(request, 'وظيفة تحديث المعايرة غير متاحة حالياً')
+        return redirect('maintenance:spare_parts:calibration_detail', pk=calibration.pk)
+    else:
+        # Placeholder form
+        form = None
+    
+    context = {
+        'form': form,
+        'title': f'تعديل بيانات المعايرة: {calibration.device.name}',
+        'calibration': calibration,
+    }
+    return render(request, 'maintenance/calibration_form.html', context)
 
 # =============== Downtime Views ===============
 @login_required
@@ -490,8 +416,8 @@ def downtime_create(request, device_id=None, work_order_id=None):
     
     if work_order_id:
         work_order = get_object_or_404(WorkOrder, pk=work_order_id)
-        if not device and work_order.device:
-            device = work_order.device
+        if not device and work_order.service_request.device:
+            device = work_order.service_request.device
     
     if request.method == 'POST':
         form = DowntimeForm(request.POST)
@@ -503,17 +429,17 @@ def downtime_create(request, device_id=None, work_order_id=None):
             # تحديث حالة الجهاز إلى غير متاح
             if downtime.end_time is None:  # إذا كان التوقف مستمر
                 device = downtime.device
-                device.availability = 'UNAVAILABLE'
+                device.availability = False
                 device.save()
             
             messages.success(request, f'تم تسجيل توقف الجهاز بنجاح')
-            return redirect('downtime_detail', pk=downtime.pk)
+            return redirect('maintenance:spare_parts:downtime_detail', pk=downtime.pk)
     else:
         initial_data = {}
         if device:
             initial_data['device'] = device
         if work_order:
-            initial_data['work_order'] = work_order
+            initial_data['related_work_order'] = work_order
         form = DowntimeForm(initial=initial_data)
     
     context = {
@@ -545,11 +471,11 @@ def downtime_update(request, pk):
                 ).exclude(pk=downtime.pk).exists()
                 
                 if not other_open_downtimes:
-                    device.availability = 'AVAILABLE'
+                    device.availability = True
                     device.save()
             
             messages.success(request, f'تم تحديث بيانات توقف الجهاز بنجاح')
-            return redirect('downtime_detail', pk=downtime.pk)
+            return redirect('maintenance:spare_parts:downtime_detail', pk=downtime.pk)
     else:
         form = DowntimeForm(instance=downtime)
     
@@ -565,16 +491,15 @@ def downtime_update(request, pk):
 def api_spare_parts_low_stock(request):
     """API لعرض قطع الغيار منخفضة المخزون"""
     try:
-        low_stock_parts = SparePart.objects.filter(quantity__lte=F('min_quantity'))
+        low_stock_parts = SparePart.objects.filter(current_stock__lte=F('minimum_stock'))
         data = [{
             'id': part.id,
             'name': part.name,
             'part_number': part.part_number,
-            'quantity': part.quantity,
-            'min_quantity': part.min_quantity,
-            'supplier': part.supplier.name if part.supplier else None,
-            'cost': float(part.cost) if part.cost else None,
-            'lead_time_days': part.lead_time_days,
+            'current_stock': part.current_stock,
+            'minimum_stock': part.minimum_stock,
+            'supplier': part.primary_supplier.name if part.primary_supplier else None,
+            'unit_cost': float(part.unit_cost) if part.unit_cost else None,
         } for part in low_stock_parts]
         return JsonResponse({'status': 'success', 'data': data})
     except Exception as e:
@@ -585,9 +510,9 @@ def api_calibrations_due(request):
     """API لعرض المعايرات المستحقة"""
     try:
         today = timezone.now().date()
-        due_calibrations = Calibration.objects.filter(
+        due_calibrations = CalibrationRecord.objects.filter(
             next_calibration_date__lte=today + timedelta(days=30),
-            status__in=['SCHEDULED', 'PENDING']
+            status__in=['completed', 'due']
         ).select_related('device')
         
         data = [{
@@ -598,7 +523,6 @@ def api_calibrations_due(request):
             'next_calibration_date': cal.next_calibration_date.strftime('%Y-%m-%d') if cal.next_calibration_date else None,
             'days_remaining': (cal.next_calibration_date - today).days if cal.next_calibration_date else None,
             'status': cal.status,
-            'calibration_type': cal.calibration_type,
         } for cal in due_calibrations]
         return JsonResponse({'status': 'success', 'data': data})
     except Exception as e:
@@ -611,11 +535,11 @@ def api_device_downtime_stats(request, device_id):
         device = get_object_or_404(Device, pk=device_id)
         
         # حساب إجمالي وقت التوقف
-        downtimes = Downtime.objects.filter(device=device)
+        downtimes = DowntimeEvent.objects.filter(device=device)
         
         # إحصائيات حسب نوع التوقف
         downtime_by_type = {}
-        for dt_type, _ in Downtime.DOWNTIME_TYPE_CHOICES:
+        for dt_type, _ in DowntimeEvent.DOWNTIME_TYPE_CHOICES:
             type_downtimes = downtimes.filter(downtime_type=dt_type)
             total_hours = 0
             for dt in type_downtimes:
@@ -664,8 +588,8 @@ def export_spare_parts_csv(request):
     response['Content-Disposition'] = 'attachment; filename="spare_parts.csv"'
     
     writer = csv.writer(response)
-    writer.writerow(['Name', 'Part Number', 'Description', 'Quantity', 'Min Quantity', 
-                    'Unit', 'Location', 'Cost', 'Supplier', 'Lead Time (Days)'])
+    writer.writerow(['Name', 'Part Number', 'Description', 'Current Stock', 'Minimum Stock', 
+                    'Unit', 'Storage Location', 'Unit Cost', 'Supplier', 'Status'])
     
     spare_parts = SparePart.objects.all().select_related('primary_supplier')
     for part in spare_parts:
@@ -673,13 +597,13 @@ def export_spare_parts_csv(request):
             part.name,
             part.part_number,
             part.description,
-            part.quantity,
-            part.min_quantity,
+            part.current_stock,
+            part.minimum_stock,
             part.unit,
-            part.location,
-            part.cost,
+            part.storage_location,
+            part.unit_cost,
             part.primary_supplier.name if part.primary_supplier else '',
-            part.lead_time_days
+            part.status
         ])
     
     return response

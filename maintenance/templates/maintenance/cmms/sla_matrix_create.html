@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}إضافة عنصر جديد لمصفوفة SLA{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-plus"></i>
+                        إضافة عنصر جديد لمصفوفة SLA
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Placeholder message since SLA Matrix functionality is not fully implemented -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>ملاحظة:</strong> وظيفة مصفوفة SLA غير متاحة حالياً. يتم العمل على تطويرها.
+                    </div>
+                    
+                    <div class="text-center">
+                        <p class="text-muted">هذه الوظيفة ستكون متاحة قريباً لإدارة مصفوفة اتفاقيات مستوى الخدمة.</p>
+                        <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> العودة إلى قائمة SLA
+                        </a>
+                    </div>
+                    
+                    <!-- Future form implementation -->
+                    <!--
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.sla.id_for_label }}">اختر SLA:</label>
+                            {{ form.sla }}
+                            {% if form.sla.errors %}
+                                <div class="invalid-feedback d-block">{{ form.sla.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.severity.id_for_label }}">الخطورة:</label>
+                                {{ form.severity }}
+                                {% if form.severity.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.severity.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.impact.id_for_label }}">التأثير:</label>
+                                {{ form.impact }}
+                                {% if form.impact.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.impact.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                إضافة
+                            </button>
+                            <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                    -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

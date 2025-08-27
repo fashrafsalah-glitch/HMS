@@ -1,3 +1,18 @@
+"""
+ملف views_cmms.py - نظام إدارة الصيانة المحوسب (CMMS)
+
+هذا الملف بيحتوي على كل الـ views اللي بتتعامل مع نظام CMMS في المستشفى:
+- إدارة بلاغات الصيانة (Service Requests)
+- إدارة أوامر الشغل (Work Orders)
+- إدارة خطط العمل (Job Plans)
+- إدارة الصيانة الوقائية (Preventive Maintenance)
+- إدارة اتفاقيات مستوى الخدمة (SLA)
+- داشبورد الفنيين
+- APIs للموبايل والواجهة الأمامية
+
+النظام بيسمح بتتبع كامل لعمليات الصيانة من البلاغ لحد الإصلاح
+"""
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -12,11 +27,21 @@ from .models import (Device, ServiceRequest, WorkOrder, JobPlan, JobPlanStep,
 from .forms_cmms import (ServiceRequestForm, WorkOrderForm, WorkOrderUpdateForm, 
                         SLADefinitionForm, JobPlanForm, JobPlanStepForm, PMScheduleForm)
 
+# ========================================
 # بلاغات الصيانة (Service Requests)
+# ========================================
 
 @login_required
 def service_request_list(request):
-    """عرض قائمة البلاغات مع إمكانية الفلترة"""
+    """
+    عرض قائمة البلاغات مع إمكانية الفلترة والبحث
+    
+    الوظائف:
+    - عرض البلاغات حسب صلاحيات المستخدم
+    - فلترة حسب الحالة ونوع البلاغ والقسم
+    - بحث في العنوان والوصف واسم الجهاز
+    - ترتيب النتائج حسب التاريخ
+    """
     # هنا بنجيب البلاغات حسب صلاحيات المستخدم
     if request.user.is_superuser:
         # المدير يشوف كل البلاغات
@@ -92,7 +117,14 @@ def service_request_list(request):
 
 @login_required
 def service_request_create(request):
-    """إنشاء بلاغ جديد"""
+    """
+    إنشاء بلاغ صيانة جديد
+    
+    الوظائف:
+    - إنشاء بلاغ جديد من المستخدم
+    - ربط البلاغ بجهاز معين (لو تم تحديده)
+    - حفظ البلاغ مع المستخدم المنشئ
+    """
     # إذا تم تحديد جهاز من قبل
     device_id = request.GET.get('device')
     initial_data = {}
@@ -125,7 +157,15 @@ def service_request_create(request):
 
 @login_required
 def service_request_detail(request, sr_id):
-    """عرض تفاصيل البلاغ وأوامر الشغل المرتبطة"""
+    """
+    عرض تفاصيل البلاغ وأوامر الشغل المرتبطة
+    
+    الوظائف:
+    - عرض تفاصيل كاملة للبلاغ
+    - عرض أوامر الشغل المرتبطة
+    - التحقق من صلاحيات المستخدم
+    - نموذج إنشاء أمر شغل جديد
+    """
     service_request = get_object_or_404(ServiceRequest, id=sr_id)
     work_orders = service_request.work_orders.all().order_by('-created_at')
     
@@ -160,7 +200,14 @@ def service_request_detail(request, sr_id):
 
 @login_required
 def service_request_update(request, sr_id):
-    """تحديث بيانات البلاغ"""
+    """
+    تحديث بيانات البلاغ
+    
+    الوظائف:
+    - تعديل بيانات البلاغ الموجود
+    - التحقق من صلاحيات المستخدم للتعديل
+    - حفظ التعديلات وعرض رسالة نجاح
+    """
     service_request = get_object_or_404(ServiceRequest, id=sr_id)
     
     # التحقق من صلاحية المستخدم لتعديل البلاغ
@@ -187,7 +234,14 @@ def service_request_update(request, sr_id):
 
 @login_required
 def service_request_close(request, sr_id):
-    """إغلاق البلاغ"""
+    """
+    إغلاق البلاغ
+    
+    الوظائف:
+    - إغلاق البلاغ بعد انتهاء العمل عليه
+    - التحقق من عدم وجود أوامر شغل مفتوحة
+    - التحقق من صلاحيات المستخدم للإغلاق
+    """
     service_request = get_object_or_404(ServiceRequest, id=sr_id)
     
     # التحقق من صلاحية المستخدم لإغلاق البلاغ
@@ -211,11 +265,21 @@ def service_request_close(request, sr_id):
     messages.success(request, 'تم إغلاق البلاغ بنجاح')
     return redirect('maintenance:cmms:service_request_detail', sr_id=service_request.id)
 
+# ========================================
 # أوامر الشغل (Work Orders)
+# ========================================
 
 @login_required
 def work_order_list(request):
-    """عرض قائمة أوامر الشغل مع إمكانية الفلترة"""
+    """
+    عرض قائمة أوامر الشغل مع إمكانية الفلترة والبحث
+    
+    الوظائف:
+    - عرض أوامر الشغل حسب صلاحيات المستخدم
+    - فلترة حسب الحالة والفني المسؤول والقسم
+    - بحث في العنوان والوصف واسم الجهاز
+    - ترتيب النتائج حسب التاريخ
+    """
     # هنا بنجيب أوامر الشغل حسب صلاحيات المستخدم مع معلومات الجهاز والقسم
     if request.user.is_superuser:
         # المدير يشوف كل أوامر الشغل
@@ -284,7 +348,16 @@ def work_order_list(request):
 
 @login_required
 def work_order_detail(request, wo_id):
-    """عرض تفاصيل أمر الشغل والتعليقات"""
+    """
+    عرض تفاصيل أمر الشغل والتعليقات
+    
+    الوظائف:
+    - عرض تفاصيل كاملة لأمر الشغل
+    - عرض التعليقات المرتبطة
+    - التحقق من صلاحيات المستخدم
+    - تحديث حالة أمر الشغل
+    - تحديث حالة الجهاز
+    """
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     comments = work_order.comments.all().order_by('created_at')
     
@@ -295,36 +368,78 @@ def work_order_detail(request, wo_id):
                 messages.error(request, 'ليس لديك صلاحية لعرض أمر الشغل هذا')
                 return redirect('work_order_list')
     
+    # تحقق من إن كان المستخدم يقدر يحدث الحالة
+    can_update_status = (
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists() or
+        work_order.assignee == request.user
+    )
+    
     # نموذج تحديث حالة أمر الشغل
-    if request.method == 'POST' and 'update_status' in request.POST:
-        update_form = WorkOrderUpdateForm(request.POST, instance=work_order, user=request.user)
-        if update_form.is_valid():
-            # إذا تم تغيير الحالة إلى تم التحقق، نسجل من قام بالتحقق
-            if update_form.cleaned_data['status'] == 'qa_verified' and work_order.status != 'qa_verified':
-                work_order.qa_verified_by = request.user
-                work_order.qa_verified_at = timezone.now()
-            
-            update_form.save()
-            messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
-            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+    if request.method == 'POST':
+        if 'update_status' in request.POST:
+            update_form = WorkOrderUpdateForm(request.POST, instance=work_order, user=request.user)
+            if update_form.is_valid():
+                # تحديث حالة أمر الشغل
+                work_order = update_form.save()
+                
+                # إضافة تعليق تلقائي عند تغيير الحالة
+                if 'status' in update_form.changed_data:
+                    comment_text = f"تم تغيير حالة أمر الشغل إلى: {work_order.get_status_display()}"
+                    # تم إزالة إنشاء التعليق مؤقتاً حتى يتم تطبيق نموذج WorkOrderComment
+                
+                update_form.save()
+                messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
+                return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+        
+        elif 'update_device_status' in request.POST:
+            # Handle device status update
+            if work_order.service_request and work_order.service_request.device and can_update_status:
+                device = work_order.service_request.device
+                old_status = device.get_status_display()
+                device.status = 'working'
+                device.save()
+                
+                messages.success(request, f'تم تغيير حالة الجهاز من "{old_status}" إلى "يعمل" بنجاح')
+                return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+            else:
+                messages.error(request, 'ليس لديك صلاحية لتحديث حالة الجهاز')
     else:
         update_form = WorkOrderUpdateForm(instance=work_order, user=request.user)
     
     # تم إزالة نموذج التعليقات مؤقتاً حتى يتم تطبيق نموذج WorkOrderComment
     comment_form = None
     
+    # Check if device needs status change from inspection to working
+    device_needs_status_change = (
+        work_order.service_request and 
+        work_order.service_request.device and 
+        work_order.service_request.device.status == 'needs_check' and
+        work_order.status in ['resolved', 'qa_verified', 'closed']
+    )
+    
     context = {
         'work_order': work_order,
         'comments': comments,
-        'update_form': update_form,
+        'status_form': update_form,
         'comment_form': comment_form,
+        'can_update_status': can_update_status,
+        'device_needs_status_change': device_needs_status_change,
     }
     
     return render(request, 'maintenance/cmms/work_order_detail.html', context)
 
 @login_required
 def work_order_create(request):
-    """إنشاء أمر شغل جديد"""
+    """
+    إنشاء أمر شغل جديد
+    
+    الوظائف:
+    - إنشاء أمر شغل من بلاغ موجود
+    - ربط أمر الشغل بتوقف الجهاز (downtime)
+    - التحقق من صلاحيات المستخدم
+    - ربط التوقف بأمر الشغل
+    """
     # التحقق من وجود بلاغ مرتبط
     service_request_id = request.GET.get('service_request')
     service_request = None
@@ -385,7 +500,15 @@ def work_order_create(request):
 
 @login_required
 def work_order_assign(request, wo_id):
-    """تعيين فني لأمر الشغل"""
+    """
+    تعيين فني لأمر الشغل
+    
+    الوظائف:
+    - تعيين فني مسؤول لأمر الشغل
+    - التحقق من صلاحيات المستخدم للتعيين
+    - التحقق من حالة أمر الشغل
+    - جلب قائمة الفنيين المتاحين
+    """
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
     
@@ -442,10 +565,21 @@ def work_order_assign(request, wo_id):
     
     return render(request, 'maintenance/cmms/work_order_assign.html', context)
 
+# ========================================
 # داشبورد الفني
+# ========================================
+
 @login_required
 def technician_dashboard(request):
-    """داشبورد خاص بالفني"""
+    """
+    داشبورد خاص بالفني
+    
+    الوظائف:
+    - عرض إحصائيات أوامر الشغل المسندة للفني
+    - عرض أوامر الشغل الحديثة والعاجلة
+    - عرض أوامر الشغل المتأخرة
+    - إحصائيات سريعة عن الأداء
+    """
     from django.contrib.auth import get_user_model
     from django.db.models import Count, Q
     from datetime import datetime, timedelta
@@ -500,17 +634,25 @@ def technician_dashboard(request):
     
     return render(request, 'maintenance/cmms/technician_dashboard.html', context)
 
-# إدارة SLA
+# ========================================
+# إدارة اتفاقيات مستوى الخدمة (SLA)
+# ========================================
 
 @login_required
 def sla_list(request):
-    """عرض قائمة اتفاقيات مستوى الخدمة"""
+    """
+    عرض قائمة اتفاقيات مستوى الخدمة
+    
+    الوظائف:
+    - عرض جميع اتفاقيات مستوى الخدمة
+    - التحقق من صلاحيات المستخدم للعرض
+    """
     # التحقق من صلاحية المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لعرض اتفاقيات مستوى الخدمة')
-        return redirect('service_request_list')
+        return redirect('maintenance:cmms:service_request_list')
     
-    slas = SLA.objects.all()
+    slas = SLADefinition.objects.all()
     
     context = {
         'slas': slas,
@@ -520,18 +662,25 @@ def sla_list(request):
 
 @login_required
 def sla_create(request):
-    """إنشاء اتفاقية مستوى خدمة جديدة"""
+    """
+    إنشاء اتفاقية مستوى خدمة جديدة
+    
+    الوظائف:
+    - إنشاء اتفاقية مستوى خدمة جديدة
+    - التحقق من صلاحيات المستخدم للإنشاء
+    - عرض نموذج إنشاء SLA
+    """
     # التحقق من صلاحية المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإنشاء اتفاقية مستوى خدمة')
-        return redirect('sla_list')
+        return redirect('maintenance:cmms:sla_list')
     
     if request.method == 'POST':
         form = SLADefinitionForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, 'تم إنشاء اتفاقية مستوى الخدمة بنجاح')
-            return redirect('sla_list')
+            return redirect('maintenance:cmms:sla_list')
     else:
         form = SLADefinitionForm()
     
@@ -542,15 +691,84 @@ def sla_create(request):
     return render(request, 'maintenance/cmms/sla_create.html', context)
 
 @login_required
+def sla_edit(request, sla_id):
+    """
+    تعديل اتفاقية مستوى خدمة
+    
+    الوظائف:
+    - تعديل اتفاقية مستوى خدمة موجودة
+    - التحقق من صلاحيات المستخدم للتعديل
+    - عرض نموذج التعديل مع البيانات الحالية
+    """
+    sla = get_object_or_404(SLADefinition, id=sla_id)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        messages.error(request, 'ليس لديك صلاحية لتعديل اتفاقية مستوى خدمة')
+        return redirect('maintenance:cmms:sla_list')
+    
+    if request.method == 'POST':
+        form = SLADefinitionForm(request.POST, instance=sla)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'تم تحديث اتفاقية مستوى الخدمة بنجاح')
+            return redirect('maintenance:cmms:sla_list')
+    else:
+        form = SLADefinitionForm(instance=sla)
+    
+    context = {
+        'form': form,
+        'sla': sla,
+    }
+    
+    return render(request, 'maintenance/cmms/sla_edit.html', context)
+
+@login_required
+def sla_delete(request, sla_id):
+    """
+    حذف اتفاقية مستوى خدمة
+    
+    الوظائف:
+    - حذف اتفاقية مستوى خدمة موجودة
+    - التحقق من صلاحيات المستخدم للحذف
+    - عرض تأكيد الحذف
+    """
+    sla = get_object_or_404(SLADefinition, id=sla_id)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        messages.error(request, 'ليس لديك صلاحية لحذف اتفاقية مستوى خدمة')
+        return redirect('maintenance:cmms:sla_list')
+    
+    if request.method == 'POST':
+        sla_name = sla.name
+        sla.delete()
+        messages.success(request, f'تم حذف اتفاقية مستوى الخدمة "{sla_name}" بنجاح')
+        return redirect('maintenance:cmms:sla_list')
+    
+    context = {
+        'sla': sla,
+    }
+    
+    return render(request, 'maintenance/cmms/sla_delete.html', context)
+
+@login_required
 def sla_matrix_list(request):
-    """عرض مصفوفة اتفاقيات مستوى الخدمة"""
+    """
+    عرض مصفوفة اتفاقيات مستوى الخدمة
+    
+    الوظائف:
+    - عرض مصفوفة SLA حسب الشدة والتأثير
+    - تنظيم المصفوفة في شكل جدول
+    - التحقق من صلاحيات المستخدم للعرض
+    """
     # التحقق من صلاحية المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لعرض مصفوفة اتفاقيات مستوى الخدمة')
         return redirect('service_request_list')
     
     # sla_matrix = SLAMatrix.objects.all()
-    sla_matrix = []  # Placeholder until SLAMatrix model is created
+    sla_matrix = []  # Placeholder حتى يتم إنشاء نموذج SLAMatrix
     
     # تنظيم المصفوفة في شكل جدول
     # severity_choices = dict(SEVERITY_CHOICES)
@@ -577,7 +795,14 @@ def sla_matrix_list(request):
 
 @login_required
 def sla_matrix_create(request):
-    """إنشاء أو تحديث عنصر في مصفوفة اتفاقيات مستوى الخدمة"""
+    """
+    إنشاء أو تحديث عنصر في مصفوفة اتفاقيات مستوى الخدمة
+    
+    الوظائف:
+    - إنشاء عنصر جديد في مصفوفة SLA
+    - تحديث عنصر موجود في المصفوفة
+    - التحقق من صلاحيات المستخدم للتعديل
+    """
     # التحقق من صلاحية المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لتعديل مصفوفة اتفاقيات مستوى الخدمة')
@@ -591,17 +816,17 @@ def sla_matrix_create(request):
     if severity and impact:
         try:
             # instance = SLAMatrix.objects.get(severity=severity, impact=impact)
-            pass  # SLAMatrix model not available yet
+            pass  # نموذج SLAMatrix غير متاح حالياً
         except:  # SLAMatrix.DoesNotExist:
             pass
     
     if request.method == 'POST':
         # form = SLAMatrixForm(request.POST, instance=instance)
-        # SLAMatrixForm is commented out - placeholder functionality
+        # SLAMatrixForm معلق - وظيفة مؤقتة
         messages.error(request, 'وظيفة مصفوفة SLA غير متاحة حالياً')
         return redirect('maintenance:cmms:sla_matrix_list')
     else:
-        # Placeholder form
+        # نموذج مؤقت
         form = None
     
     context = {
@@ -611,11 +836,21 @@ def sla_matrix_create(request):
     
     return render(request, 'maintenance/cmms/sla_matrix_create.html', context)
 
+# ========================================
 # دمج مع الصفحات الموجودة
+# ========================================
 
 @login_required
 def device_maintenance_history(request, device_id):
-    """عرض تاريخ صيانة الجهاز مع إضافة البلاغات وأوامر الشغل"""
+    """
+    عرض تاريخ صيانة الجهاز مع إضافة البلاغات وأوامر الشغل
+    
+    الوظائف:
+    - عرض سجل كامل لصيانة الجهاز
+    - دمج سجلات الصيانة والبلاغات وأوامر الشغل
+    - ترتيب الأنشطة حسب التاريخ
+    - عرض تفاصيل كل نشاط
+    """
     device = get_object_or_404(Device, id=device_id)
     
     # جلب سجلات الصيانة الموجودة
@@ -669,7 +904,15 @@ def device_maintenance_history(request, device_id):
 
 @login_required
 def device_detail_with_cmms(request, device_id):
-    """عرض تفاصيل الجهاز مع إضافة معلومات CMMS"""
+    """
+    عرض تفاصيل الجهاز مع إضافة معلومات CMMS
+    
+    الوظائف:
+    - عرض تفاصيل الجهاز الأساسية
+    - عرض البلاغات المفتوحة المرتبطة بالجهاز
+    - عرض أوامر الشغل المفتوحة
+    - دمج معلومات CMMS مع صفحة تفاصيل الجهاز
+    """
     device = get_object_or_404(Device, id=device_id)
     
     # جلب البلاغات المفتوحة
@@ -693,11 +936,20 @@ def device_detail_with_cmms(request, device_id):
     # استدعاء العرض الأصلي
     return render(request, 'maintenance/device_detail.html', context)
 
-# API لتطبيقات الموبايل أو الواجهة الأمامية
+# ========================================
+# APIs لتطبيقات الموبايل أو الواجهة الأمامية
+# ========================================
 
 @login_required
 def api_service_request_create(request):
-    """API لإنشاء بلاغ جديد"""
+    """
+    API لإنشاء بلاغ جديد
+    
+    الوظائف:
+    - إنشاء بلاغ جديد عبر API
+    - التحقق من البيانات المطلوبة
+    - ربط البلاغ بالجهاز والمستخدم
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'يجب استخدام طريقة POST'}, status=405)
     
@@ -742,7 +994,15 @@ def api_service_request_create(request):
 
 @login_required
 def api_work_order_status_update(request, wo_id):
-    """API لتحديث حالة أمر الشغل"""
+    """
+    API لتحديث حالة أمر الشغل
+    
+    الوظائف:
+    - تحديث حالة أمر الشغل عبر API
+    - التحقق من صلاحيات المستخدم
+    - إضافة تعليق تلقائي عند تغيير الحالة
+    - تسجيل من قام بالتحقق
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'يجب استخدام طريقة POST'}, status=405)
     
@@ -795,7 +1055,16 @@ def api_work_order_status_update(request, wo_id):
 
 @login_required
 def api_device_profile(request, device_id):
-    """API لعرض ملف الجهاز الكامل (تاريخ الصيانة، البلاغات، أوامر الشغل)"""
+    """
+    API لعرض ملف الجهاز الكامل (تاريخ الصيانة، البلاغات، أوامر الشغل)
+    
+    الوظائف:
+    - عرض معلومات الجهاز الأساسية
+    - عرض سجل الصيانة (آخر 10 سجلات)
+    - عرض البلاغات (آخر 10 بلاغات)
+    - عرض أوامر الشغل (آخر 10 أوامر)
+    - حساب إحصائيات الأداء (MTTR)
+    """
     try:
         device = get_object_or_404(Device, id=device_id)
         
@@ -874,11 +1143,21 @@ def api_device_profile(request, device_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ========================================
 # الصيانة الوقائية (Preventive Maintenance)
+# ========================================
 
 @login_required
 def job_plan_list(request):
-    """عرض قائمة خطط العمل"""
+    """
+    عرض قائمة خطط العمل
+    
+    الوظائف:
+    - عرض جميع خطط العمل المتاحة
+    - فلترة حسب البحث في الاسم والوصف
+    - ترقيم الصفحات (10 خطط في الصفحة)
+    - التحقق من صلاحيات المستخدم
+    """
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
         messages.error(request, 'ليس لديك صلاحية لعرض خطط العمل')
@@ -908,7 +1187,15 @@ def job_plan_list(request):
 
 @login_required
 def job_plan_create(request):
-    """إنشاء خطة عمل جديدة"""
+    """
+    إنشاء خطة عمل جديدة
+    
+    الوظائف:
+    - إنشاء خطة عمل جديدة
+    - التحقق من صلاحيات المستخدم للإنشاء
+    - ربط الخطة بالمستخدم المنشئ
+    - عرض نموذج إنشاء الخطة
+    """
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإنشاء خطط العمل')
@@ -935,7 +1222,16 @@ def job_plan_create(request):
 
 @login_required
 def job_plan_detail(request, plan_id):
-    """عرض تفاصيل خطة العمل وخطواتها"""
+    """
+    عرض تفاصيل خطة العمل وخطواتها
+    
+    الوظائف:
+    - عرض تفاصيل خطة العمل
+    - عرض خطوات الخطة مرتبة حسب الرقم
+    - عرض جداول الصيانة الوقائية المرتبطة
+    - إضافة خطوات جديدة للخطة
+    - تحديد رقم الخطوة تلقائياً
+    """
     job_plan = get_object_or_404(JobPlan, id=plan_id)
     steps = job_plan.steps.all().order_by('step_number')
     pm_schedules = job_plan.pm_schedules.all().order_by('next_due_date')
@@ -968,7 +1264,15 @@ def job_plan_detail(request, plan_id):
 
 @login_required
 def job_plan_update(request, plan_id):
-    """تحديث خطة العمل"""
+    """
+    تحديث خطة العمل
+    
+    الوظائف:
+    - تحديث خطة عمل موجودة
+    - التحقق من صلاحيات المستخدم للتعديل
+    - عرض نموذج التعديل مع البيانات الحالية
+    - حفظ التعديلات وعرض رسالة نجاح
+    """
     job_plan = get_object_or_404(JobPlan, id=plan_id)
     
     # التحقق من صلاحيات المستخدم
@@ -995,7 +1299,15 @@ def job_plan_update(request, plan_id):
 
 @login_required
 def job_plan_delete(request, plan_id):
-    """حذف خطة العمل"""
+    """
+    حذف خطة العمل
+    
+    الوظائف:
+    - حذف خطة عمل موجودة
+    - التحقق من صلاحيات المستخدم للحذف
+    - التحقق من عدم وجود جداول صيانة مرتبطة
+    - عرض رسالة نجاح بعد الحذف
+    """
     job_plan = get_object_or_404(JobPlan, id=plan_id)
     
     # التحقق من صلاحيات المستخدم
@@ -1014,7 +1326,15 @@ def job_plan_delete(request, plan_id):
 
 @login_required
 def job_plan_step_delete(request, step_id):
-    """حذف خطوة من خطة العمل"""
+    """
+    حذف خطوة من خطة العمل
+    
+    الوظائف:
+    - حذف خطوة من خطة عمل موجودة
+    - التحقق من صلاحيات المستخدم للحذف
+    - العودة لصفحة تفاصيل الخطة
+    - عرض رسالة نجاح بعد الحذف
+    """
     step = get_object_or_404(JobPlanStep, id=step_id)
     job_plan = step.job_plan
     
@@ -1029,7 +1349,16 @@ def job_plan_step_delete(request, step_id):
 
 @login_required
 def pm_schedule_list(request):
-    """عرض قائمة جداول الصيانة الوقائية"""
+    """
+    عرض قائمة جداول الصيانة الوقائية
+    
+    الوظائف:
+    - عرض جميع جداول الصيانة الوقائية
+    - فلترة حسب الحالة والقسم
+    - بحث في الاسم والوصف واسم الجهاز
+    - ترقيم الصفحات (10 جداول في الصفحة)
+    - التحقق من صلاحيات المستخدم
+    """
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
         messages.error(request, 'ليس لديك صلاحية لعرض جداول الصيانة الوقائية')
@@ -1074,11 +1403,19 @@ def pm_schedule_list(request):
 
 @login_required
 def pm_schedule_create(request):
-    """إنشاء جدول صيانة وقائية جديد"""
+    """
+    إنشاء جدول صيانة وقائية جديد
+    
+    الوظائف:
+    - إنشاء جدول صيانة وقائية جديد
+    - ربط الجدول بجهاز معين (لو تم تحديده)
+    - التحقق من صلاحيات المستخدم للإنشاء
+    - ربط الجدول بالمستخدم المنشئ
+    """
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإنشاء جداول الصيانة الوقائية')
-        return redirect('pm_schedule_list')
+        return redirect('maintenance:cmms:pm_schedule_list')
     
     # إذا تم تحديد جهاز من قبل
     device_id = request.GET.get('device_id')
@@ -1099,7 +1436,7 @@ def pm_schedule_create(request):
             pm_schedule.save()
             
             messages.success(request, 'تم إنشاء جدول الصيانة الوقائية بنجاح')
-            return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+            return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     else:
         form = PMScheduleForm(user=request.user, initial=initial_data)
     
@@ -1113,7 +1450,16 @@ def pm_schedule_create(request):
 
 @login_required
 def pm_schedule_detail(request, schedule_id):
-    """عرض تفاصيل جدول الصيانة الوقائية"""
+    """
+    عرض تفاصيل جدول الصيانة الوقائية
+    
+    الوظائف:
+    - عرض تفاصيل جدول الصيانة الوقائية
+    - عرض تاريخ الصيانة
+    - حساب موعد الصيانة القادم
+    - إحصائيات أوامر الشغل
+    - حساب نسبة الالتزام بالجدول
+    """
     schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
     history = PMScheduleHistory.objects.filter(pm_schedule=schedule).order_by('-created_at')
     
@@ -1155,7 +1501,15 @@ def pm_schedule_detail(request, schedule_id):
 
 @login_required
 def pm_schedule_update(request, schedule_id):
-    """تحديث جدول الصيانة الوقائية"""
+    """
+    تحديث جدول الصيانة الوقائية
+    
+    الوظائف:
+    - تحديث جدول صيانة وقائية موجود
+    - التحقق من صلاحيات المستخدم للتعديل
+    - عرض نموذج التعديل مع البيانات الحالية
+    - حفظ التعديلات وعرض رسالة نجاح
+    """
     pm_schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
     
     # التحقق من صلاحيات المستخدم
@@ -1182,7 +1536,14 @@ def pm_schedule_update(request, schedule_id):
 
 @login_required
 def pm_schedule_delete(request, schedule_id):
-    """حذف جدول الصيانة الوقائية"""
+    """
+    حذف جدول الصيانة الوقائية
+    
+    الوظائف:
+    - حذف جدول صيانة وقائية موجود
+    - التحقق من صلاحيات المستخدم للحذف
+    - عرض رسالة نجاح بعد الحذف
+    """
     pm_schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
     
     # التحقق من صلاحيات المستخدم
@@ -1196,7 +1557,14 @@ def pm_schedule_delete(request, schedule_id):
 
 @login_required
 def pm_schedule_generate_wo(request, schedule_id):
-    """إنشاء أمر عمل يدوياً من جدول الصيانة الوقائية"""
+    """
+    إنشاء أمر عمل يدوياً من جدول الصيانة الوقائية
+    
+    الوظائف:
+    - إنشاء أمر عمل من جدول الصيانة الوقائية
+    - التحقق من صلاحيات المستخدم للإنشاء
+    - معالجة الأخطاء وعرض رسائل مناسبة
+    """
     pm_schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
     
     # التحقق من صلاحيات المستخدم
@@ -1215,7 +1583,15 @@ def pm_schedule_generate_wo(request, schedule_id):
 
 @login_required
 def pm_schedule_toggle_status(request, schedule_id):
-    """تفعيل/تعطيل جدول الصيانة الوقائية"""
+    """
+    تفعيل/تعطيل جدول الصيانة الوقائية
+    
+    الوظائف:
+    - تبديل حالة جدول الصيانة الوقائية
+    - تفعيل أو تعطيل الجدول
+    - التحقق من صلاحيات المستخدم
+    - عرض رسائل نجاح مناسبة
+    """
     pm_schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
     
     # التحقق من صلاحيات المستخدم
@@ -1236,7 +1612,15 @@ def pm_schedule_toggle_status(request, schedule_id):
 
 @login_required
 def work_order_update_status(request, wo_id):
-    """تحديث حالة أمر الشغل"""
+    """
+    تحديث حالة أمر الشغل
+    
+    الوظائف:
+    - تحديث حالة أمر الشغل
+    - إضافة ملاحظات الإنجاز
+    - تسجيل وقت الإنجاز
+    - التحقق من صحة الحالة الجديدة
+    """
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
     if request.method == 'POST':
@@ -1259,7 +1643,15 @@ def work_order_update_status(request, wo_id):
 
 @login_required
 def work_order_add_comment(request, wo_id):
-    """إضافة تعليق لأمر الشغل"""
+    """
+    إضافة تعليق لأمر الشغل
+    
+    الوظائف:
+    - إضافة تعليق جديد لأمر الشغل
+    - تسجيل التوقيت والمستخدم
+    - إضافة التعليق لملاحظات أمر الشغل
+    - التحقق من عدم إضافة تعليق فارغ
+    """
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
     if request.method == 'POST':

@@ -104,7 +104,7 @@
                     {% else %}
                     <div class="alert alert-info">
                         لا توجد جداول صيانة مرتبطة بهذه الخطة حتى الآن.
-                        <a href="{% url 'pm_schedule_create' %}?job_plan={{ job_plan.id }}" class="alert-link">إنشاء جدول صيانة جديد</a>
+                        <a href="{% url 'maintenance:cmms:pm_schedule_create' %}?job_plan={{ job_plan.id }}" class="alert-link">إنشاء جدول صيانة جديد</a>
                     </div>
                     {% endif %}
                 </div>

@@ -83,56 +83,66 @@
                                         </a>
                                     </th>
                                     <th>
-                                        <a href="?{% if 'quantity' in sort_by %}sort_by=-quantity{% else %}sort_by=quantity{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                            الكمية
-                                            {% if sort_by == 'quantity' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-quantity' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                        <a href="?{% if 'current_stock' in sort_by %}sort_by=-current_stock{% else %}sort_by=current_stock{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
+                                            المخزون الحالي
+                                            {% if sort_by == 'current_stock' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-current_stock' %}<i class="fas fa-sort-down"></i>{% endif %}
                                         </a>
                                     </th>
                                     <th>الحد الأدنى</th>
                                     <th>
-                                        <a href="?{% if 'supplier__name' in sort_by %}sort_by=-supplier__name{% else %}sort_by=supplier__name{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
+                                        <a href="?{% if 'primary_supplier__name' in sort_by %}sort_by=-primary_supplier__name{% else %}sort_by=primary_supplier__name{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
                                             المورد
-                                            {% if sort_by == 'supplier__name' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-supplier__name' %}<i class="fas fa-sort-down"></i>{% endif %}
+                                            {% if sort_by == 'primary_supplier__name' %}<i class="fas fa-sort-up"></i>{% elif sort_by == '-primary_supplier__name' %}<i class="fas fa-sort-down"></i>{% endif %}
                                         </a>
                                     </th>
                                     <th>التكلفة</th>
+                                    <th>الحالة</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for spare_part in page_obj %}
-                                <tr {% if spare_part.quantity <= spare_part.min_quantity %}class="table-warning"{% endif %}>
+                                <tr>
                                     <td>
-                                        <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.id %}">
+                                        <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.pk %}">
                                             {{ spare_part.name }}
                                         </a>
                                     </td>
                                     <td>{{ spare_part.part_number }}</td>
                                     <td>
-                                        <span class="badge {% if spare_part.quantity <= spare_part.min_quantity %}badge-danger{% else %}badge-success{% endif %}">
-                                            {{ spare_part.quantity }} {{ spare_part.unit }}
+                                        <span class="badge badge-{% if spare_part.current_stock <= spare_part.minimum_stock %}danger{% elif spare_part.current_stock <= spare_part.minimum_stock|add:5 %}warning{% else %}success{% endif %}">
+                                            {{ spare_part.current_stock }}
                                         </span>
                                     </td>
-                                    <td>{{ spare_part.min_quantity }} {{ spare_part.unit }}</td>
+                                    <td>{{ spare_part.minimum_stock }}</td>
                                     <td>
                                         {% if spare_part.primary_supplier %}
-                                        <a href="{% url 'maintenance:spare_parts:supplier_detail' spare_part.primary_supplier.id %}">
                                             {{ spare_part.primary_supplier.name }}
-                                        </a>
                                         {% else %}
-                                        -
+                                            <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ spare_part.cost|default:"-" }}</td>
+                                    <td>
+                                        {% if spare_part.unit_cost %}
+                                            {{ spare_part.unit_cost }} ريال
+                                        {% else %}
+                                            <span class="text-muted">غير محدد</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{% if spare_part.status == 'available' %}success{% elif spare_part.status == 'low_stock' %}warning{% elif spare_part.status == 'out_of_stock' %}danger{% else %}secondary{% endif %}">
+                                            {{ spare_part.get_status_display }}
+                                        </span>
+                                    </td>
                                     <td>
                                         <div class="btn-group">
-                                            <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.id %}" class="btn btn-info btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_detail' spare_part.pk %}" class="btn btn-info btn-sm">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{% url 'maintenance:spare_parts:spare_part_update' spare_part.id %}" class="btn btn-warning btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_update' spare_part.pk %}" class="btn btn-warning btn-sm">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create_for_part' spare_part.id %}" class="btn btn-success btn-sm">
+                                            <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create' spare_part.pk %}" class="btn btn-success btn-sm">
                                                 <i class="fas fa-exchange-alt"></i>
                                             </a>
                                         </div>
@@ -140,7 +150,9 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="7" class="text-center">لا توجد قطع غيار</td>
+                                    <td colspan="8" class="text-center text-muted">
+                                        لا توجد قطع غيار
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -148,47 +160,49 @@
                     </div>
 
                     {% if page_obj.has_other_pages %}
-                    <div class="pagination justify-content-center mt-4">
-                        <ul class="pagination">
+                    <nav aria-label="تصفح قطع الغيار">
+                        <ul class="pagination justify-content-center">
                             {% if page_obj.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                    <i class="fas fa-angle-double-left"></i>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                    <i class="fas fa-angle-left"></i>
-                                </a>
-                            </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
                             {% endif %}
 
                             {% for num in page_obj.paginator.page_range %}
-                            {% if page_obj.number == num %}
-                            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
-                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                    {{ num }}
-                                </a>
-                            </li>
-                            {% endif %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                    <i class="fas fa-angle-right"></i>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}">
-                                    <i class="fas fa-angle-double-right"></i>
-                                </a>
-                            </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_supplier %}&supplier={{ selected_supplier }}{% endif %}{% if low_stock %}&low_stock={{ low_stock }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
                             {% endif %}
                         </ul>
-                    </div>
+                    </nav>
                     {% endif %}
                 </div>
             </div>

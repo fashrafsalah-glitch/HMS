@@ -26,6 +26,8 @@ urlpatterns = [
     # إدارة SLA
     path('sla/', views_cmms.sla_list, name='sla_list'),
     path('sla/create/', views_cmms.sla_create, name='sla_create'),
+    path('sla/<int:sla_id>/edit/', views_cmms.sla_edit, name='sla_edit'),
+    path('sla/<int:sla_id>/delete/', views_cmms.sla_delete, name='sla_delete'),
     path('sla-matrix/', views_cmms.sla_matrix_list, name='sla_matrix_list'),
     path('sla-matrix/create/', views_cmms.sla_matrix_create, name='sla_matrix_create'),
     

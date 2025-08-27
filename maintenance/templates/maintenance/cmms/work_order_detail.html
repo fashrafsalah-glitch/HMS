@@ -23,10 +23,29 @@
                             <dl class="row">
                                 <dt class="col-sm-4">الجهاز:</dt>
                                 <dd class="col-sm-8">
-                                    {% if work_order.device %}
-                                        <a href="{% url 'maintenance:device_detail' work_order.device.id %}">
-                                            {{ work_order.device.name }}{% if work_order.device.serial_number %} ({{ work_order.device.serial_number }}){% endif %}
+                                    {% if work_order.service_request.device %}
+                                        <a href="{% url 'maintenance:device_detail' work_order.service_request.device.id %}">
+                                            {{ work_order.service_request.device.name }}{% if work_order.service_request.device.serial_number %} ({{ work_order.service_request.device.serial_number }}){% endif %}
                                         </a>
+                                    {% else %}
+                                        <span class="text-muted">غير محدد</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">حالة الجهاز:</dt>
+                                <dd class="col-sm-8">
+                                    {% if work_order.service_request.device %}
+                                        {% if work_order.service_request.device.status == 'working' %}
+                                            <span class="badge badge-success">{{ work_order.service_request.device.get_status_display }}</span>
+                                        {% elif work_order.service_request.device.status == 'needs_maintenance' %}
+                                            <span class="badge badge-warning">{{ work_order.service_request.device.get_status_display }}</span>
+                                        {% elif work_order.service_request.device.status == 'out_of_order' %}
+                                            <span class="badge badge-danger">{{ work_order.service_request.device.get_status_display }}</span>
+                                        {% elif work_order.service_request.device.status == 'needs_check' %}
+                                            <span class="badge badge-info">{{ work_order.service_request.device.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ work_order.service_request.device.get_status_display }}</span>
+                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted">غير محدد</span>
                                     {% endif %}
@@ -34,8 +53,8 @@
                                 
                                 <dt class="col-sm-4">القسم:</dt>
                                 <dd class="col-sm-8">
-                                    {% if work_order.device and work_order.device.department %}
-                                        {{ work_order.device.department.name }}
+                                    {% if work_order.service_request.device and work_order.service_request.device.department %}
+                                        {{ work_order.service_request.device.department.name }}
                                     {% else %}
                                         <span class="text-muted">غير محدد</span>
                                     {% endif %}
@@ -43,8 +62,8 @@
                                 
                                 <dt class="col-sm-4">الموقع:</dt>
                                 <dd class="col-sm-8">
-                                    {% if work_order.device and work_order.device.room %}
-                                        {{ work_order.device.room }}
+                                    {% if work_order.service_request.device and work_order.service_request.device.room %}
+                                        {{ work_order.service_request.device.room }}
                                     {% else %}
                                         <span class="text-muted">غير محدد</span>
                                     {% endif %}
@@ -150,7 +169,7 @@
                                     <h5 class="card-title">تحديث حالة أمر الشغل</h5>
                                 </div>
                                 <div class="card-body">
-                                    <form method="post" action="{% url 'maintenance:cmms:work_order_update_status' work_order.id %}">
+                                    <form method="post" name="update_status">
                                         {% csrf_token %}
                                         <div class="form-row">
                                             <div class="form-group col-md-6">
@@ -162,8 +181,35 @@
                                                 {{ status_form.resolution }}
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-primary">
+                                        <button type="submit" name="update_status" class="btn btn-primary">
                                             <i class="fas fa-save"></i> تحديث الحالة
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Device Status Update Section -->
+                    {% if device_needs_status_change and can_update_status %}
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card card-success card-outline">
+                                <div class="card-header">
+                                    <h5 class="card-title">تحديث حالة الجهاز</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        الجهاز "{{ work_order.service_request.device.name }}" في حالة "{{ work_order.service_request.device.get_status_display }}" وأمر الشغل مكتمل. 
+                                        يمكنك تحديث حالة الجهاز إلى "يعمل" إذا كان الجهاز يعمل بشكل طبيعي.
+                                    </div>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" name="update_device_status" class="btn btn-success" 
+                                                onclick="return confirm('هل أنت متأكد من تغيير حالة الجهاز إلى يعمل؟')">
+                                            <i class="fas fa-check-circle"></i> تحديث حالة الجهاز إلى "يعمل"
                                         </button>
                                     </form>
                                 </div>
