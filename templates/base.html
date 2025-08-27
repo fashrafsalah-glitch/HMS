@@ -556,7 +556,8 @@
                     <a class="nav-link {% if request.resolver_match.url_name == 'inventory_dashboard' %}active{% endif %}" href="{% url 'maintenance:spare_parts:inventory_dashboard' %}">
                         <i class="fas fa-warehouse me-2"></i><span>لوحة تحكم المخزون</span>
                     </a>
-                    <a class="nav-link {% if request.resolver_match.url_name == 'pending_requests' %}active{% endif %}" href="{% url 'maintenance:spare_parts:pending_requests' %}">
+                    
+                    <a class="nav-link {% if request.resolver_match.url_name == 'pending_' %}active{% endif %}" href="{% url 'maintenance:spare_parts:pending_requests' %}">
                         <i class="fas fa-clock me-2"></i><span>الطلبات المعلقة</span>
                     </a>
                     <a class="nav-link {% if request.resolver_match.url_name == 'spare_part_list' %}active{% endif %}" href="{% url 'maintenance:spare_parts:spare_part_list' %}">

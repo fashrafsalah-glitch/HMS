@@ -2813,7 +2813,7 @@ class SparePartRequest(models.Model):
     
     def can_fulfill(self):
         """التحقق من إمكانية تنفيذ الطلب"""
-        return self.status == 'approved'
+        return self.status in ['pending', 'approved']
     
     def get_priority_color(self):
         """إرجاع لون الأولوية للعرض"""

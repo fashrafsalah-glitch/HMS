@@ -1,8 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load i18n %}
 
-{% block title %}طلب قطعة غيار{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -26,15 +25,16 @@
         padding: 15px;
         margin-bottom: 20px;
     }
-    .form-section {
-        border-bottom: 1px solid #eee;
-        padding-bottom: 20px;
-        margin-bottom: 20px;
+    .priority-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
     }
-    .form-section:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-    }
+    .priority-medium { background: #ffc107; color: #000; }
+    .priority-high { background: #fd7e14; color: #fff; }
+    .priority-urgent { background: #dc3545; color: #fff; }
 </style>
 {% endblock %}
 
@@ -45,19 +45,22 @@
         <div class="col-md-8">
             <h2 class="text-primary">
                 <i class="fas fa-plus-circle"></i>
-                طلب قطعة غيار
+                {{ title }}
             </h2>
-            <p class="text-muted">تقديم طلب للحصول على قطعة غيار من المخزون</p>
+            <p class="text-muted">طلب قطعة غيار من المخزون</p>
         </div>
         <div class="col-md-4 text-right">
-            <a href="{% url 'maintenance:spare_parts:my_requests' %}" class="btn btn-outline-primary">
-                <i class="fas fa-list"></i>
-                طلباتي
+            {% if work_order %}
+            <a href="{% url 'maintenance:cmms:work_order_detail' wo_id=work_order.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-right"></i>
+                العودة لأمر العمل
             </a>
+            {% else %}
             <a href="{% url 'maintenance:spare_parts:inventory_dashboard' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-right"></i>
                 العودة
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -68,15 +71,15 @@
             <div class="context-info">
                 <h6 class="text-primary">
                     <i class="fas fa-link"></i>
-                    معلومات السياق
+                    معلومات الطلب
                 </h6>
                 {% if work_order %}
                 <p class="mb-1">
-                    <strong>أمر العمل:</strong> {{ work_order.work_order_number }}
+                    <strong>أمر العمل:</strong> {{ work_order.wo_number }}
                     <span class="badge badge-{{ work_order.status }}">{{ work_order.get_status_display }}</span>
                 </p>
                 <p class="mb-1">
-                    <strong>الوصف:</strong> {{ work_order.description|truncatechars:100 }}
+                    <strong>العنوان:</strong> {{ work_order.title }}
                 </p>
                 {% endif %}
                 {% if device %}
@@ -93,7 +96,7 @@
                     {% csrf_token %}
                     
                     <!-- Spare Part Selection -->
-                    <div class="form-section">
+                    <div class="form-group">
                         <h5 class="mb-3">
                             <i class="fas fa-cog text-primary"></i>
                             اختيار قطعة الغيار
@@ -102,28 +105,30 @@
                         <div class="row">
                             <div class="col-md-8">
                                 <div class="form-group">
-                                    <label for="{{ form.spare_part.id_for_label }}">
-                                        {{ form.spare_part.label }} <span class="text-danger">*</span>
+                                    <label for="spare_part">
+                                        قطعة الغيار <span class="text-danger">*</span>
                                     </label>
-                                    {{ form.spare_part }}
-                                    {% if form.spare_part.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.spare_part.errors.0 }}
-                                    </div>
-                                    {% endif %}
+                                    <select name="spare_part" id="spare_part" class="form-control" required>
+                                        <option value="">اختر قطعة الغيار...</option>
+                                        {% for spare_part in spare_parts %}
+                                        <option value="{{ spare_part.id }}" 
+                                                data-stock="{{ spare_part.current_stock }}"
+                                                data-min="{{ spare_part.minimum_stock }}"
+                                                data-location="{{ spare_part.location|default:'غير محدد' }}"
+                                                data-number="{{ spare_part.part_number|default:'غير محدد' }}">
+                                            {{ spare_part.name }} - متاح: {{ spare_part.current_stock }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="{{ form.quantity_requested.id_for_label }}">
-                                        {{ form.quantity_requested.label }} <span class="text-danger">*</span>
+                                    <label for="quantity">
+                                        الكمية المطلوبة <span class="text-danger">*</span>
                                     </label>
-                                    {{ form.quantity_requested }}
-                                    {% if form.quantity_requested.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.quantity_requested.errors.0 }}
-                                    </div>
-                                    {% endif %}
+                                    <input type="number" name="quantity" id="quantity" class="form-control" 
+                                           min="1" value="1" required>
                                 </div>
                             </div>
                         </div>
@@ -145,105 +150,68 @@
                                 </div>
                             </div>
                             <div class="row mt-2">
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <strong>الرقم التسلسلي:</strong>
                                     <span id="part-number" class="text-muted">-</span>
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>المورد:</strong>
-                                    <span id="supplier" class="text-muted">-</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Request Details -->
-                    <div class="form-section">
+                    <!-- Optional Details -->
+                    <div class="form-group">
                         <h5 class="mb-3">
                             <i class="fas fa-info-circle text-primary"></i>
-                            تفاصيل الطلب
+                            تفاصيل إضافية (اختيارية)
                         </h5>
                         
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.priority.id_for_label }}">
-                                        {{ form.priority.label }}
-                                    </label>
-                                    {{ form.priority }}
-                                    {% if form.priority.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.priority.errors.0 }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="{{ form.work_order.id_for_label }}">
-                                        {{ form.work_order.label }}
-                                    </label>
-                                    {{ form.work_order }}
-                                    {% if form.work_order.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.work_order.errors.0 }}
-                                    </div>
-                                    {% endif %}
+                                    <label for="priority">الأولوية</label>
+                                    <select name="priority" id="priority" class="form-control">
+                                        <option value="medium" selected>متوسط</option>
+                                        <option value="high">عالي</option>
+                                        <option value="urgent">عاجل</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label for="{{ form.device.id_for_label }}">
-                                {{ form.device.label }}
-                            </label>
-                            {{ form.device }}
-                            {% if form.device.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.device.errors.0 }}
-                            </div>
-                            {% endif %}
+                            <label for="reason">سبب الطلب</label>
+                            <textarea name="reason" id="reason" class="form-control" rows="2" 
+                                      placeholder="{% if work_order %}طلب قطعة غيار لأمر العمل {{ work_order.wo_number }}{% else %}اذكر سبب طلب قطعة الغيار{% endif %}">{% if work_order %}طلب قطعة غيار لأمر العمل {{ work_order.wo_number }}{% endif %}</textarea>
                         </div>
 
                         <div class="form-group">
-                            <label for="{{ form.reason.id_for_label }}">
-                                {{ form.reason.label }} <span class="text-danger">*</span>
-                            </label>
-                            {{ form.reason }}
-                            {% if form.reason.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.reason.errors.0 }}
-                            </div>
-                            {% endif %}
-                        </div>
-
-                        <div class="form-group">
-                            <label for="{{ form.notes.id_for_label }}">
-                                {{ form.notes.label }}
-                            </label>
-                            {{ form.notes }}
-                            {% if form.notes.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.notes.errors.0 }}
-                            </div>
-                            {% endif %}
+                            <label for="notes">ملاحظات إضافية</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="2" 
+                                      placeholder="أي ملاحظات أو تفاصيل إضافية"></textarea>
                         </div>
                     </div>
 
                     <!-- Form Actions -->
-                    <div class="form-group">
+                    <div class="form-group mt-4">
                         <div class="row">
                             <div class="col-md-6">
-                                <button type="submit" class="btn btn-primary btn-block btn-lg">
+                                <button type="submit" class="btn btn-success btn-block btn-lg">
                                     <i class="fas fa-paper-plane"></i>
-                                    تقديم الطلب
+                                    إرسال الطلب
                                 </button>
                             </div>
                             <div class="col-md-6">
+                                {% if work_order %}
+                                <a href="{% url 'maintenance:cmms:work_order_detail' wo_id=work_order.id %}" class="btn btn-secondary btn-block btn-lg">
+                                    <i class="fas fa-times"></i>
+                                    إلغاء
+                                </a>
+                                {% else %}
                                 <a href="{% url 'maintenance:spare_parts:inventory_dashboard' %}" class="btn btn-secondary btn-block btn-lg">
                                     <i class="fas fa-times"></i>
                                     إلغاء
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -257,47 +225,37 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const sparePartSelect = document.getElementById('{{ form.spare_part.id_for_label }}');
-    const quantityInput = document.getElementById('{{ form.quantity_requested.id_for_label }}');
+    const sparePartSelect = document.getElementById('spare_part');
+    const quantityInput = document.getElementById('quantity');
     const sparePartInfo = document.getElementById('spare-part-info');
     const form = document.getElementById('requestForm');
     
-    // Spare parts data (populated from backend)
-    const sparePartsData = {
-        {% for spare_part in form.spare_part.queryset %}
-        '{{ spare_part.id }}': {
-            'current_stock': {{ spare_part.current_stock }},
-            'minimum_stock': {{ spare_part.minimum_stock }},
-            'location': '{{ spare_part.location|default:"غير محدد" }}',
-            'part_number': '{{ spare_part.part_number|default:"غير محدد" }}',
-            'supplier': '{{ spare_part.supplier.name|default:"غير محدد" }}'
-        },
-        {% endfor %}
-    };
-    
     function updateSparePartInfo() {
-        const selectedId = sparePartSelect.value;
-        if (selectedId && sparePartsData[selectedId]) {
-            const data = sparePartsData[selectedId];
+        const selectedOption = sparePartSelect.options[sparePartSelect.selectedIndex];
+        
+        if (selectedOption.value) {
+            const stock = selectedOption.dataset.stock;
+            const minStock = selectedOption.dataset.min;
+            const location = selectedOption.dataset.location;
+            const partNumber = selectedOption.dataset.number;
             
-            document.getElementById('current-stock').textContent = data.current_stock;
-            document.getElementById('minimum-stock').textContent = data.minimum_stock;
-            document.getElementById('location').textContent = data.location;
-            document.getElementById('part-number').textContent = data.part_number;
-            document.getElementById('supplier').textContent = data.supplier;
+            document.getElementById('current-stock').textContent = stock;
+            document.getElementById('minimum-stock').textContent = minStock;
+            document.getElementById('location').textContent = location;
+            document.getElementById('part-number').textContent = partNumber;
             
             // Update stock color based on availability
             const stockElement = document.getElementById('current-stock');
-            if (data.current_stock <= 0) {
+            if (parseInt(stock) <= 0) {
                 stockElement.className = 'text-danger font-weight-bold';
-            } else if (data.current_stock <= data.minimum_stock) {
+            } else if (parseInt(stock) <= parseInt(minStock)) {
                 stockElement.className = 'text-warning font-weight-bold';
             } else {
                 stockElement.className = 'text-success font-weight-bold';
             }
             
             // Update quantity input max value
-            quantityInput.setAttribute('max', data.current_stock);
+            quantityInput.setAttribute('max', stock);
             
             sparePartInfo.style.display = 'block';
         } else {
@@ -306,18 +264,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function validateQuantity() {
-        const selectedId = sparePartSelect.value;
+        const selectedOption = sparePartSelect.options[sparePartSelect.selectedIndex];
         const quantity = parseInt(quantityInput.value);
         
-        if (selectedId && sparePartsData[selectedId] && quantity) {
-            const availableStock = sparePartsData[selectedId].current_stock;
+        if (selectedOption.value && quantity) {
+            const availableStock = parseInt(selectedOption.dataset.stock);
             
             if (quantity > availableStock) {
                 quantityInput.setCustomValidity(`الكمية المطلوبة (${quantity}) أكبر من المخزون المتاح (${availableStock})`);
+                return false;
             } else {
                 quantityInput.setCustomValidity('');
+                return true;
             }
         }
+        return true;
     }
     
     // Event listeners
@@ -326,15 +287,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Form submission
     form.addEventListener('submit', function(e) {
+        if (!validateQuantity()) {
+            e.preventDefault();
+            alert('يرجى التحقق من الكمية المطلوبة');
+            return;
+        }
+        
         const submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التقديم...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
     });
-    
-    // Initial update if spare part is pre-selected
-    if (sparePartSelect.value) {
-        updateSparePartInfo();
-    }
 });
 </script>
 {% endblock %}

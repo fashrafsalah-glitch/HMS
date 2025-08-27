@@ -177,8 +177,8 @@
                                     {% if request.work_order %}
                                     <p class="mb-1">
                                         <strong>أمر العمل:</strong> 
-                                        <a href="{% url 'maintenance:work_order_detail' request.work_order.id %}" class="text-primary">
-                                            {{ request.work_order.work_order_number }}
+                                        <a href="{% url 'maintenance:cmms:work_order_detail' wo_id=request.work_order.id %}" class="text-primary">
+                                            {{ request.work_order.wo_number }}
                                         </a>
                                     </p>
                                     {% endif %}
@@ -198,37 +198,50 @@
                         <div class="col-md-4">
                             <div class="action-buttons">
                                 {% if request.spare_part.current_stock >= request.quantity_requested %}
-                                    <!-- يمكن الموافقة والصرف مباشرة -->
-                                    <button type="button" class="btn btn-success" 
-                                            onclick="approveAndFulfill({{ request.id }}, '{{ request.request_number }}', '{{ request.spare_part.name }}', {{ request.quantity_requested }})">
-                                        <i class="fas fa-check-double"></i>
-                                        موافقة وصرف
-                                    </button>
+                                    <!-- موافقة وصرف مباشرة -->
+                                    <form method="post" action="{% url 'maintenance:spare_parts:fulfill_request' request.id %}" class="d-inline mb-2">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-success" 
+                                                onclick="return confirm('هل تريد الموافقة وصرف هذا الطلب؟ سيتم خصم {{ request.quantity_requested }} من المخزون.')">
+                                            <i class="fas fa-check-double"></i>
+                                            موافقة وصرف
+                                        </button>
+                                    </form>
                                 {% else %}
                                     <!-- مخزون غير كافي -->
-                                    <button type="button" class="btn btn-warning" disabled>
+                                    <button type="button" class="btn btn-warning mb-2" disabled>
                                         <i class="fas fa-exclamation-triangle"></i>
                                         مخزون غير كافي
                                     </button>
                                 {% endif %}
                                 
-                                <button type="button" class="btn btn-primary" 
-                                        onclick="approveOnly({{ request.id }}, '{{ request.request_number }}')">
-                                    <i class="fas fa-check"></i>
-                                    موافقة فقط
-                                </button>
+                                <!-- موافقة فقط -->
+                                <form method="post" action="{% url 'maintenance:spare_parts:approve_request' request.id %}" class="d-inline mb-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary" 
+                                            onclick="return confirm('هل تريد الموافقة على هذا الطلب؟')">
+                                        <i class="fas fa-check"></i>
+                                        موافقة فقط
+                                    </button>
+                                </form>
                                 
-                                <button type="button" class="btn btn-danger" 
-                                        onclick="rejectRequest({{ request.id }}, '{{ request.request_number }}')">
-                                    <i class="fas fa-times"></i>
-                                    رفض
-                                </button>
+                                <!-- رفض -->
+                                <form method="post" action="{% url 'maintenance:spare_parts:reject_request' request.id %}" class="d-inline mb-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="reason" value="تم الرفض من قبل مدير المخزون">
+                                    <button type="submit" class="btn btn-danger" 
+                                            onclick="return confirm('هل تريد رفض هذا الطلب؟')">
+                                        <i class="fas fa-times"></i>
+                                        رفض
+                                    </button>
+                                </form>
                                 
-                                <button type="button" class="btn btn-info" 
-                                        onclick="addTransaction({{ request.spare_part.id }}, '{{ request.spare_part.name }}')">
+                                <!-- إضافة معاملة -->
+                                <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create_for_part' part_id=request.spare_part.id %}" 
+                                   class="btn btn-info mb-2">
                                     <i class="fas fa-plus"></i>
                                     إضافة معاملة
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -286,221 +299,4 @@
     </div>
 </div>
 
-<!-- Modals -->
-<!-- Approve and Fulfill Modal -->
-<div class="modal fade" id="approveAndFulfillModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">موافقة وصرف الطلب</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <form id="approveAndFulfillForm" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p>هل أنت متأكد من الموافقة على الطلب وصرف قطعة الغيار؟</p>
-                    <div class="alert alert-info">
-                        <strong>رقم الطلب:</strong> <span id="fulfillRequestNumber"></span><br>
-                        <strong>قطعة الغيار:</strong> <span id="fulfillPartName"></span><br>
-                        <strong>الكمية:</strong> <span id="fulfillQuantity"></span>
-                    </div>
-                    <div class="form-group">
-                        <label for="fulfillNotes">ملاحظات الصرف (اختياري)</label>
-                        <textarea name="notes" id="fulfillNotes" class="form-control" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-success">موافقة وصرف</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Approve Only Modal -->
-<div class="modal fade" id="approveOnlyModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">موافقة على الطلب</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <form id="approveOnlyForm" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p>هل أنت متأكد من الموافقة على هذا الطلب؟</p>
-                    <div class="alert alert-info">
-                        <strong>رقم الطلب:</strong> <span id="approveRequestNumber"></span>
-                    </div>
-                    <div class="form-group">
-                        <label for="approveNotes">ملاحظات الموافقة (اختياري)</label>
-                        <textarea name="notes" id="approveNotes" class="form-control" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-primary">موافقة</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Reject Modal -->
-<div class="modal fade" id="rejectModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">رفض الطلب</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <form id="rejectForm" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p>هل أنت متأكد من رفض هذا الطلب؟</p>
-                    <div class="alert alert-warning">
-                        <strong>رقم الطلب:</strong> <span id="rejectRequestNumber"></span>
-                    </div>
-                    <div class="form-group">
-                        <label for="rejectReason">سبب الرفض <span class="text-danger">*</span></label>
-                        <textarea name="reason" id="rejectReason" class="form-control" rows="3" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-danger">رفض الطلب</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Add Transaction Modal -->
-<div class="modal fade" id="addTransactionModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">إضافة معاملة مخزون</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <form id="addTransactionForm" method="post" action="{% url 'maintenance:spare_parts:spare_part_transaction_create' %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <strong>قطعة الغيار:</strong> <span id="transactionPartName"></span>
-                    </div>
-                    <input type="hidden" name="spare_part" id="transactionPartId">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="transactionType">نوع المعاملة <span class="text-danger">*</span></label>
-                                <select name="transaction_type" id="transactionType" class="form-control" required>
-                                    <option value="">اختر نوع المعاملة</option>
-                                    <option value="in">وارد (إضافة للمخزون)</option>
-                                    <option value="out">صادر (خصم من المخزون)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="transactionQuantity">الكمية <span class="text-danger">*</span></label>
-                                <input type="number" name="quantity" id="transactionQuantity" class="form-control" min="1" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="transactionNotes">ملاحظات</label>
-                        <textarea name="notes" id="transactionNotes" class="form-control" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-success">إضافة المعاملة</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function approveAndFulfill(requestId, requestNumber, partName, quantity) {
-    document.getElementById('fulfillRequestNumber').textContent = requestNumber;
-    document.getElementById('fulfillPartName').textContent = partName;
-    document.getElementById('fulfillQuantity').textContent = quantity;
-    
-    const form = document.getElementById('approveAndFulfillForm');
-    form.action = `/maintenance/spare-parts/requests/${requestId}/fulfill/`;
-    
-    $('#approveAndFulfillModal').modal('show');
-}
-
-function approveOnly(requestId, requestNumber) {
-    document.getElementById('approveRequestNumber').textContent = requestNumber;
-    
-    const form = document.getElementById('approveOnlyForm');
-    form.action = `/maintenance/spare-parts/requests/${requestId}/approve/`;
-    
-    $('#approveOnlyModal').modal('show');
-}
-
-function rejectRequest(requestId, requestNumber) {
-    document.getElementById('rejectRequestNumber').textContent = requestNumber;
-    
-    const form = document.getElementById('rejectForm');
-    form.action = `/maintenance/spare-parts/requests/${requestId}/reject/`;
-    
-    $('#rejectModal').modal('show');
-}
-
-function addTransaction(partId, partName) {
-    document.getElementById('transactionPartName').textContent = partName;
-    document.getElementById('transactionPartId').value = partId;
-    
-    $('#addTransactionModal').modal('show');
-}
-
-// Auto-submit forms and show success messages
-document.addEventListener('DOMContentLoaded', function() {
-    const forms = ['approveAndFulfillForm', 'approveOnlyForm', 'rejectForm', 'addTransactionForm'];
-    
-    forms.forEach(formId => {
-        document.getElementById(formId).addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch(this.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('حدث خطأ: ' + (data.error || 'خطأ غير معروف'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('حدث خطأ في الاتصال');
-            });
-        });
-    });
-});
-</script>
 {% endblock %}

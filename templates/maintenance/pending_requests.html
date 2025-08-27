@@ -157,11 +157,16 @@
                     </div>
                     <div class="col-md-4 text-right">
                         <div class="btn-group-vertical" role="group">
-                            <a href="{% url 'maintenance:spare_parts:approve_request' spare_request.id %}" 
-                               class="btn btn-success mb-2">
+                            <button type="button" class="btn btn-success mb-2" 
+                                    onclick="approveRequest({{ spare_request.id }})">
                                 <i class="fas fa-check"></i>
                                 موافقة
-                            </a>
+                            </button>
+                            <button type="button" class="btn btn-warning mb-2" 
+                                    onclick="fulfillRequest({{ spare_request.id }})">
+                                <i class="fas fa-box"></i>
+                                صرف
+                            </button>
                             <button type="button" class="btn btn-danger mb-2" 
                                     onclick="rejectRequest({{ spare_request.id }})">
                                 <i class="fas fa-times"></i>
@@ -229,6 +234,64 @@
     {% endif %}
 </div>
 
+<!-- Approve Request Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">الموافقة على الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="approveForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="approval_notes">ملاحظات الموافقة:</label>
+                        <textarea name="notes" id="approval_notes" 
+                                class="form-control" rows="3" 
+                                placeholder="أضف أي ملاحظات (اختياري)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">تأكيد الموافقة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Fulfill Request Modal -->
+<div class="modal fade" id="fulfillModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">صرف الطلب</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="fulfillForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="fulfill_notes">ملاحظات الصرف:</label>
+                        <textarea name="notes" id="fulfill_notes" 
+                                class="form-control" rows="3" 
+                                placeholder="أضف أي ملاحظات (اختياري)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">تأكيد الصرف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Reject Request Modal -->
 <div class="modal fade" id="rejectModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
@@ -244,7 +307,7 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="rejection_reason">سبب الرفض:</label>
-                        <textarea name="rejection_reason" id="rejection_reason" 
+                        <textarea name="reason" id="rejection_reason" 
                                 class="form-control" rows="3" required 
                                 placeholder="اذكر سبب رفض الطلب"></textarea>
                     </div>
@@ -261,9 +324,125 @@
 
 {% block extra_js %}
 <script>
+function approveRequest(requestId) {
+    $('#approveForm').attr('action', '/maintenance/spare-parts/inventory/requests/' + requestId + '/approve/');
+    $('#approveModal').modal('show');
+}
+
+function fulfillRequest(requestId) {
+    $('#fulfillForm').attr('action', '/maintenance/spare-parts/inventory/requests/' + requestId + '/fulfill/');
+    $('#fulfillModal').modal('show');
+}
+
 function rejectRequest(requestId) {
     $('#rejectForm').attr('action', '/maintenance/spare-parts/inventory/requests/' + requestId + '/reject/');
     $('#rejectModal').modal('show');
+}
+
+// Handle form submissions with AJAX
+$(document).ready(function() {
+    // Approve form submission
+    $('#approveForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var url = form.attr('action');
+        var formData = form.serialize();
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    $('#approveModal').modal('hide');
+                    showAlert('success', response.message);
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', response.error || 'حدث خطأ أثناء الموافقة على الطلب');
+                }
+            },
+            error: function() {
+                showAlert('danger', 'حدث خطأ في الاتصال');
+            }
+        });
+    });
+    
+    // Fulfill form submission
+    $('#fulfillForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var url = form.attr('action');
+        var formData = form.serialize();
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    $('#fulfillModal').modal('hide');
+                    showAlert('success', response.message);
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', response.error || 'حدث خطأ أثناء صرف الطلب');
+                }
+            },
+            error: function() {
+                showAlert('danger', 'حدث خطأ في الاتصال');
+            }
+        });
+    });
+    
+    // Reject form submission
+    $('#rejectForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var url = form.attr('action');
+        var formData = form.serialize();
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    $('#rejectModal').modal('hide');
+                    showAlert('success', response.message);
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', response.error || 'حدث خطأ أثناء رفض الطلب');
+                }
+            },
+            error: function() {
+                showAlert('danger', 'حدث خطأ في الاتصال');
+            }
+        });
+    });
+});
+
+function showAlert(type, message) {
+    var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                    '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-triangle') + '"></i> ' +
+                    message +
+                    '<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
+                    '<span aria-hidden="true">&times;</span>' +
+                    '</button>' +
+                    '</div>';
+    
+    $('.container-fluid').prepend(alertHtml);
+    
+    // Auto-hide success alerts after 3 seconds
+    if (type === 'success') {
+        setTimeout(function() {
+            $('.alert-success').fadeOut();
+        }, 3000);
+    }
 }
 </script>
 {% endblock %}

@@ -24,10 +24,11 @@ from django.core.paginator import Paginator
 
 from .models import (Device, ServiceRequest, WorkOrder, JobPlan, JobPlanStep, 
                      PreventiveMaintenanceSchedule, SLADefinition, SR_TYPE_CHOICES, WO_STATUS_CHOICES,
-                     WorkOrderPart)
+                     WorkOrderPart, SparePart, SparePartRequest)
 from .forms_cmms import (ServiceRequestForm, WorkOrderForm, WorkOrderUpdateForm, 
                         SLADefinitionForm, JobPlanForm, JobPlanStepForm, PMScheduleForm,
                         WorkOrderPartRequestForm, WorkOrderPartIssueForm)
+from .forms import SparePartRequestForm
 
 # ========================================
 # بلاغات الصيانة (Service Requests)
@@ -1747,7 +1748,7 @@ def work_order_parts_list(request, wo_id):
 
 @login_required
 def work_order_part_request(request, wo_id):
-    """طلب قطع غيار جديدة لأمر الشغل"""
+    """طلب قطع غيار جديدة لأمر الشغل - يربط بنظام إدارة المخزون"""
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
     # التحقق من صلاحية المستخدم
@@ -1757,27 +1758,43 @@ def work_order_part_request(request, wo_id):
             return redirect('maintenance:cmms:work_order_detail', wo_id=wo_id)
     
     if request.method == 'POST':
-        form = WorkOrderPartRequestForm(request.POST)
-        if form.is_valid():
-            part_request = form.save(commit=False)
-            part_request.work_order = work_order
-            part_request.requested_by = request.user
-            part_request.requested_at = timezone.now()
-            part_request.status = 'requested'
-            part_request.save()
+        spare_part_id = request.POST.get('spare_part')
+        quantity = int(request.POST.get('quantity', 1))
+        priority = request.POST.get('priority', 'medium')
+        reason = request.POST.get('reason', '')
+        notes = request.POST.get('notes', '')
+        
+        if spare_part_id:
+            spare_part = get_object_or_404(SparePart, id=spare_part_id)
             
-            messages.success(request, 'تم طلب قطع الغيار بنجاح')
-            return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
-    else:
-        form = WorkOrderPartRequestForm()
+            # إنشاء طلب قطعة غيار في نظام إدارة المخزون
+            spare_request = SparePartRequest.objects.create(
+                requester=request.user,
+                spare_part=spare_part,
+                quantity_requested=quantity,
+                priority=priority,
+                work_order=work_order,
+                device=work_order.service_request.device if work_order.service_request else None,
+                reason=reason or f'طلب قطعة غيار لأمر العمل {work_order.wo_number}',
+                notes=notes
+            )
+            
+            messages.success(request, f'تم إرسال طلب قطعة الغيار برقم {spare_request.request_number} بنجاح')
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+        else:
+            messages.error(request, 'يرجى اختيار قطعة غيار')
+    
+    # قائمة قطع الغيار المتاحة
+    spare_parts = SparePart.objects.filter(status='available').order_by('name')
     
     context = {
-        'form': form,
+        'spare_parts': spare_parts,
         'work_order': work_order,
-        'title': 'طلب قطع غيار جديدة',
+        'title': f'طلب قطع غيار لأمر العمل {work_order.wo_number}',
+        'device': work_order.service_request.device if work_order.service_request else None,
     }
     
-    return render(request, 'maintenance/cmms/work_order_part_request_form.html', context)
+    return render(request, 'maintenance/request_spare_part.html', context)
 
 @login_required
 def work_order_part_issue(request, wo_id, part_id):

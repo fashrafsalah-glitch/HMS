@@ -249,15 +249,12 @@ def approve_request(request, request_id):
             spare_request.approval_notes = approval_notes
             spare_request.save()
             
-            return JsonResponse({
-                'success': True,
-                'message': f'تمت الموافقة على الطلب {spare_request.request_number}'
-            })
+            messages.success(request, f'تمت الموافقة على الطلب {spare_request.request_number} بنجاح')
+            return redirect('maintenance:spare_parts:pending_requests')
+            
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            messages.error(request, f'حدث خطأ أثناء الموافقة على الطلب: {str(e)}')
+            return redirect('maintenance:spare_parts:pending_requests')
     
     context = {
         'spare_request': spare_request,
@@ -281,10 +278,8 @@ def fulfill_request(request, request_id):
             
             # التحقق من توفر المخزون
             if spare_request.quantity_requested > spare_request.spare_part.current_stock:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'المخزون غير كافي. المطلوب: {spare_request.quantity_requested}, المتاح: {spare_request.spare_part.current_stock}'
-                })
+                messages.error(request, f'المخزون غير كافي. المطلوب: {spare_request.quantity_requested}, المتاح: {spare_request.spare_part.current_stock}')
+                return redirect('maintenance:spare_parts:pending_requests')
             
             # الموافقة على الطلب أولاً
             spare_request.status = 'approved'
@@ -319,15 +314,12 @@ def fulfill_request(request, request_id):
             spare_request.transaction = transaction
             spare_request.save()
             
-            return JsonResponse({
-                'success': True,
-                'message': f'تم تنفيذ الطلب {spare_request.request_number} بنجاح'
-            })
+            messages.success(request, f'تم تنفيذ الطلب {spare_request.request_number} بنجاح')
+            return redirect('maintenance:spare_parts:pending_requests')
+            
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            messages.error(request, f'حدث خطأ أثناء تنفيذ الطلب: {str(e)}')
+            return redirect('maintenance:spare_parts:pending_requests')
     
     context = {
         'spare_request': spare_request,
@@ -343,7 +335,7 @@ def reject_request(request, request_id):
     
     if request.method == 'POST':
         try:
-            reason = request.POST.get('reason', '')
+            reason = request.POST.get('reason', 'تم الرفض من قبل المدير')
             
             spare_request.status = 'rejected'
             spare_request.rejected_by = request.user
@@ -351,15 +343,12 @@ def reject_request(request, request_id):
             spare_request.rejection_reason = reason
             spare_request.save()
             
-            return JsonResponse({
-                'success': True,
-                'message': f'تم رفض الطلب {spare_request.request_number}'
-            })
+            messages.success(request, f'تم رفض الطلب {spare_request.request_number} بنجاح')
+            return redirect('maintenance:spare_parts:pending_requests')
+            
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            messages.error(request, f'حدث خطأ أثناء رفض الطلب: {str(e)}')
+            return redirect('maintenance:spare_parts:pending_requests')
     
     context = {
         'spare_request': spare_request,
@@ -432,7 +421,7 @@ def my_requests(request):
         requester=request.user
     ).select_related(
         'spare_part', 'work_order', 'device', 'approved_by', 'fulfilled_by'
-    ).order_by('-created_date')
+    ).order_by('-created_at')
     
     # فلترة حسب الحالة
     status_filter = request.GET.get('status')
