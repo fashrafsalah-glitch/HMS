@@ -37,28 +37,40 @@
             /* Light mode defaults */
             --body-bg: #f5f7fa;
             --body-color: #333;
+            --text-primary: #2c3e50;
+            --text-secondary: #6c757d;
+            --text-on-gradient: #ffffff;
+            --icon-on-gradient: #ffffff;
             --main-content-bg: #f5f7fa;
             --sidebar-bg: linear-gradient(180deg, #007bff, #00c4ff);
             --card-bg: white;
+            --card-border: #e3e6f0;
             --table-bg: transparent;
             --table-color: #333;
             --table-border-color: #dee2e6; /* Bootstrap default border */
             --table-hover-bg: #f1f4f8;
             --table-striped-bg: rgba(0, 0, 0, 0.05);
+            --shadow-light: rgba(0,0,0,0.1);
         }
 
         /* Dark mode overrides */
         body.dark-mode {
-            --body-bg: #1a1a1a;
-            --body-color: #e0e0e0;
-            --main-content-bg: #2d2d2d;
+            --body-bg: #1a1d23;
+            --body-color: #f7fafc;
+            --text-primary: #f7fafc;
+            --text-secondary: #cbd5e0;
+            --text-on-gradient: #ffffff;
+            --icon-on-gradient: #ffffff;
+            --main-content-bg: #2d3748;
             --sidebar-bg: linear-gradient(180deg, #1e3a8a, #3b82f6);
-            --card-bg: #3a3a3a;
+            --card-bg: #2d3748;
+            --card-border: rgba(255,255,255,0.1);
             --table-bg: transparent;
-            --table-color: #e0e0e0;
-            --table-border-color: #555;
-            --table-hover-bg: #4a4a4a;
+            --table-color: #f7fafc;
+            --table-border-color: #4a5568;
+            --table-hover-bg: #4a5568;
             --table-striped-bg: rgba(255, 255, 255, 0.05);
+            --shadow-light: rgba(0,0,0,0.4);
         }
 
         /* Apply variables */
@@ -458,6 +470,39 @@
         body.dark-mode .dropdown-menu { background-color: #2b2b2b !important; color: #e5e7eb !important; }
         body.dark-mode .dropdown-item { color: #e5e7eb !important; }
         body.dark-mode .dropdown-item:hover { background-color: #3a3a3a !important; color: #ffffff !important; }
+        
+        /* FontAwesome and Bootstrap Icons - Context aware */
+        .fas, .far, .fab, .fal, .bi {
+            color: var(--text-primary);
+        }
+        
+        /* Icons on gradient backgrounds - always white */
+        [style*="gradient"] .fas,
+        [style*="gradient"] .far,
+        [style*="gradient"] .fab,
+        [style*="gradient"] .fal,
+        [style*="gradient"] .bi,
+        .text-white .fas,
+        .text-white .far,
+        .text-white .fab,
+        .text-white .fal,
+        .text-white .bi {
+            color: var(--icon-on-gradient) !important;
+        }
+        
+        /* Dark mode icon colors */
+        body.dark-mode .fas:not(.text-white),
+        body.dark-mode .far:not(.text-white),
+        body.dark-mode .fab:not(.text-white),
+        body.dark-mode .fal:not(.text-white),
+        body.dark-mode .bi:not(.text-white) {
+            color: var(--text-primary);
+        }
+        
+        /* Button icons inherit button color */
+        .btn .fas, .btn .far, .btn .fab, .btn .fal, .btn .bi {
+            color: inherit !important;
+        }
     </style>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">

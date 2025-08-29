@@ -18,6 +18,10 @@
         --bg-secondary: #ffffff;
         --text-primary: #2c3e50;
         --text-secondary: #6c757d;
+        --text-on-gradient-light: #2c3e50;  /* Dark text for light mode */
+        --text-on-gradient-dark: #ffffff;   /* White text for dark mode */
+        --icon-on-gradient-light: #2c3e50;  /* Dark icons for light mode */
+        --icon-on-gradient-dark: #ffffff;   /* White icons for dark mode */
         --border-color: #e3e6f0;
         --shadow-light: rgba(0,0,0,0.1);
         --card-bg: #ffffff;
@@ -28,7 +32,6 @@
         --device-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
         --dashboard-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         --cmms-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        --animation-duration: 0.4s;
         --animation-duration-slow: 0.8s;
         --animation-duration-fast: 0.2s;
         --primary-glow: 0 0 20px rgba(79, 70, 229, 0.4);
@@ -36,10 +39,7 @@
         --warning-glow: 0 0 20px rgba(245, 158, 11, 0.4);
         --danger-glow: 0 0 20px rgba(239, 68, 68, 0.4);
         --info-glow: 0 0 20px rgba(59, 130, 246, 0.4);
-        --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
         --glass-effect: rgba(255, 255, 255, 0.1);
-        --card-bg: #ffffff;
-        --card-border: rgba(0,0,0,0.125);
     }
     
     /* Dark Mode Variables */
@@ -51,30 +51,109 @@
         --bg-tertiary: #4a5568;
         --text-primary: #f7fafc;
         --text-secondary: #cbd5e0;
+        --text-on-gradient-light: #f7fafc;  /* Light text for dark mode */
+        --text-on-gradient-dark: #f7fafc;   /* Light text for dark mode */
+        --icon-on-gradient-light: #f7fafc;  /* Light icons for dark mode */
+        --icon-on-gradient-dark: #f7fafc;   /* Light icons for dark mode */
         --border-color: #4a5568;
         --shadow-light: rgba(0,0,0,0.4);
         --shadow-dark: rgba(0,0,0,0.6);
         --card-bg: #2d3748;
         --card-border: rgba(255,255,255,0.1);
+        --card-gradient: linear-gradient(135deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 100%);
         --glass-effect: rgba(255, 255, 255, 0.05);
         background-color: var(--bg-primary) !important;
         color: var(--text-primary) !important;
     }
     
-    /* Body Background */
+    /* Body Background - Inherit from base.html */
     body {
-        background: #f8f9fa;
-        background-image: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background-color: var(--bg-primary);
         color: var(--text-primary);
-        min-height: 100vh;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    [data-bs-theme="dark"] body,
-    body.dark-mode {
-        background: var(--bg-primary) !important;
-        background-image: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 90%) !important;
-        color: var(--text-primary) !important;
+    /* Table Styles */
+    .table {
+        background: var(--card-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px var(--shadow-light);
+    }
+    
+    .table thead th {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: white;
+        font-weight: 600;
+        border: none;
+        padding: 1rem;
+    }
+    
+    .table tbody td {
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        padding: 1rem;
+    }
+    
+    [data-bs-theme="dark"] .table tbody tr:hover,
+    body.dark-mode .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Quick Links Section */
+    .quick-links-section {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px var(--shadow-light);
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        animation: fadeInUp 0.8s ease-out;
+        transform-origin: center;
+        animation-fill-mode: both;
+        transform: translateZ(0);
+        animation-duration: var(--animation-duration);
+    }
+    
+    /* Dark mode specific card styling */
+    [data-bs-theme="dark"] .dashboard-card,
+    body.dark-mode .dashboard-card {
+        background-color: var(--card-bg);
+        border-color: var(--card-border);
+        color: var(--text-primary);
+    }
+    
+    /* Form Control Styles */
+    .form-control,
+    .form-select {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        background-color: var(--card-bg);
+        border-color: #4f46e5;
+        color: var(--text-primary);
+        box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+    }
+    
+    /* Input placeholder colors */
+    .form-control::placeholder {
+        color: var(--text-muted);
+        opacity: 0.7;
+    }
+    
+    [data-bs-theme="dark"] .form-control::placeholder,
+    body.dark-mode .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.5);
     }
     
     /* Enhanced Dashboard Cards */
@@ -94,14 +173,6 @@
         animation-fill-mode: both;
         transform: translateZ(0);
         animation-duration: var(--animation-duration);
-    }
-    
-    /* Dark mode specific card styling */
-    [data-bs-theme="dark"] .dashboard-card,
-    body.dark-mode .dashboard-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     
     .dashboard-card::before {
@@ -150,7 +221,7 @@
         border-radius: 16px;
         padding: 2rem 1.5rem;
         margin-bottom: 1rem;
-        color: white;
+        color: white !important;
         text-align: center;
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
@@ -160,6 +231,10 @@
         -webkit-backdrop-filter: blur(10px);
         animation: fadeInUp 0.6s ease-out;
         border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .stat-card * {
+        color: white !important;
     }
     
     .stat-card::before {
@@ -230,6 +305,7 @@
         animation: pulse 2s infinite ease-in-out;
         position: relative;
         z-index: 2;
+        color: white !important;
     }
     
     .stat-icon {
@@ -255,6 +331,7 @@
         text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         position: relative;
         z-index: 2;
+        color: white !important;
     }
     
     /* Enhanced Section Headers */
@@ -319,6 +396,82 @@
         position: relative;
         z-index: 2;
         text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    /* Alert Styles */
+    .alert {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        padding: 1rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    /* Alert colors for dark mode */
+    [data-bs-theme="dark"] .alert-success,
+    body.dark-mode .alert-success {
+        background-color: rgba(46, 204, 113, 0.1) !important;
+        color: #2ecc71 !important;
+        border: 1px solid rgba(46, 204, 113, 0.3);
+    }
+    
+    [data-bs-theme="dark"] .alert-warning,
+    body.dark-mode .alert-warning {
+        background-color: rgba(241, 196, 15, 0.1) !important;
+        color: #f1c40f !important;
+        border: 1px solid rgba(241, 196, 15, 0.3);
+    }
+    
+    [data-bs-theme="dark"] .alert-danger,
+    body.dark-mode .alert-danger {
+        background-color: rgba(231, 76, 60, 0.1) !important;
+        color: #e74c3c !important;
+        border: 1px solid rgba(231, 76, 60, 0.3);
+    }
+    
+    [data-bs-theme="dark"] .alert-info,
+    body.dark-mode .alert-info {
+        background-color: rgba(52, 152, 219, 0.1) !important;
+        color: #3498db !important;
+        border: 1px solid rgba(52, 152, 219, 0.3);
+    }
+    
+    /* Badge Styles */
+    .badge {
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Badge colors for dark mode */
+    [data-bs-theme="dark"] .badge.bg-success,
+    body.dark-mode .badge.bg-success {
+        background-color: rgba(46, 204, 113, 0.2) !important;
+        color: #2ecc71 !important;
+        border: 1px solid #2ecc71;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-warning,
+    body.dark-mode .badge.bg-warning {
+        background-color: rgba(241, 196, 15, 0.2) !important;
+        color: #f1c40f !important;
+        border: 1px solid #f1c40f;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-danger,
+    body.dark-mode .badge.bg-danger {
+        background-color: rgba(231, 76, 60, 0.2) !important;
+        color: #e74c3c !important;
+        border: 1px solid #e74c3c;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-info,
+    body.dark-mode .badge.bg-info {
+        background-color: rgba(52, 152, 219, 0.2) !important;
+        color: #3498db !important;
+        border: 1px solid #3498db;
     }
     
     /* Improved Action Buttons */
@@ -452,29 +605,34 @@
     }
     
     /* Enhanced Section Backgrounds */
-    .device-maintenance-section {
-        background: var(--device-gradient) !important;
-        color: white !important;
+    .maintenance-gradient-section {
         animation: slideInRight 0.6s ease-out;
     }
     
-    .general-maintenance-section {
+    .maintenance-gradient-section.device-section {
+        background: var(--device-gradient) !important;
+    }
+    
+    .maintenance-gradient-section.cmms-section {
         background: var(--cmms-gradient) !important;
-        color: white !important;
         animation: slideInLeft 0.6s ease-out;
     }
     
-    /* Ensure gradient cards maintain white text and icons */
+    /* Gradient cards text and icons - adaptive colors */
+    .gradient-card,
     .dashboard-card[style*="gradient"],
     .dashboard-card[style*="linear-gradient"] {
-        color: white !important;
+        color: var(--text-on-gradient-light) !important;
     }
     
+    .gradient-card *,
     .dashboard-card[style*="gradient"] *,
     .dashboard-card[style*="linear-gradient"] * {
-        color: white !important;
+        color: var(--text-on-gradient-light) !important;
     }
     
+    .gradient-card .fas, .gradient-card .far,
+    .gradient-card .fab, .gradient-card .fal,
     .dashboard-card[style*="gradient"] .fas,
     .dashboard-card[style*="gradient"] .far,
     .dashboard-card[style*="gradient"] .fab,
@@ -483,7 +641,7 @@
     .dashboard-card[style*="linear-gradient"] .far,
     .dashboard-card[style*="linear-gradient"] .fab,
     .dashboard-card[style*="linear-gradient"] .fal {
-        color: white !important;
+        color: var(--icon-on-gradient-light) !important;
     }
     
     /* Animation Keyframes */
@@ -601,14 +759,13 @@
     }
     
     .activity-item {
+        padding: 1rem;
+        margin-bottom: 0.75rem;
         background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-left: 4px solid #0d6efd;
         border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
+        border-left: 4px solid #4f46e5;
         transition: all 0.3s ease;
-        color: var(--text-primary);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
     .activity-item:hover {
@@ -628,19 +785,16 @@
     }
     
     /* Dark mode activity items */
-    [data-bs-theme="dark"] .activity-item,
     body.dark-mode .activity-item {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         color: var(--text-primary);
     }
     
-    [data-bs-theme="dark"] .activity-item h6,
     body.dark-mode .activity-item h6 {
         color: var(--text-primary);
     }
     
-    [data-bs-theme="dark"] .activity-item .text-muted,
     body.dark-mode .activity-item .text-muted {
         color: var(--text-secondary) !important;
     }
@@ -708,100 +862,99 @@
         font-weight: 700;
     }
     
-    .text-white h1, .text-white h2, .text-white h3, 
-    .text-white h4, .text-white h5, .text-white h6 {
-        color: white !important;
+    /* Text colors for gradient sections */
+    .gradient-text {
+        color: var(--text-on-gradient-light) !important;
     }
     
-    /* Fix text-white classes for both modes */
-    .text-white {
-        color: white !important;
+    .gradient-text-muted {
+        color: var(--text-on-gradient-light) !important;
+        opacity: 0.8;
     }
     
-    .text-white-50 {
-        color: rgba(255, 255, 255, 0.5) !important;
+    /* Icons in gradient sections */
+    .gradient-icon {
+        color: var(--icon-on-gradient-light) !important;
     }
     
-    /* Light mode text overrides for gradient sections */
-    body:not([data-bs-theme="dark"]):not(.dark-mode) .text-white {
-        color: white !important;
+    /* Section header specific */
+    .section-header h1, .section-header h2, .section-header h3,
+    .section-header h4, .section-header h5, .section-header h6,
+    .section-header p, .section-header span {
+        color: white !important;  /* Always white in header */
     }
     
-    body:not([data-bs-theme="dark"]):not(.dark-mode) .text-white-50 {
-        color: rgba(255, 255, 255, 0.7) !important;
+    /* Icons in regular cards */
+    .dashboard-card:not([style*="gradient"]) .fas,
+    .dashboard-card:not([style*="gradient"]) .far,
+    .dashboard-card:not([style*="gradient"]) .fab,
+    .dashboard-card:not([style*="gradient"]) .fal {
+        color: var(--text-primary);
     }
     
-    /* FontAwesome icons - Fixed colors */
-    .fas, .far, .fab, .fal {
-        color: white !important;
-    }
-    
-    /* All icons on gradient cards are white */
-    .dashboard-card .fas,
-    .dashboard-card .far,
-    .dashboard-card .fab,
-    .dashboard-card .fal {
-        color: white !important;
-    }
-    
-    /* Icons with text-white class */
-    .text-white .fas,
-    .text-white .far,
-    .text-white .fab,
-    .text-white .fal {
-        color: white !important;
-    }
-    
-    /* Button icons */
-    .btn .fas,
-    .btn .far,
-    .btn .fab,
-    .btn .fal {
+    /* Button icons inherit button color */
+    .btn .fas, .btn .far, .btn .fab, .btn .fal {
         color: inherit !important;
     }
     
     /* Light button icons */
-    .btn-light .fas,
-    .btn-light .far,
-    .btn-light .fab,
-    .btn-light .fal {
-        color: #2c3e50 !important;
+    .btn-light .fas, .btn-light .far,
+    .btn-light .fab, .btn-light .fal {
+        color: var(--text-primary) !important;
     }
     
-    /* Outline light button icons */
-    .btn-outline-light .fas,
-    .btn-outline-light .far,
-    .btn-outline-light .fab,
-    .btn-outline-light .fal {
-        color: white !important;
+    /* Dark mode light button icons */
+    body.dark-mode .btn-light .fas,
+    body.dark-mode .btn-light .far,
+    body.dark-mode .btn-light .fab,
+    body.dark-mode .btn-light .fal {
+        color: var(--text-primary) !important;
     }
     
-    /* Dark mode typography */
-    [data-bs-theme="dark"] h1,
-    [data-bs-theme="dark"] h2,
-    [data-bs-theme="dark"] h3,
-    [data-bs-theme="dark"] h4,
-    [data-bs-theme="dark"] h5,
-    [data-bs-theme="dark"] h6,
-    body.dark-mode h1,
-    body.dark-mode h2,
-    body.dark-mode h3,
-    body.dark-mode h4,
-    body.dark-mode h5,
-    body.dark-mode h6 {
+    /* Outline light button icons - neutral colors */
+    .btn-outline-light .fas, .btn-outline-light .far,
+    .btn-outline-light .fab, .btn-outline-light .fal {
+        color: var(--text-primary) !important;
+    }
+    
+    /* Dark mode typography for non-gradient sections */
+    body.dark-mode h1:not(.text-white),
+    body.dark-mode h2:not(.text-white),
+    body.dark-mode h3:not(.text-white),
+    body.dark-mode h4:not(.text-white),
+    body.dark-mode h5:not(.text-white),
+    body.dark-mode h6:not(.text-white) {
         color: var(--text-primary) !important;
     }
     
     /* Container styling for dark mode */
-    [data-bs-theme="dark"] .container-fluid,
     body.dark-mode .container-fluid {
         background: transparent;
         color: var(--text-primary);
     }
     
-    /* Button styling - Fixed hover colors */
-    .btn-outline-light {
-        border-color: rgba(255,255,255,0.8) !important;
+    /* Button styling for gradient cards */
+    .gradient-card .btn-light {
+        background-color: rgba(255,255,255,0.95) !important;
+        border-color: rgba(255,255,255,0.95) !important;
+        color: #2c3e50 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        font-weight: 600;
+        transition: all 0.3s ease !important;
+    }
+    
+    .gradient-card .btn-light:hover,
+    .gradient-card .btn-light:focus,
+    .gradient-card .btn-light:active {
+        background-color: white !important;
+        border-color: white !important;
+        color: #1a1a1a !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    .gradient-card .btn-outline-light {
+        border-color: rgba(255,255,255,0.5) !important;
         color: white !important;
         background-color: transparent !important;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -809,33 +962,29 @@
         transition: all 0.3s ease !important;
     }
     
-    .btn-outline-light:hover,
-    .btn-outline-light:focus,
-    .btn-outline-light:active {
-        background-color: rgba(255,255,255,0.25) !important;
+    .gradient-card .btn-outline-light:hover,
+    .gradient-card .btn-outline-light:focus,
+    .gradient-card .btn-outline-light:active {
+        background-color: rgba(255,255,255,0.2) !important;
         border-color: white !important;
         color: white !important;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
-        transform: translateY(-2px) !important;
-    }
-    
-    .btn-light {
-        background-color: white !important;
-        border-color: white !important;
-        color: #2c3e50 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        font-weight: 600;
-        transition: all 0.3s ease !important;
-    }
-    
-    .btn-light:hover,
-    .btn-light:focus,
-    .btn-light:active {
-        background-color: #f8f9fa !important;
-        border-color: #f8f9fa !important;
-        color: #1a1a1a !important;
         box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
         transform: translateY(-2px) !important;
+    }
+    
+    /* Dark mode button overrides for gradient cards */
+    [data-bs-theme="dark"] .gradient-card .btn-light,
+    body.dark-mode .gradient-card .btn-light {
+        background-color: rgba(255,255,255,0.9) !important;
+        border-color: rgba(255,255,255,0.9) !important;
+        color: #1a1d23 !important;
+    }
+    
+    [data-bs-theme="dark"] .gradient-card .btn-light:hover,
+    body.dark-mode .gradient-card .btn-light:hover {
+        background-color: white !important;
+        border-color: white !important;
+        color: #000000 !important;
     }
     
     /* Quick action buttons */
@@ -849,34 +998,7 @@
         z-index: 1;
     }
     
-    /* Dark mode button overrides */
-    [data-bs-theme="dark"] .btn-outline-light,
-    body.dark-mode .btn-outline-light {
-        border-color: rgba(255,255,255,0.3);
-        color: rgba(255,255,255,0.9);
-        background-color: transparent;
-    }
-    
-    [data-bs-theme="dark"] .btn-outline-light:hover,
-    body.dark-mode .btn-outline-light:hover {
-        background-color: rgba(255,255,255,0.1);
-        border-color: rgba(255,255,255,0.5);
-        color: white;
-    }
-    
-    [data-bs-theme="dark"] .btn-light,
-    body.dark-mode .btn-light {
-        background-color: rgba(255,255,255,0.1);
-        border-color: rgba(255,255,255,0.2);
-        color: rgba(255,255,255,0.9);
-    }
-    
-    [data-bs-theme="dark"] .btn-light:hover,
-    body.dark-mode .btn-light:hover {
-        background-color: rgba(255,255,255,0.2);
-        border-color: rgba(255,255,255,0.3);
-        color: white;
-    }
+    /* Remove old dark mode specific overrides - handled above */
     
     /* Responsive Enhancements */
     @media (max-width: 768px) {
@@ -933,15 +1055,15 @@
     <div class="row g-4 mb-5">
         <!-- 1. Devices Section -->
         <div class="col-lg-6 col-md-12">
-            <div class="dashboard-card device-maintenance-section">
+            <div class="dashboard-card maintenance-gradient-section device-section gradient-card">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
-                            <i class="fas fa-medical-kit fa-3x text-white"></i>
+                            <i class="fas fa-medical-kit fa-3x gradient-icon"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">🔧 إدارة الأجهزة</h3>
-                            <p class="text-white-50 mb-0">إدارة ومتابعة جميع الأجهزة الطبية</p>
+                            <h3 class="gradient-text mb-1">🔧 إدارة الأجهزة</h3>
+                            <p class="gradient-text-muted mb-0">إدارة ومتابعة جميع الأجهزة الطبية</p>
                         </div>
                     </div>
                     
@@ -976,15 +1098,15 @@
 
         <!-- 2. KPI Dashboard -->
         <div class="col-lg-6 col-md-12">
-            <div class="dashboard-card" style="background: var(--dashboard-gradient); color: white;">
+            <div class="dashboard-card gradient-card" style="background: var(--dashboard-gradient);">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
-                            <i class="fas fa-chart-line fa-3x text-white"></i>
+                            <i class="fas fa-chart-line fa-3x gradient-icon"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">📊 مؤشرات الأداء</h3>
-                            <p class="text-white-50 mb-0">لوحات التحكم والتحليلات</p>
+                            <h3 class="gradient-text mb-1">📊 مؤشرات الأداء</h3>
+                            <p class="gradient-text-muted mb-0">لوحات التحكم والتحليلات</p>
                         </div>
                     </div>
                     
@@ -1030,12 +1152,12 @@
     <div class="row g-4 mb-5">
         <!-- 3. Service Requests -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-concierge-bell fa-4x text-white"></i>
+                        <i class="fas fa-concierge-bell fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">طلبات الخدمة</h4>
+                    <h4 class="gradient-text mb-2">طلبات الخدمة</h4>
                     <div class="stat-card bg-info mb-3" style="padding: 1rem;">
                         <div class="stat-number" style="font-size: 2rem;">{{ total_service_requests }}</div>
                         <div class="stat-label">إجمالي الطلبات</div>
@@ -1049,13 +1171,13 @@
 
         <!-- 4. SLA Management -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-handshake fa-4x text-white"></i>
+                        <i class="fas fa-handshake fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">اتفاقيات الخدمة</h4>
-                    <p class="text-white-50 mb-3">إدارة SLA والمعايير</p>
+                    <h4 class="gradient-text mb-2">اتفاقيات الخدمة</h4>
+                    <p class="gradient-text-muted mb-3">إدارة SLA والمعايير</p>
                     <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-file-contract"></i> إدارة SLA
                     </a>
@@ -1065,13 +1187,13 @@
 
         <!-- 5. Job Plans -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-tasks fa-4x text-white"></i>
+                        <i class="fas fa-tasks fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">خطط العمل</h4>
-                    <p class="text-white-50 mb-3">إدارة خطط الصيانة</p>
+                    <h4 class="gradient-text mb-2">خطط العمل</h4>
+                    <p class="gradient-text-muted mb-3">إدارة خطط الصيانة</p>
                     <a href="{% url 'maintenance:cmms:job_plan_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-clipboard-list"></i> عرض الخطط
                     </a>
@@ -1084,13 +1206,13 @@
     <div class="row g-4 mb-5">
         <!-- 6. PM Schedules -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-calendar-check fa-4x text-white"></i>
+                        <i class="fas fa-calendar-check fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">الصيانة الوقائية</h4>
-                    <p class="text-white-50 mb-3">جدولة الصيانة الدورية</p>
+                    <h4 class="gradient-text mb-2">الصيانة الوقائية</h4>
+                    <p class="gradient-text-muted mb-3">جدولة الصيانة الدورية</p>
                     <a href="{% url 'maintenance:cmms:pm_schedule_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-calendar-alt"></i> عرض الجداول
                     </a>
@@ -1100,13 +1222,13 @@
 
         <!-- 7. Calibrations -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-balance-scale fa-4x text-white"></i>
+                        <i class="fas fa-balance-scale fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">المعايرة</h4>
-                    <p class="text-white-50 mb-3">معايرة الأجهزة الطبية</p>
+                    <h4 class="gradient-text mb-2">المعايرة</h4>
+                    <p class="gradient-text-muted mb-3">معايرة الأجهزة الطبية</p>
                     <a href="{% url 'maintenance:spare_parts:calibration_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-wrench"></i> إدارة المعايرة
                     </a>
@@ -1116,13 +1238,13 @@
 
         <!-- 8. Downtime -->
         <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-exclamation-triangle fa-4x text-white"></i>
+                        <i class="fas fa-exclamation-triangle fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">فترات التوقف</h4>
-                    <p class="text-white-50 mb-3">تتبع أوقات التوقف</p>
+                    <h4 class="gradient-text mb-2">فترات التوقف</h4>
+                    <p class="gradient-text-muted mb-3">تتبع أوقات التوقف</p>
                     <a href="{% url 'maintenance:spare_parts:downtime_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-clock"></i> إدارة التوقف
                     </a>
@@ -1135,15 +1257,15 @@
     <div class="row g-4 mb-5">
         <!-- 9. QR Codes -->
         <div class="col-lg-8">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%);">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
-                            <i class="fas fa-qrcode fa-3x text-white"></i>
+                            <i class="fas fa-qrcode fa-3x gradient-icon"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">📱 نظام QR Code</h3>
-                            <p class="text-white-50 mb-0">مسح ومتابعة الأجهزة باستخدام رموز QR</p>
+                            <h3 class="gradient-text mb-1">📱 نظام QR Code</h3>
+                            <p class="gradient-text-muted mb-0">مسح ومتابعة الأجهزة باستخدام رموز QR</p>
                         </div>
                     </div>
                     
@@ -1161,13 +1283,13 @@
 
         <!-- Spare Parts Section -->
         <div class="col-lg-4">
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #e83e8c 0%, #d63384 100%); color: white;">
+            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #e83e8c 0%, #d63384 100%);">
                 <div class="card-body p-4 text-center">
                     <div class="mb-3">
-                        <i class="fas fa-cogs fa-4x text-white"></i>
+                        <i class="fas fa-cogs fa-4x gradient-icon"></i>
                     </div>
-                    <h4 class="text-white mb-2">قطع الغيار</h4>
-                    <p class="text-white-50 mb-3">إدارة المخزون والطلبات</p>
+                    <h4 class="gradient-text mb-2">قطع الغيار</h4>
+                    <p class="gradient-text-muted mb-3">إدارة المخزون والطلبات</p>
                     <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-light quick-action-btn w-100">
                         <i class="fas fa-warehouse"></i> إدارة المخزون
                     </a>
@@ -1179,15 +1301,15 @@
     <!-- Work Orders Section -->
     <div class="row g-4 mb-5">
         <div class="col-12">
-            <div class="dashboard-card general-maintenance-section">
+            <div class="dashboard-card maintenance-gradient-section cmms-section gradient-card">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
-                            <i class="fas fa-clipboard-list fa-3x text-white"></i>
+                            <i class="fas fa-clipboard-list fa-3x gradient-icon"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">🏗️ أوامر الشغل والصيانة العامة</h3>
-                            <p class="text-white-50 mb-0">إدارة أوامر الشغل وطلبات الصيانة العامة</p>
+                            <h3 class="gradient-text mb-1">🏗️ أوامر الشغل والصيانة العامة</h3>
+                            <p class="gradient-text-muted mb-0">إدارة أوامر الشغل وطلبات الصيانة العامة</p>
                         </div>
                     </div>
                     
@@ -1240,7 +1362,7 @@
         <!-- آخر عمليات الصيانة -->
         <div class="col-lg-6 mb-4">
             <div class="dashboard-card">
-                <div class="card-header bg-primary text-white" style="background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);">
+                <div class="card-header text-white" style="background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%) !important;">
                     <h5 class="mb-0"><i class="fas fa-history"></i> آخر عمليات الصيانة</h5>
                 </div>
                 <div class="card-body recent-activity">
@@ -1274,7 +1396,7 @@
         <!-- الأجهزة المستخدمة حالياً -->
         <div class="col-lg-6 mb-4">
             <div class="dashboard-card">
-                <div class="card-header bg-success text-white" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+                <div class="card-header text-white" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%) !important;">
                     <h5 class="mb-0"><i class="fas fa-play-circle"></i> الأجهزة المستخدمة حالياً</h5>
                 </div>
                 <div class="card-body recent-activity">
@@ -1309,10 +1431,10 @@
     <div class="row">
         <div class="col-12">
             <div class="dashboard-card" style="animation: fadeInUp 0.8s ease-out; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                <div class="card-header bg-info text-white" style="background: var(--card-gradient) !important;">
-                    <h5 class="mb-0"><i class="fas fa-link"></i> روابط سريعة</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;">
+                    <h5 class="mb-0 text-white"><i class="fas fa-link text-white"></i> روابط سريعة</h5>
                 </div>
-                <div class="card-body" style="background: var(--glass-effect); border-radius: 0 0 20px 20px;">
+                <div class="card-body" style="background: var(--card-bg); border-radius: 0 0 20px 20px;">
                     <div class="row g-3">
                         <div class="col-lg-3 col-md-6" style="animation: fadeIn 0.5s ease-out; animation-delay: 0.1s; transform: translateY(0); transition: transform 0.3s ease-in-out;">
                             <a href="{% url 'maintenance:add_company' %}" class="btn btn-outline-primary w-100 quick-action-btn" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
