@@ -5,6 +5,10 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block extra_css %}
+
+{% endblock %}
+
+{% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.css">
 <style>
     /* تحسين الألوان للوضعين الفاتح والغامق */
@@ -211,9 +215,6 @@
         color: white;
     }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="container-fluid">
     <!-- عنوان الصفحة والفلاتر -->
     <div class="row mb-5">
