@@ -20,6 +20,7 @@ urlpatterns = [
     path('device/<int:device_id>/transfer-history/', views.device_transfer_history, name='device_transfer_history'),
 
     path('devices/department/<int:department_id>/', views.department_devices, name='department_devices'),
+    path('device-transfers/', views.device_transfer_list, name='device_transfer_list'),
     path('transfers/<int:transfer_id>/approve/', views.approve_transfer, name='approve_transfer'),
       # تصنيفات جديدة
     path('categories/add/', views.add_device_category, name='add_device_category'),
@@ -63,6 +64,11 @@ urlpatterns = [
     path('device/<int:device_id>/clean/', views.clean_device, name='clean_device'),
     path('device/<int:device_id>/sterilize/', views.sterilize_device, name='sterilize_device'),
     path('device/<int:device_id>/maintain/', views.perform_maintenance, name='perform_maintenance'),
+    
+    # AJAX endpoints for instant device status updates
+    path('ajax/device/<int:device_id>/clean/', views.ajax_clean_device, name='ajax_clean_device'),
+    path('ajax/device/<int:device_id>/sterilize/', views.ajax_sterilize_device, name='ajax_sterilize_device'),
+    path('ajax/device/<int:device_id>/maintain/', views.ajax_perform_maintenance, name='ajax_perform_maintenance'),
 
 
     path('device/<int:device_id>/sterilization_history/', views.sterilization_history, name='sterilization_history'),
@@ -90,17 +96,16 @@ urlpatterns = [
     path('accessories/<int:pk>/delete/', views_accessory.DeviceAccessoryDeleteView.as_view(), name='accessory_delete'),
     path('accessories/<int:pk>/', views_accessory.accessory_detail, name='accessory_detail'),
     path('accessories/<int:pk>/qr-print/', views_accessory.accessory_qr_print, name='accessory_qr_print'),
-    path('devices/<int:device_id>/accessories/scan/', views_accessory.accessory_scan_page, name='accessory_scan'),
     path('api/devices/<int:device_id>/verify-accessories/', views_accessory.verify_device_accessories, name='verify_device_accessories'),
+    path('ajax/get-rooms/', views_accessory.ajax_get_rooms, name='ajax_get_rooms'),
+    path('ajax/get-devices/', views_accessory.ajax_get_devices, name='ajax_get_devices'),
 
     # Accessory Transfer URLs
     path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
     path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
     path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
-        
     # CMMS URLs
     path('cmms/', include('maintenance.urls_cmms', namespace='cmms')),
-    
     # Dashboard URLs
     path('dashboard/', include('maintenance.urls_dashboard', namespace='dashboard')),
     

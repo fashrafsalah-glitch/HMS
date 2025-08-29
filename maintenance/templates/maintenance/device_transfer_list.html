@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}طلبات نقل الأجهزة{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" dir="rtl">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        طلبات نقل الأجهزة
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if transfer_requests %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>الجهاز</th>
+                                        <th>من القسم</th>
+                                        <th>إلى القسم</th>
+                                        <th>من الغرفة</th>
+                                        <th>إلى الغرفة</th>
+                                        <th>طلب بواسطة</th>
+                                        <th>تاريخ الطلب</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for transfer in transfer_requests %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ transfer.device.name }}</strong><br>
+                                            <small class="text-muted">{{ transfer.device.serial_number|default:"-" }}</small>
+                                        </td>
+                                        <td>{{ transfer.from_department.name|default:"-" }}</td>
+                                        <td>{{ transfer.to_department.name }}</td>
+                                        <td>{{ transfer.from_room.number|default:"-" }}</td>
+                                        <td>{{ transfer.to_room.number }}</td>
+                                        <td>{{ transfer.requested_by.get_full_name|default:transfer.requested_by.username }}</td>
+                                        <td>{{ transfer.requested_at|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            {% if transfer.is_approved %}
+                                                <span class="badge bg-success">تم الموافقة</span>
+                                                {% if transfer.approved_at %}
+                                                    <br><small class="text-muted">{{ transfer.approved_at|date:"Y-m-d H:i" }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-warning">في الانتظار</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not transfer.is_approved %}
+                                                <form method="post" action="{% url 'maintenance:approve_transfer' transfer.id %}" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check me-1"></i>موافقة
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted">تمت الموافقة</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            لا توجد طلبات نقل أجهزة حالياً
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

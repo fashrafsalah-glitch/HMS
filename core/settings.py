@@ -110,7 +110,7 @@ TEMPLATES = [
 LOGIN_URL            = reverse_lazy("superadmin:login")
 LOGOUT_REDIRECT_URL  = reverse_lazy("superadmin:login")
 # بعد تسجيل الدخول، وجّه المستخدمين إلى قائمة المرضى بدل المسار الافتراضي /accounts/profile/
-LOGIN_REDIRECT_URL   = reverse_lazy("manager:patient_list")
+LOGIN_REDIRECT_URL   = reverse_lazy("superadmin:dashboard")  # تم تغيير من manager إلى superadmin
 
 WSGI_APPLICATION = "core.wsgi.application"
 

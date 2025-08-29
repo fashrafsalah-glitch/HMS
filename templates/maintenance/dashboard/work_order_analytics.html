@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تحليلات أوامر الشغل{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="text-primary">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    تحليلات أوامر الشغل
+                </h2>
+                
+                <!-- Filters -->
+                <div class="d-flex gap-2">
+                    <form method="get" class="d-flex gap-2">
+                        <select name="department" class="form-select">
+                            <option value="">جميع الأقسام</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if dept.id|stringformat:"s" == selected_department_id %}selected{% endif %}>
+                                    {{ dept.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        
+                        <select name="days" class="form-select">
+                            <option value="7" {% if selected_days == 7 %}selected{% endif %}>آخر 7 أيام</option>
+                            <option value="30" {% if selected_days == 30 %}selected{% endif %}>آخر 30 يوم</option>
+                            <option value="90" {% if selected_days == 90 %}selected{% endif %}>آخر 90 يوم</option>
+                            <option value="365" {% if selected_days == 365 %}selected{% endif %}>آخر سنة</option>
+                        </select>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter me-1"></i>تطبيق
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-tasks fa-2x mb-2"></i>
+                    <h3>{{ wo_stats.total|default:0 }}</h3>
+                    <p class="mb-0">إجمالي أوامر الشغل</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <h3>{{ wo_stats.completion_rate|floatformat:1|default:0 }}%</h3>
+                    <p class="mb-0">معدل الإنجاز</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h3>{{ wo_stats.in_progress_rate|floatformat:1|default:0 }}%</h3>
+                    <p class="mb-0">قيد التنفيذ</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <h3>{{ wo_stats.overdue_rate|floatformat:1|default:0 }}%</h3>
+                    <p class="mb-0">متأخرة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Work Order Status Chart -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie me-2"></i>توزيع حالات أوامر الشغل</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Type Chart -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-bar me-2"></i>أنواع الطلبات</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="requestTypeChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Priority Distribution -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-exclamation me-2"></i>توزيع الأولويات</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="priorityChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue Work Orders -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock me-2"></i>أوامر الشغل المتأخرة</h5>
+                </div>
+                <div class="card-body">
+                    {% if overdue_work_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الأمر</th>
+                                        <th>الجهاز</th>
+                                        <th>الأولوية</th>
+                                        <th>تاريخ الاستحقاق</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wo in overdue_work_orders %}
+                                    <tr>
+                                        <td>{{ wo.id }}</td>
+                                        <td>{{ wo.service_request.device.name|truncatechars:20 }}</td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if wo.service_request.priority == 'critical' %}bg-danger
+                                                {% elif wo.service_request.priority == 'high' %}bg-warning
+                                                {% elif wo.service_request.priority == 'medium' %}bg-info
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ wo.service_request.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ wo.service_request.resolution_due|date:"Y-m-d" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <p>لا توجد أوامر شغل متأخرة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Statistics -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list me-2"></i>إحصائيات تفصيلية</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>حسب الحالة:</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-secondary me-2">{{ wo_stats.new|default:0 }}</span>جديد</li>
+                                <li><span class="badge bg-primary me-2">{{ wo_stats.assigned|default:0 }}</span>مُعيّن</li>
+                                <li><span class="badge bg-warning me-2">{{ wo_stats.in_progress|default:0 }}</span>قيد التنفيذ</li>
+                                <li><span class="badge bg-info me-2">{{ wo_stats.wait_parts|default:0 }}</span>انتظار قطع غيار</li>
+                                <li><span class="badge bg-dark me-2">{{ wo_stats.on_hold|default:0 }}</span>معلق</li>
+                                <li><span class="badge bg-success me-2">{{ wo_stats.resolved|default:0 }}</span>محلول</li>
+                                <li><span class="badge bg-success me-2">{{ wo_stats.qa_verified|default:0 }}</span>تم التحقق</li>
+                                <li><span class="badge bg-success me-2">{{ wo_stats.closed|default:0 }}</span>مغلق</li>
+                                <li><span class="badge bg-danger me-2">{{ wo_stats.cancelled|default:0 }}</span>ملغي</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>حسب نوع الطلب:</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-danger me-2">{{ request_type_stats.breakdown|default:0 }}</span>عطل</li>
+                                <li><span class="badge bg-primary me-2">{{ request_type_stats.preventive|default:0 }}</span>صيانة وقائية</li>
+                                <li><span class="badge bg-info me-2">{{ request_type_stats.calibration|default:0 }}</span>معايرة</li>
+                                <li><span class="badge bg-secondary me-2">{{ request_type_stats.inspection|default:0 }}</span>فحص</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>حسب الأولوية:</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-danger me-2">{{ priority_stats.critical|default:0 }}</span>حرج</li>
+                                <li><span class="badge bg-warning me-2">{{ priority_stats.high|default:0 }}</span>عالي</li>
+                                <li><span class="badge bg-info me-2">{{ priority_stats.medium|default:0 }}</span>متوسط</li>
+                                <li><span class="badge bg-secondary me-2">{{ priority_stats.low|default:0 }}</span>منخفض</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Status Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['جديد', 'مُعيّن', 'قيد التنفيذ', 'انتظار قطع', 'معلق', 'محلول', 'تم التحقق', 'مغلق', 'ملغي'],
+            datasets: [{
+                data: [
+                    {{ wo_stats.new|default:0 }},
+                    {{ wo_stats.assigned|default:0 }},
+                    {{ wo_stats.in_progress|default:0 }},
+                    {{ wo_stats.wait_parts|default:0 }},
+                    {{ wo_stats.on_hold|default:0 }},
+                    {{ wo_stats.resolved|default:0 }},
+                    {{ wo_stats.qa_verified|default:0 }},
+                    {{ wo_stats.closed|default:0 }},
+                    {{ wo_stats.cancelled|default:0 }}
+                ],
+                backgroundColor: [
+                    '#6c757d', '#0d6efd', '#ffc107', '#0dcaf0', 
+                    '#212529', '#198754', '#20c997', '#28a745', '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Request Type Chart
+    const requestTypeCtx = document.getElementById('requestTypeChart').getContext('2d');
+    new Chart(requestTypeCtx, {
+        type: 'bar',
+        data: {
+            labels: ['عطل', 'صيانة وقائية', 'معايرة', 'فحص'],
+            datasets: [{
+                label: 'عدد الطلبات',
+                data: [
+                    {{ request_type_stats.breakdown|default:0 }},
+                    {{ request_type_stats.preventive|default:0 }},
+                    {{ request_type_stats.calibration|default:0 }},
+                    {{ request_type_stats.inspection|default:0 }}
+                ],
+                backgroundColor: ['#dc3545', '#0d6efd', '#0dcaf0', '#6c757d']
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Priority Chart
+    const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+    new Chart(priorityCtx, {
+        type: 'pie',
+        data: {
+            labels: ['حرج', 'عالي', 'متوسط', 'منخفض'],
+            datasets: [{
+                data: [
+                    {{ priority_stats.critical|default:0 }},
+                    {{ priority_stats.high|default:0 }},
+                    {{ priority_stats.medium|default:0 }},
+                    {{ priority_stats.low|default:0 }}
+                ],
+                backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0', '#6c757d']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

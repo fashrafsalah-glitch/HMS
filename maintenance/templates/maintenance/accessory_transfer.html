@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}نقل الملحق: {{ accessory.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" dir="rtl">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        نقل الملحق: {{ accessory.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- فورم النقل -->
+                    <form method="post" id="transferForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_to_department" class="form-label">
+                                    <i class="fas fa-building me-2"></i>القسم المستهدف
+                                </label>
+                                {{ form.to_department }}
+                                {% if form.to_department.errors %}
+                                  <div class="text-danger small">{{ form.to_department.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">أو اختر القسم المستهدف</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="id_to_room" class="form-label">
+                                    <i class="fas fa-door-open me-2"></i>الغرفة المستهدفة
+                                </label>
+                                <select name="to_room" id="id_to_room" class="form-select" required>
+                                    <option value="">اختر القسم أولاً</option>
+                                </select>
+                                {% if form.to_room.errors %}
+                                  <div class="text-danger small">{{ form.to_room.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">اختر الغرفة المستهدفة</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_to_device" class="form-label">
+                                    <i class="fas fa-laptop-medical me-2"></i>الجهاز المستهدف (اختياري)
+                                </label>
+                                <select name="to_device" id="id_to_device" class="form-select">
+                                    <option value="">اختر الغرفة أولاً</option>
+                                </select>
+                                {% if form.to_device.errors %}
+                                  <div class="text-danger small">{{ form.to_device.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">اختر الجهاز المستهدف</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="id_reason" class="form-label">
+                                    <i class="fas fa-comment me-2"></i>سبب النقل
+                                </label>
+                                {{ form.reason }}
+                                {% if form.reason.errors %}
+                                  <div class="text-danger small">{{ form.reason.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">اشرح سبب طلب النقل</small>
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                          <div class="alert alert-danger mt-3">
+                            {{ form.non_field_errors.0 }}
+                          </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-right me-2"></i>رجوع
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>إرسال طلب النقل
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-body">
+                    <!-- معلومات الملحق الحالية -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>معلومات الملحق الحالية</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>الجهاز:</strong> {{ accessory.device.name }}<br>
+                                <strong>القسم:</strong> {{ accessory.device.department.name }}<br>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>الغرفة:</strong> {{ accessory.device.room.number }}<br>
+                                <strong>الحالة:</strong> 
+                                <span class="badge bg-success">متاح</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>الملحق:</strong> {{ accessory.name }}<br>
+                            <strong>الرقم التسلسلي:</strong> {{ accessory.serial_number|default:"-" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-filter rooms based on department selection
+document.getElementById('{{ form.to_department.id_for_label }}').addEventListener('change', function() {
+    const departmentId = this.value;
+    const roomSelect = document.getElementById('{{ form.to_room.id_for_label }}');
+    const deviceSelect = document.getElementById('{{ form.to_device.id_for_label }}');
+    
+    console.log('Department changed to:', departmentId);
+    
+    if (departmentId) {
+        fetch(`/maintenance/ajax/get-rooms/?department_id=${departmentId}`)
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Rooms data received:', data);
+                
+                roomSelect.innerHTML = '<option value="">---------</option>';
+                
+                if (data && data.html) {
+                    // استخراج options من HTML المرجع
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = data.html;
+                    const options = tempDiv.querySelectorAll('option');
+                    
+                    options.forEach(option => {
+                        if (option.value) {
+                            roomSelect.appendChild(option.cloneNode(true));
+                        }
+                    });
+                } else {
+                    console.log('No rooms found or invalid data format');
+                    roomSelect.innerHTML += '<option disabled>لا توجد غرف في هذا القسم</option>';
+                }
+                
+                // Reset device select
+                if (deviceSelect) {
+                    deviceSelect.innerHTML = '<option value="">اختر الغرفة أولاً</option>';
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    } else {
+        roomSelect.innerHTML = '<option value="">---------</option>';
+        if (deviceSelect) {
+            deviceSelect.innerHTML = '<option value="">اختر القسم أولاً</option>';
+        }
+    }
+});
+
+// Auto-filter devices based on room selection
+document.getElementById('{{ form.to_room.id_for_label }}').addEventListener('change', function() {
+    const roomId = this.value;
+    const deviceSelect = document.getElementById('{{ form.to_device.id_for_label }}');
+    
+    console.log('Room changed to:', roomId);
+    
+    if (roomId && deviceSelect) {
+        fetch(`/maintenance/ajax/get-devices/?room_id=${roomId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Devices data received:', data);
+                
+                deviceSelect.innerHTML = '<option value="">بدون جهاز محدد</option>';
+                
+                if (data && Array.isArray(data) && data.length > 0) {
+                    data.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.id;
+                        option.textContent = device.name;
+                        deviceSelect.appendChild(option);
+                    });
+                } else {
+                    deviceSelect.innerHTML += '<option disabled>لا توجد أجهزة في هذه الغرفة</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching devices:', error);
+                deviceSelect.innerHTML = '<option value="">خطأ في تحميل الأجهزة</option>';
+            });
+    } else if (deviceSelect) {
+        deviceSelect.innerHTML = '<option value="">اختر الغرفة أولاً</option>';
+    }
+});
+</script>
+{% endblock %}

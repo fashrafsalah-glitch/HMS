@@ -176,15 +176,13 @@ def calculate_work_order_stats(department_id=None, days=30):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
-    # جلب أوامر الشغل في الفترة
-    work_orders = WorkOrder.objects.filter(
-        created_at__range=[start_date, end_date]
-    )
+    # جلب أوامر الشغل (بدون تقييد بالفترة الزمنية أولاً لنرى كل البيانات)
+    work_orders = WorkOrder.objects.all()
     
     if department_id:
         work_orders = work_orders.filter(service_request__device__department_id=department_id)
     
-    # إحصائيات حسب الحالة
+    # إحصائيات حسب الحالة (جميع أوامر الشغل)
     stats = {
         'total': work_orders.count(),
         'new': work_orders.filter(status='new').count(),
@@ -198,10 +196,14 @@ def calculate_work_order_stats(department_id=None, days=30):
         'cancelled': work_orders.filter(status='cancelled').count(),
     }
     
+    # إضافة إحصائيات الفترة الزمنية المحددة
+    period_work_orders = work_orders.filter(created_at__range=[start_date, end_date])
+    stats['period_total'] = period_work_orders.count()
+    
     # حساب النسب المئوية
     if stats['total'] > 0:
         stats['completion_rate'] = ((stats['closed'] + stats['qa_verified']) / stats['total']) * 100
-        stats['in_progress_rate'] = ((stats['assigned'] + stats['in_progress']) / stats['total']) * 100
+        stats['in_progress_rate'] = ((stats['assigned'] + stats['in_progress'] + stats['wait_parts']) / stats['total']) * 100
         stats['overdue_rate'] = calculate_overdue_work_orders_rate(department_id, days)
     else:
         stats['completion_rate'] = 0

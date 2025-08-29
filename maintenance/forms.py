@@ -94,10 +94,54 @@ class AccessoryTransactionForm(forms.ModelForm):
         fields = "__all__"
 
 
-class AccessoryTransferForm(forms.ModelForm):
-    class Meta:
-        model = AccessoryTransferLog
-        fields = "__all__"
+class AccessoryTransferForm(forms.Form):
+    """نموذج طلب نقل ملحق"""
+    to_department = forms.ModelChoiceField(
+        queryset=None,
+        label="القسم المستهدف",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    to_room = forms.ModelChoiceField(
+        queryset=None,
+        label="الغرفة المستهدفة",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    to_device = forms.ModelChoiceField(
+        queryset=None,
+        label="الجهاز المستهدف",
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    reason = forms.CharField(
+        label="سبب النقل",
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'اذكر سبب طلب نقل الملحق...'
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from manager.models import Department, Room
+        from .models import Device
+        
+        self.fields['to_department'].queryset = Department.objects.all()
+        self.fields['to_room'].queryset = Room.objects.all()
+        self.fields['to_device'].queryset = Device.objects.all()
+        
+        # إذا كان هناك بيانات مرسلة (POST)
+        if self.data:
+            try:
+                department_id = int(self.data.get('to_department'))
+                self.fields['to_room'].queryset = Room.objects.filter(department_id=department_id)
+                
+                room_id = self.data.get('to_room')
+                if room_id:
+                    room_id = int(room_id)
+                    self.fields['to_device'].queryset = Device.objects.filter(room_id=room_id)
+            except (ValueError, TypeError):
+                pass
 
 
 class DowntimeForm(forms.ModelForm):

@@ -2,11 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.csrf import csrf_exempt
 from django.utils.timezone import now
 from django.utils import timezone
 from django.db.models import Q
 from django.template.loader import render_to_string
+import json
 from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
 from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory
 from manager.models import Department, Room, Bed, Patient
@@ -22,7 +24,7 @@ def clean_device(request, device_id):
     device.last_cleaned_at = timezone.now()
     device.save()
         # إضافة سجل جديد
-    DeviceCleaningLog.objects.create(device=device, last_cleaned_by=request.user)
+    DeviceCleaningLog.objects.create(device=device, cleaned_by=request.user)
 
 
     messages.success(request, f"✅ تم تنظيف الجهاز بواسطة {request.user.username}")
@@ -43,7 +45,7 @@ def sterilize_device(request, device_id):
     device.save()
 
     # إضافة سجل جديد
-    DeviceSterilizationLog.objects.create(device=device, last_sterilized_by=request.user)
+    DeviceSterilizationLog.objects.create(device=device, sterilized_by=request.user)
     messages.success(request, f"✅ تم تعقيم الجهاز بواسطة {request.user.username}")
     return redirect('maintenance:device_detail', pk=device.id)
 
@@ -62,7 +64,7 @@ def perform_maintenance(request, device_id):
     device.save()
 
     # إضافة سجل جديد
-    DeviceMaintenanceLog.objects.create(device=device, last_maintained_by=request.user)
+    DeviceMaintenanceLog.objects.create(device=device, maintained_by=request.user)
     messages.success(request, f"✅ تم صيانة الجهاز بواسطة {request.user.username}")
     return redirect('maintenance:device_detail', pk=device.id)
 
@@ -72,6 +74,90 @@ def maintenance_history(request, device_id):
     logs =  device.maintenance_logs.all().order_by('-maintained_at')
     return render(request, 'maintenance/maintenance_history.html', {'device': device, 'logs': logs})
 
+# AJAX Views for instant device status updates
+@login_required
+@require_POST
+def ajax_clean_device(request, device_id):
+    """AJAX endpoint for instant device cleaning"""
+    try:
+        device = get_object_or_404(Device, id=device_id)
+        device.clean_status = 'clean'
+        device.last_cleaned_by = request.user
+        device.last_cleaned_at = timezone.now()
+        device.save()
+        
+        # Add cleaning log
+        DeviceCleaningLog.objects.create(device=device, cleaned_by=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ تم تنظيف الجهاز بواسطة {request.user.username}',
+            'clean_status': device.get_clean_status_display(),
+            'clean_status_class': 'success',
+            'last_cleaned_at': device.last_cleaned_at.strftime('%Y-%m-%d %H:%M'),
+            'last_cleaned_by': str(device.last_cleaned_by)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'خطأ في تنظيف الجهاز: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def ajax_sterilize_device(request, device_id):
+    """AJAX endpoint for instant device sterilization"""
+    try:
+        device = get_object_or_404(Device, id=device_id)
+        device.sterilization_status = 'sterilized'
+        device.last_sterilized_by = request.user
+        device.last_sterilized_at = timezone.now()
+        device.save()
+        
+        # Add sterilization log
+        DeviceSterilizationLog.objects.create(device=device, sterilized_by=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ تم تعقيم الجهاز بواسطة {request.user.username}',
+            'sterilization_status': device.get_sterilization_status_display(),
+            'sterilization_status_class': 'success',
+            'last_sterilized_at': device.last_sterilized_at.strftime('%Y-%m-%d %H:%M'),
+            'last_sterilized_by': str(device.last_sterilized_by)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'خطأ في تعقيم الجهاز: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def ajax_perform_maintenance(request, device_id):
+    """AJAX endpoint for instant device maintenance"""
+    try:
+        device = get_object_or_404(Device, id=device_id)
+        device.status = 'working'
+        device.last_maintained_by = request.user
+        device.last_maintained_at = timezone.now()
+        device.save()
+        
+        # Add maintenance log
+        DeviceMaintenanceLog.objects.create(device=device, maintained_by=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ تم فحص الجهاز بواسطة {request.user.username}',
+            'status': device.get_status_display(),
+            'status_class': 'success',
+            'last_maintained_at': device.last_maintained_at.strftime('%Y-%m-%d %H:%M'),
+            'last_maintained_by': str(device.last_maintained_by)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'خطأ في فحص الجهاز: {str(e)}'
+        })
 
 def assign_device(request, device_id):
     device = get_object_or_404(Device, id=device_id)
@@ -112,22 +198,45 @@ def release_device(request, device_id):
 
 
 @login_required
+def device_transfer_list(request):
+    """
+    عرض قائمة طلبات نقل الأجهزة للموافقة عليها
+    """
+    transfer_requests = DeviceTransferRequest.objects.all().order_by('-requested_at')
+    
+    context = {
+        'transfer_requests': transfer_requests,
+    }
+    return render(request, 'maintenance/device_transfer_list.html', context)
+
+
+@login_required
 def approve_transfer(request, transfer_id):
     transfer = get_object_or_404(DeviceTransferRequest, id=transfer_id)
 
     if request.method == 'POST' and not transfer.is_approved:
-        # تنفيذ النقل
-        device = transfer.device
-        device.department = transfer.to_department
-        device.room = transfer.to_room
-        device.save()
+        try:
+            # تنفيذ النقل
+            device = transfer.device
+            old_dept = device.department
+            old_room = device.room
+            
+            device.department = transfer.to_department
+            device.room = transfer.to_room
+            device.save()
 
-        transfer.is_approved = True
-        transfer.approved_by = request.user
-        transfer.approved_at = now()
-        transfer.save()
+            transfer.is_approved = True
+            transfer.approved_by = request.user
+            transfer.approved_at = timezone.now()
+            transfer.save()
+            
+            messages.success(request, f'تم الموافقة على نقل الجهاز {device.name} من {old_dept} غرفة {old_room} إلى {transfer.to_department.name} غرفة {transfer.to_room.number}')
+        except Exception as e:
+            messages.error(request, f'حدث خطأ أثناء الموافقة على النقل: {str(e)}')
+    elif transfer.is_approved:
+        messages.info(request, 'تم الموافقة على هذا الطلب مسبقاً')
 
-    return redirect('maintenance:department_devices', department_id=transfer.to_department.id)
+    return redirect('maintenance:device_transfer_list')
 
 @require_GET
 def load_rooms(request):
@@ -340,8 +449,8 @@ def approve_transfer(request, transfer_id):
             from_room=transfer.from_room,
             to_department=transfer.to_department,
             to_room=transfer.to_room,
-            transferred_by=request.user,
-            notes=f"نقل معتمد - طلب رقم {transfer.id}"
+            moved_by=request.user,
+            note=f"نقل معتمد - طلب رقم {transfer.id}"
         )
 
         # Update device location

@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "تفاصيل الملحق" %} - {{ accessory.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+    }
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1.25rem;
+    }
+    .info-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 0.375rem;
+    }
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-puzzle-piece text-primary me-2"></i>
+                        {{ accessory.name }}
+                    </h2>
+                    <p class="text-muted mb-0">{% trans "تفاصيل الملحق" %}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'maintenance:accessory_transfer' accessory.id %}" class="btn btn-primary">
+                        <i class="fas fa-exchange-alt me-1"></i>
+                        {% trans "طلب نقل" %}
+                    </a>
+                    <a href="{% url 'maintenance:accessory_edit' accessory.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-1"></i>
+                        {% trans "تعديل" %}
+                    </a>
+                    <a href="{% url 'maintenance:device_accessories' accessory.device.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-right me-1"></i>
+                        {% trans "العودة للقائمة" %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Main Information Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "المعلومات الأساسية" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6 class="text-muted mb-2">{% trans "اسم الملحق" %}</h6>
+                                <p class="mb-0 fw-bold">{{ accessory.name }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6 class="text-muted mb-2">{% trans "الحالة" %}</h6>
+                                <span class="badge bg-{% if accessory.status == 'available' %}success{% elif accessory.status == 'in_use' %}warning{% else %}danger{% endif %} status-badge">
+                                    {{ accessory.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6 class="text-muted mb-2">{% trans "الجهاز المرتبط" %}</h6>
+                                <p class="mb-0">
+                                    <a href="{% url 'maintenance:device_detail' accessory.device.id %}" class="text-decoration-none">
+                                        <i class="fas fa-desktop me-1"></i>
+                                        {{ accessory.device.name }}
+                                    </a>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6 class="text-muted mb-2">{% trans "الموقع" %}</h6>
+                                <p class="mb-0">
+                                    <i class="fas fa-building me-1"></i>
+                                    {{ accessory.device.department.name }}
+                                    <br>
+                                    <i class="fas fa-door-open me-1"></i>
+                                    {{ accessory.device.room.name }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if accessory.serial_number %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6 class="text-muted mb-2">{% trans "الرقم التسلسلي" %}</h6>
+                                <p class="mb-0">
+                                    <i class="fas fa-barcode me-1"></i>
+                                    {{ accessory.serial_number }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Transactions History -->
+            {% if transactions %}
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        {% trans "سجل العمليات" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "التاريخ" %}</th>
+                                    <th>{% trans "نوع العملية" %}</th>
+                                    <th>{% trans "المستخدم" %}</th>
+                                    <th>{% trans "الملاحظات" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>{{ transaction.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ transaction.get_transaction_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ transaction.user.get_full_name|default:transaction.user.username }}</td>
+                                    <td>{{ transaction.notes|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

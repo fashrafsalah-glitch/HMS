@@ -64,9 +64,32 @@
           <h6 class="mb-0">إجراءات سريعة</h6>
         </div>
         <div class="card-body d-flex flex-wrap gap-2">
-          <a href="{% url 'maintenance:clean_device' device.id %}" class="btn btn-warning"> تم تنظيف الجهاز</a>
-          <a href="{% url 'maintenance:sterilize_device' device.id %}" class="btn btn-info text-white"> تم تعقيم الجهاز</a>
-          <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-success"> تم فحص الجهاز</a>
+          <button type="button" class="btn btn-warning ajax-action-btn" 
+                  data-action="clean" 
+                  data-url="{% url 'maintenance:ajax_clean_device' device.id %}"
+                  data-device-id="{{ device.id }}">
+            <i class="bi bi-droplet me-1"></i>
+            <span class="btn-text">تم تنظيف الجهاز</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+          
+          <button type="button" class="btn btn-info text-white ajax-action-btn" 
+                  data-action="sterilize" 
+                  data-url="{% url 'maintenance:ajax_sterilize_device' device.id %}"
+                  data-device-id="{{ device.id }}">
+            <i class="bi bi-shield-check me-1"></i>
+            <span class="btn-text">تم تعقيم الجهاز</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+          
+          <button type="button" class="btn btn-success ajax-action-btn" 
+                  data-action="maintenance" 
+                  data-url="{% url 'maintenance:ajax_perform_maintenance' device.id %}"
+                  data-device-id="{{ device.id }}">
+            <i class="bi bi-tools me-1"></i>
+            <span class="btn-text">تم فحص الجهاز</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
         </div>
       </div>
 
@@ -358,4 +381,185 @@
     </div>
   </div>
 </div>
+
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="actionToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto">إشعار</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastMessage">
+      <!-- Message will be inserted here -->
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Handle AJAX action buttons
+    document.querySelectorAll('.ajax-action-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const url = this.dataset.url;
+            const action = this.dataset.action;
+            const deviceId = this.dataset.deviceId;
+            const btnText = this.querySelector('.btn-text');
+            const spinner = this.querySelector('.spinner-border');
+            
+            // Disable button and show spinner
+            this.disabled = true;
+            btnText.classList.add('d-none');
+            spinner.classList.remove('d-none');
+            
+            // Make AJAX request
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update UI based on action type
+                    updateDeviceStatus(action, data);
+                    
+                    // Show success toast
+                    showToast(data.message, 'success');
+                    
+                    // Update button text to show completion
+                    btnText.textContent = '✅ تم بنجاح';
+                    btnText.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                    
+                    // Re-enable button after 2 seconds
+                    setTimeout(() => {
+                        this.disabled = false;
+                        btnText.textContent = getOriginalButtonText(action);
+                    }, 2000);
+                } else {
+                    // Show error toast
+                    showToast(data.message, 'error');
+                    
+                    // Re-enable button
+                    this.disabled = false;
+                    btnText.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('حدث خطأ في العملية', 'error');
+                
+                // Re-enable button
+                this.disabled = false;
+                btnText.classList.remove('d-none');
+                spinner.classList.add('d-none');
+            });
+        });
+    });
+    
+    function updateDeviceStatus(action, data) {
+        // Update status badges and last action info
+        if (action === 'clean') {
+            // Update clean status badge
+            const cleanBadge = document.querySelector('.col-sm-4:nth-child(3) .badge');
+            if (cleanBadge) {
+                cleanBadge.textContent = data.clean_status;
+                cleanBadge.className = `badge bg-${data.clean_status_class}`;
+            }
+            
+            // Update last cleaned info in footer
+            updateLastActionInfo('cleaned', data.last_cleaned_at, data.last_cleaned_by);
+            
+        } else if (action === 'sterilize') {
+            // Update sterilization status badge
+            const sterilizeBadge = document.querySelector('.col-sm-4:nth-child(4) .badge');
+            if (sterilizeBadge) {
+                sterilizeBadge.textContent = data.sterilization_status;
+                sterilizeBadge.className = `badge bg-${data.sterilization_status_class}`;
+            }
+            
+            // Update last sterilized info in footer
+            updateLastActionInfo('sterilized', data.last_sterilized_at, data.last_sterilized_by);
+            
+        } else if (action === 'maintenance') {
+            // Update device status badge
+            const statusBadge = document.querySelector('.col-sm-4:nth-child(2) .badge');
+            if (statusBadge) {
+                statusBadge.textContent = data.status;
+                statusBadge.className = `badge bg-${data.status_class}`;
+            }
+            
+            // Update last maintained info in footer
+            updateLastActionInfo('maintained', data.last_maintained_at, data.last_maintained_by);
+        }
+    }
+    
+    function updateLastActionInfo(actionType, timestamp, user) {
+        const footer = document.querySelector('.card-footer');
+        if (footer) {
+            let actionText = '';
+            if (actionType === 'cleaned') actionText = 'آخر تنظيف';
+            else if (actionType === 'sterilized') actionText = 'آخر تعقيم';
+            else if (actionType === 'maintained') actionText = 'آخر صيانة';
+            
+            // Find existing line or create new one
+            const lines = footer.innerHTML.split('<br>');
+            let updated = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes(actionText)) {
+                    lines[i] = `${actionText}: ${timestamp} بواسطة ${user}`;
+                    updated = true;
+                    break;
+                }
+            }
+            
+            if (!updated) {
+                lines.push(`${actionText}: ${timestamp} بواسطة ${user}`);
+            }
+            
+            footer.innerHTML = lines.join('<br>');
+        }
+    }
+    
+    function getOriginalButtonText(action) {
+        switch(action) {
+            case 'clean': return 'تم تنظيف الجهاز';
+            case 'sterilize': return 'تم تعقيم الجهاز';
+            case 'maintenance': return 'تم فحص الجهاز';
+            default: return 'تم';
+        }
+    }
+    
+    function showToast(message, type) {
+        const toast = document.getElementById('actionToast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastHeader = toast.querySelector('.toast-header');
+        
+        // Set message
+        toastMessage.textContent = message;
+        
+        // Set color based on type
+        if (type === 'success') {
+            toast.className = 'toast border-success';
+            toastHeader.className = 'toast-header bg-success text-white';
+        } else {
+            toast.className = 'toast border-danger';
+            toastHeader.className = 'toast-header bg-danger text-white';
+        }
+        
+        // Show toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+});
+</script>
+
 {% endblock %}

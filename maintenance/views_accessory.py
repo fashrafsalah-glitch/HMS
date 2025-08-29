@@ -27,6 +27,7 @@ from django.db import transaction
 
 from .models import Device, DeviceAccessory, AccessoryTransaction, AccessoryTransferRequest, AccessoryTransferLog
 from .forms import DeviceAccessoryForm, AccessoryTransactionForm, AccessoryScanForm, AccessoryTransferForm
+from manager.models import Department, Room
 
 
 class DeviceAccessoryListView(LoginRequiredMixin, ListView):
@@ -60,7 +61,7 @@ class DeviceAccessoryCreateView(LoginRequiredMixin, CreateView):
     """
     model = DeviceAccessory
     form_class = DeviceAccessoryForm
-    template_name = 'maintenance/accessory_form.html'
+    template_name = 'maintenance/add_accessory.html'
 
     def get_context_data(self, **kwargs):
         """أضف معلومات الجهاز للـ context"""
@@ -123,78 +124,6 @@ class DeviceAccessoryDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-@login_required
-def accessory_scan_page(request, device_id):
-    """
-    صفحة مسح الباركود للملحقات - بتسمح للمستخدمين بمسح QR codes للملحقات
-    
-    الوظائف:
-    - مسح باركود الملحق
-    - تسجيل نوع العملية (تسليم، إرجاع، صيانة)
-    - تحديث حالة الملحق
-    - عرض العمليات الحديثة
-    """
-    device = get_object_or_404(Device, id=device_id)
-    
-    if request.method == 'POST':
-        form = AccessoryScanForm(request.POST)
-        if form.is_valid():
-            barcode = form.cleaned_data['barcode']
-            transaction_type = form.cleaned_data['transaction_type']
-            notes = form.cleaned_data['notes']
-            
-            # حاول تلاقي الملحق بالـ QR token أو الباركود
-            try:
-                if barcode.startswith('accessory:'):
-                    # لو الباركود بيبدأ بـ accessory: استخرج الـ ID
-                    accessory_id = barcode.split(':')[1]
-                    accessory = DeviceAccessory.objects.get(id=accessory_id, device=device)
-                else:
-                    # حاول تلاقي بالـ qr_token field
-                    accessory = DeviceAccessory.objects.get(qr_token=barcode, device=device)
-                
-                # أنشئ عملية جديدة
-                AccessoryTransaction.objects.create(
-                    accessory=accessory,
-                    transaction_type=transaction_type,
-                    to_user=request.user,
-                    notes=notes,
-                    scanned_barcode=barcode,
-                    is_confirmed=True,
-                    confirmed_at=timezone.now()
-                )
-                
-                # حدث حالة الملحق حسب نوع العملية
-                if transaction_type == 'handover':
-                    accessory.status = 'in_use'  # قيد الاستخدام
-                elif transaction_type == 'return':
-                    accessory.status = 'available'  # متاح
-                elif transaction_type == 'maintenance':
-                    accessory.status = 'maintenance'  # في الصيانة
-                
-                accessory.save()
-                
-                messages.success(request, f'تم تسجيل {accessory.name} - {accessory.get_status_display()}')
-                return redirect('maintenance:accessory_scan', device_id=device_id)
-                
-            except DeviceAccessory.DoesNotExist:
-                messages.error(request, 'لم يتم العثور على الملحق بهذا الباركود')
-            except Exception as e:
-                messages.error(request, f'خطأ في معالجة الباركود: {str(e)}')
-    else:
-        form = AccessoryScanForm()
-    
-    # جيب العمليات الحديثة لملحقات هذا الجهاز
-    recent_transactions = AccessoryTransaction.objects.filter(
-        accessory__device=device
-    ).order_by('-created_at')[:10]
-    
-    context = {
-        'device': device,
-        'form': form,
-        'recent_transactions': recent_transactions,
-    }
-    return render(request, 'maintenance/accessory_scan.html', context)
 
 
 @login_required
@@ -270,6 +199,9 @@ def accessory_qr_print(request, pk):
     return render(request, 'maintenance/accessory_qr_print.html', context)
 
 
+# تم نقل هذه الدالة إلى accessory_transfer_view في نهاية الملف
+
+
 @login_required
 def transfer_accessory(request, pk):
     """
@@ -320,7 +252,7 @@ def approve_accessory_transfer(request, transfer_id):
         if action == 'approve':
             with transaction.atomic():
                 # وافق على النقل
-                transfer_request.is_approved = True
+                transfer_request.status = 'approved'
                 transfer_request.approved_by = request.user
                 transfer_request.approved_at = timezone.now()
                 transfer_request.save()
@@ -331,6 +263,9 @@ def approve_accessory_transfer(request, transfer_id):
                 
                 if transfer_request.to_device:
                     accessory.device = transfer_request.to_device
+                else:
+                    # إذا لم يتم تحديد جهاز، قم بإنشاء جهاز وهمي أو تحديث المعلومات
+                    accessory.device = None
                 
                 accessory.save()
                 
@@ -352,6 +287,7 @@ def approve_accessory_transfer(request, transfer_id):
         elif action == 'reject':
             # رفض النقل مع سبب
             transfer_request.rejection_reason = request.POST.get('rejection_reason', '')
+            transfer_request.status = 'rejected'
             transfer_request.approved_by = request.user
             transfer_request.approved_at = timezone.now()
             transfer_request.save()
@@ -391,3 +327,102 @@ def accessory_transfer_history(request, pk):
         'transfer_logs': transfer_logs,
     }
     return render(request, 'maintenance/accessory_transfer_history.html', context)
+
+
+@login_required
+def transfer_accessory(request, pk):
+    """
+    صفحة نقل الملحق - عرض فورم النقل مع AJAX للأقسام والغرف
+    """
+    accessory = get_object_or_404(DeviceAccessory, id=pk)
+    
+    if request.method == 'POST':
+        form = AccessoryTransferForm(request.POST)
+        if form.is_valid():
+            # إنشاء طلب النقل
+            transfer_request = AccessoryTransferRequest.objects.create(
+                accessory=accessory,
+                from_device=accessory.device,
+                from_department=accessory.device.department,
+                from_room=accessory.device.room,
+                to_department=form.cleaned_data['to_department'],
+                to_room=form.cleaned_data['to_room'],
+                to_device=form.cleaned_data.get('to_device'),
+                reason=form.cleaned_data['reason'],
+                requested_by=request.user,
+                is_approved=False
+            )
+            
+            messages.success(request, 'تم إرسال طلب النقل بنجاح وسيتم مراجعته من قبل الإدارة')
+            return redirect('maintenance:accessory_detail', pk=accessory.id)
+    else:
+        form = AccessoryTransferForm()
+    
+    context = {
+        'accessory': accessory,
+        'form': form,
+    }
+    return render(request, 'maintenance/accessory_transfer.html', context)
+
+
+@login_required
+def ajax_get_rooms(request):
+    """
+    AJAX endpoint لجلب الغرف حسب القسم - إرجاع JSON مباشر
+    """
+    department_id = request.GET.get('department_id')
+    print(f"AJAX get_rooms called with department_id: {department_id}")
+    
+    if department_id:
+        try:
+            from manager.models import Room
+            rooms = Room.objects.filter(department_id=department_id).values('id', 'number')
+            rooms_list = []
+            
+            for room in rooms:
+                rooms_list.append({
+                    'id': room['id'],
+                    'name': room['number'],  # استخدام number كـ name
+                    'number': room['number']
+                })
+            
+            print(f"Found {len(rooms_list)} rooms: {rooms_list}")
+            
+            # تحقق من وجود غرف
+            if not rooms_list:
+                print(f"No rooms found for department {department_id}")
+                # جلب جميع الغرف للتحقق
+                all_rooms = Room.objects.all().values('id', 'number', 'department_id')
+                print(f"All rooms in system: {list(all_rooms)}")
+            
+            return JsonResponse(rooms_list, safe=False)
+        except Exception as e:
+            print(f"Error in ajax_get_rooms: {e}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    print("No department_id provided")
+    return JsonResponse([], safe=False)
+
+
+@login_required
+def ajax_get_devices(request):
+    """
+    AJAX endpoint لجلب الأجهزة حسب الغرفة
+    """
+    room_id = request.GET.get('room_id')
+    print(f"AJAX get_devices called with room_id: {room_id}")
+    
+    if room_id:
+        try:
+            devices = Device.objects.filter(room_id=room_id).values('id', 'name')
+            devices_list = list(devices)
+            print(f"Found {len(devices_list)} devices: {devices_list}")
+            return JsonResponse(devices_list, safe=False)
+        except Exception as e:
+            print(f"Error in ajax_get_devices: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    print("No room_id provided")
+    return JsonResponse([], safe=False)
