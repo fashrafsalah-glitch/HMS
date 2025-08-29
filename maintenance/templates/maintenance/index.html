@@ -918,12 +918,12 @@
     }
     
     /* Dark mode typography for non-gradient sections */
-    body.dark-mode h1:not(.text-white),
-    body.dark-mode h2:not(.text-white),
-    body.dark-mode h3:not(.text-white),
-    body.dark-mode h4:not(.text-white),
-    body.dark-mode h5:not(.text-white),
-    body.dark-mode h6:not(.text-white) {
+    body.dark-mode h1:not(.text-white):not(.gradient-text),
+    body.dark-mode h2:not(.text-white):not(.gradient-text),
+    body.dark-mode h3:not(.text-white):not(.gradient-text),
+    body.dark-mode h4:not(.text-white):not(.gradient-text),
+    body.dark-mode h5:not(.text-white):not(.gradient-text),
+    body.dark-mode h6:not(.text-white):not(.gradient-text) {
         color: var(--text-primary) !important;
     }
     
