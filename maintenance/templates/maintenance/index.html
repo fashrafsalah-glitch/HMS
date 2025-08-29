@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{% block title %}
+نظام إدارة الصيانة
+{% endblock %}
 {% block content %}
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -1089,7 +1092,7 @@
                             <i class="fas fa-list"></i> عرض جميع الأجهزة
                         </a>
                         <a href="{% url 'maintenance:add_device' %}" class="btn btn-outline-light quick-action-btn">
-                            <i class="fas fa-plus"></i> إضافة جهاز جديد
+                            <i class="fas fa-plus"></i><p> إضافة جهاز جديد</p>
                         </a>
                     </div>
                 </div>
@@ -1119,27 +1122,27 @@
                         </div>
                         <div class="col-6">
                             <a href="{% url 'maintenance:dashboard:device_performance_dashboard' %}" class="btn btn-outline-light quick-action-btn w-100">
-                                <i class="fas fa-chart-bar"></i> أداء الأجهزة
+                                <i class="fas fa-chart-bar"></i> <p>أداء الأجهزة</p>
                             </a>
                         </div>
                         <div class="col-6">
                             <a href="{% url 'maintenance:dashboard:work_order_analytics' %}" class="btn btn-outline-light quick-action-btn w-100">
-                                <i class="fas fa-tasks"></i> تحليلات أوامر الشغل
+                                <i class="fas fa-tasks"></i> <p>تحليلات أوامر الشغل</p>
                             </a>
                         </div>
                         <div class="col-6">
                             <a href="{% url 'maintenance:dashboard:spare_parts_analytics' %}" class="btn btn-outline-light quick-action-btn w-100">
-                                <i class="fas fa-cogs"></i> تحليلات قطع الغيار
+                                <i class="fas fa-cogs"></i><p> تحليلات قطع الغيار</p>
                             </a>
                         </div>
                         <div class="col-6">
                             <a href="{% url 'maintenance:dashboard:maintenance_trends' %}" class="btn btn-outline-light quick-action-btn w-100">
-                                <i class="fas fa-chart-line"></i> اتجاهات الصيانة
+                                <i class="fas fa-chart-line"></i> <p >اتجاهات الصيانه</p>
                             </a>
                         </div>
                         <div class="col-12">
                             <a href="{% url 'maintenance:dashboard:export_dashboard_report' %}" class="btn btn-outline-light quick-action-btn w-100">
-                                <i class="fas fa-download"></i> تصدير تقرير شامل
+                                <i class="fas fa-download"></i><p> تصدير تقرير شامل</p>
                             </a>
                         </div>
                     </div>
@@ -1274,7 +1277,7 @@
                             <i class="fas fa-camera"></i> مسح QR Code
                         </a>
                         <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-outline-light quick-action-btn">
-                            <i class="fas fa-history"></i> سجل الاستخدام
+                            <i class="fas fa-history"></i><p> سجل الاستخدام</p>
                         </a>
                     </div>
                 </div>
@@ -1348,7 +1351,7 @@
                                 <i class="fas fa-clipboard-list"></i> أوامر الشغل
                             </a>
                             <a href="{% url 'maintenance:test_links' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-link"></i> روابط الاختبار
+                                <i class="fas fa-link"></i><p> روابط الاختبار</p>
                             </a>
                         </div>
                     </div>

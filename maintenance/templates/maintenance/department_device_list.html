@@ -84,7 +84,7 @@
             <tbody>
                 {% for transfer in pending_transfers %}
                 <tr>
-                    <td>{{ device.id }}</td>
+                    <td>{{ transfer.device.id }}</td>
                     <td>{{ transfer.device.name }}</td>
                     <td>{{ transfer.from_department.name }}</td>
                     <td>{{ transfer.to_room }}</td>
