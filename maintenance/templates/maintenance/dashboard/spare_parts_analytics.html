@@ -62,8 +62,8 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">توزيع قطع الغيار حسب الفئة</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">توزيع قطع الغيار حسب الفئة</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -74,8 +74,8 @@
         </div>
         <div class="col-md-6">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">توزيع قطع الغيار حسب الموردين</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">توزيع قطع الغيار حسب الموردين</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -90,8 +90,8 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">قطع الغيار الأكثر استخداماً</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">قطع الغيار الأكثر استخداماً</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -137,8 +137,8 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">اتجاهات استهلاك قطع الغيار (آخر 12 شهر)</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">اتجاهات استهلاك قطع الغيار (آخر 12 شهر)</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -153,8 +153,8 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">تكلفة قطع الغيار حسب الجهاز</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">تكلفة قطع الغيار حسب الجهاز</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -165,8 +165,8 @@
         </div>
         <div class="col-md-6">
             <div class="card dashboard-section">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">تكلفة قطع الغيار حسب القسم</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #007bff, #0056b3);">
+                    <h5 class="mb-0 text-white">تكلفة قطع الغيار حسب القسم</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -181,8 +181,8 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card dashboard-section">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">قطع الغيار التي تحتاج إعادة طلب</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+                    <h5 class="mb-0 text-white">قطع الغيار التي تحتاج إعادة طلب</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -236,9 +236,9 @@
     const sparePartsCategoryChart = new Chart(sparePartsCategoryCtx, {
         type: 'pie',
         data: {
-            labels: {{ spare_parts_category.categories|safe }},
+            labels: {{ spare_parts_category.categories|default:"[]"|safe }},
             datasets: [{
-                data: {{ spare_parts_category.counts|safe }},
+                data: {{ spare_parts_category.counts|default:"[]"|safe }},
                 backgroundColor: [
                     '#17a2b8',
                     '#6f42c1',
