@@ -21,14 +21,36 @@ class DeviceFormBasic(forms.ModelForm):
         Company = apps.get_model("maintenance", "Company")
         self.fields["manufacture_company"].queryset = Company.objects.all()
 
-        # لو في bed field
-        self.fields["bed"].queryset = Bed.objects.none()
+        # لو في bed field - السماح بجميع الأسرة في البداية
+        if 'bed' in self.fields:
+            if self.data.get('room'):
+                # إذا كان هناك room محدد في البيانات، فلتر الأسرة حسب الغرفة
+                try:
+                    room_id = int(self.data.get('room'))
+                    self.fields["bed"].queryset = Bed.objects.filter(room_id=room_id)
+                except (ValueError, TypeError):
+                    self.fields["bed"].queryset = Bed.objects.all()
+            elif self.instance and self.instance.pk and self.instance.room:
+                # إذا كان هذا تعديل جهاز موجود، فلتر الأسرة حسب غرفة الجهاز الحالية
+                self.fields["bed"].queryset = Bed.objects.filter(room=self.instance.room)
+            else:
+                # السماح بجميع الأسرة إذا لم يتم تحديد غرفة
+                self.fields["bed"].queryset = Bed.objects.all()
 
 
 class DeviceTransferForm(forms.ModelForm):
     class Meta:
-        model = DeviceTransfer
-        fields = "__all__"
+        model = DeviceTransferRequest
+        fields = ['to_department', 'to_room']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['to_department'].label = "القسم الجديد"
+        self.fields['to_room'].label = "الغرفة الجديدة"
+        
+        # Add CSS classes
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control'})
 
 
 class DeviceTypeForm(forms.ModelForm):

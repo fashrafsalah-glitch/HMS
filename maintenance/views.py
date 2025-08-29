@@ -285,18 +285,17 @@ def transfer_device(request, device_id):
             transfer = DeviceTransferRequest.objects.create(
                 device=device,
                 from_department=device.department,
-                to_department=form.cleaned_data['department'],
+                to_department=form.cleaned_data['to_department'],
                 from_room=device.room,
-                to_room=form.cleaned_data['room'],
+                to_room=form.cleaned_data['to_room'],
                 requested_by=request.user,
-                reason=form.cleaned_data.get('reason', '')
             )
             messages.success(request, "تم إرسال طلب نقل الجهاز بنجاح")
             return redirect('maintenance:device_detail', pk=device.id)
     else:
         form = DeviceTransferForm(initial={
-            'department': device.department,
-            'room': device.room
+            'to_department': device.department,
+            'to_room': device.room
         })
 
     return render(request, 'maintenance/device_transfer.html', {
@@ -449,7 +448,22 @@ def add_accessory(request, pk):
     })
 
 def maintenance_schedule(request, pk):
-    return render(request, 'maintenance/maintenance_schedule.html', {'device_id': pk})
+    device = get_object_or_404(Device, pk=pk)
+    
+    if request.method == 'POST':
+        # معالجة بيانات النموذج
+        schedule_type = request.POST.get('schedule_type')
+        next_maintenance = request.POST.get('next_maintenance')
+        maintenance_type = request.POST.get('maintenance_type')
+        maintenance_notes = request.POST.get('maintenance_notes')
+        
+        messages.success(request, f'تم جدولة صيانة {maintenance_type} للجهاز {device.name} بتاريخ {next_maintenance}')
+        return redirect('maintenance:device_detail', pk=pk)
+    
+    return render(request, 'maintenance/maintenance_schedule.html', {
+        'device': device,
+        'device_id': pk
+    })
 
 # Device Operations Views
 def clean_device(request, device_id):

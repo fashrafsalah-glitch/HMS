@@ -610,6 +610,9 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'shift_assignment_list' %}active{% endif %}" href="{% url 'staff:shift_assignment_list' %}">
                             <i class="bi bi-calendar-check me-2"></i><span>{% trans "My Shifts" %}</span>
                         </a>
+                        <a class="nav-link {% if 'work-orders' in request.path %}active{% endif %}" href="{% url 'maintenance:cmms:work_order_list' %}">
+                            <i class="fas fa-clipboard-list me-2"></i><span>{% trans "Work Orders" %}</span>
+                        </a>
                         <a class="nav-link {% if request.resolver_match.url_name == 'shift_swap_request_list' %}active{% endif %}" href="{% url 'staff:shift_swap_request_list' %}">
                             <i class="bi bi-arrow-left-right me-2"></i><span>{% trans "Shift Swaps" %}</span>
                         </a>

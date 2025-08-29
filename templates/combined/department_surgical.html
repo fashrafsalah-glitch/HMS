@@ -9,8 +9,7 @@
                 {% if department %}
                     <i class="bi bi-building me-2"></i>Department: {{ department.name }}
                 {% else %}
-                    <i class="bi bi-building me-2"></i>Departments & Surgical Operations
-                {% endif %}
+                    <i class="bi bi-building me-2"></i>Surgical Operations {% endif %}
             </h2>
         </div>
 
@@ -54,7 +53,8 @@
                             <input type="hidden" name="department" value="{{ department.id }}">
                         {% endif %}
                     </form>
-                    <a href="{% url 'manager:surgical_operations_department_create' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add Surgical Department</a>
+                    <a href="{% url 'manager:surgical_operations_department_create' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add
+                        Surgical Operations</a>
                 </div>
             </div>
 

@@ -71,8 +71,8 @@
         url: '{% url "maintenance:get_rooms" %}',
         data: { department_id: departmentId },
         success: function (data) {
-          $('#room-container').html(data);
-          $('#id_room').trigger('change'); // تحميل الأسرة مباشرة
+          $('#room-container').html(data.html);
+          $('#id_room').addClass('form-control').trigger('change'); // تحميل الأسرة مباشرة
         }
       });
     } else {
@@ -89,7 +89,8 @@
         url: '{% url "maintenance:get_beds" %}',
         data: { room_id: roomId },
         success: function (data) {
-          $('#bed-container').html(data);
+          $('#bed-container').html(data.html);
+          $('#id_bed').addClass('form-control');
         }
       });
     } else {
@@ -101,6 +102,15 @@
     // تنسيق bootstrap لعناصر النموذج
     $('form input:not([type=checkbox]):not([type=radio]), form select, form textarea').addClass('form-control');
     $('form input[type=checkbox], form input[type=radio]').addClass('form-check-input');
+    
+    // إضافة date picker للحقول التي تحتوي على تاريخ
+    $('input[name*="date"], input[type="date"]').attr('type', 'date').addClass('form-control');
+    $('input[name*="at"], input[name*="cleaned"], input[name*="sterilized"], input[name*="maintained"]').each(function() {
+        if ($(this).attr('name').includes('at') || $(this).attr('name').includes('cleaned') || 
+            $(this).attr('name').includes('sterilized') || $(this).attr('name').includes('maintained')) {
+            $(this).attr('type', 'datetime-local');
+        }
+    });
 
     // تأكد من وجود حاويات الغرفة/السرير
     if (!$('#room-container').length && $('#id_room').length) {

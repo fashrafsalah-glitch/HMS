@@ -365,34 +365,37 @@ def work_order_detail(request, wo_id):
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     comments = work_order.comments.all().order_by('created_at')
     
+    # تحديد صلاحيات المستخدم
+    is_doctor = hasattr(request.user, 'role') and request.user.role == 'doctor'
+    is_technician = hasattr(request.user, 'role') and request.user.role == 'technician'
+    is_hospital_manager = hasattr(request.user, 'role') and request.user.role in ['hospital_manager', 'super_admin']
+    
     # التحقق من صلاحية المستخدم لعرض أمر الشغل
-    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+    if not (is_technician or is_hospital_manager or is_doctor or request.user.is_superuser):
         if work_order.assignee != request.user and work_order.service_request.reporter != request.user:
             if hasattr(request.user, 'department') and work_order.service_request.device.department != request.user.department:
                 messages.error(request, 'ليس لديك صلاحية لعرض أمر الشغل هذا')
                 return redirect('work_order_list')
     
+    # صلاحيات التعديل (للفنيين والمسؤولين فقط - الأطباء لا يمكنهم التعديل)
+    can_edit = is_technician or is_hospital_manager or request.user.is_superuser
+    
     # تحقق من إن كان المستخدم يقدر يحدث الحالة
-    can_update_status = (
-        request.user.is_superuser or 
-        request.user.groups.filter(name='Supervisor').exists() or
-        work_order.assignee == request.user
-    )
+    can_update_status = can_edit  # فقط الفنيين والمسؤولين يمكنهم تحديث الحالة
     
-    # صلاحيات إدارة قطع الغيار
-    can_request_parts = (
-        work_order.assignee == request.user or 
-        request.user.is_superuser or 
-        request.user.groups.filter(name='Supervisor').exists()
-    )
-    can_issue_parts = (
-        request.user.is_superuser or 
-        request.user.groups.filter(name='Supervisor').exists()
-    )
+    # صلاحيات إدارة قطع الغيار (للفنيين والمسؤولين فقط)
+    can_request_parts = can_edit
+    can_issue_parts = is_hospital_manager or request.user.is_superuser
     
-    # نموذج تحديث حالة أمر الشغل
+    # معالجة النماذج المرسلة
     if request.method == 'POST':
-        if 'update_status' in request.POST:
+        # إذا كان الطبيب يحاول تعيين فني
+        if is_doctor and 'assign_technician' in request.POST:
+            # سيتم التعامل مع تعيين الفني في دالة منفصلة
+            pass
+        
+        # الفنيون والمسؤولون فقط يمكنهم تحديث حالة أمر الشغل
+        elif can_edit and 'update_status' in request.POST:
             update_form = WorkOrderUpdateForm(request.POST, instance=work_order, user=request.user)
             if update_form.is_valid():
                 # تحديث حالة أمر الشغل
@@ -401,15 +404,14 @@ def work_order_detail(request, wo_id):
                 # إضافة تعليق تلقائي عند تغيير الحالة
                 if 'status' in update_form.changed_data:
                     comment_text = f"تم تغيير حالة أمر الشغل إلى: {work_order.get_status_display()}"
-                    # تم إزالة إنشاء التعليق مؤقتاً حتى يتم تطبيق نموذج WorkOrderComment
+                    # سيتم إضافة التعليق عند تفعيل نموذج التعليقات
                 
-                update_form.save()
                 messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
                 return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
         
-        elif 'update_device_status' in request.POST:
-            # Handle device status update
-            if work_order.service_request and work_order.service_request.device and can_update_status:
+        # تحديث حالة الجهاز (للفنيين والمسؤولين فقط)
+        elif can_edit and 'update_device_status' in request.POST:
+            if work_order.service_request and work_order.service_request.device:
                 device = work_order.service_request.device
                 old_status = device.get_status_display()
                 device.status = 'working'
@@ -417,8 +419,9 @@ def work_order_detail(request, wo_id):
                 
                 messages.success(request, f'تم تغيير حالة الجهاز من "{old_status}" إلى "يعمل" بنجاح')
                 return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
-            else:
-                messages.error(request, 'ليس لديك صلاحية لتحديث حالة الجهاز')
+        
+        elif not can_edit and not is_doctor:
+            messages.error(request, 'ليس لديك صلاحية لإجراء هذا الإجراء')
     else:
         update_form = WorkOrderUpdateForm(instance=work_order, user=request.user)
     
@@ -449,6 +452,10 @@ def work_order_detail(request, wo_id):
         'status_form': update_form,
         'comment_form': comment_form,
         'can_update_status': can_update_status,
+        'can_edit': can_edit,
+        'is_doctor': is_doctor,
+        'is_technician': is_technician,
+        'is_hospital_manager': is_hospital_manager,
         'device_needs_status_change': device_needs_status_change,
         'parts_requested': parts_requested,
         'parts_stats': parts_stats,
@@ -456,7 +463,13 @@ def work_order_detail(request, wo_id):
         'can_issue_parts': can_issue_parts,
     }
     
-    return render(request, 'maintenance/cmms/work_order_detail.html', context)
+    # اختيار التمبليت حسب دور المستخدم
+    if is_doctor or (hasattr(request.user, 'role') and request.user.role == 'nurse'):
+        template_name = 'maintenance/work_order_detail.html'  # تمبليت مبسط للأطباء والممرضين
+    else:
+        template_name = 'maintenance/cmms/work_order_detail.html'  # تمبليت كامل للفنيين والمسؤولين
+    
+    return render(request, template_name, context)
 
 @login_required
 def work_order_create(request):
@@ -544,8 +557,8 @@ def work_order_assign(request, wo_id):
     User = get_user_model()
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
-    # التحقق من صلاحية المستخدم لتعيين فني
-    if not request.user.is_superuser and request.user.role not in ['hospital_manager', 'super_admin']:
+    # التحقق من صلاحية المستخدم لتعيين فني (الأطباء والمسؤولين)
+    if not request.user.is_superuser and request.user.role not in ['hospital_manager', 'super_admin', 'doctor']:
         messages.error(request, 'ليس لديك صلاحية لتعيين فني')
         return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     

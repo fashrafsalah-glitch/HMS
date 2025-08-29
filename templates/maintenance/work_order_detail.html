@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "Work Order Details" %} #{{ work_order.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Work Order Details" %} #{{ work_order.id }}</h5>
+                    <div class="d-flex
+                        {% if work_order.status == 'new' %}
+                            badge bg-warning text-dark
+                        {% elif work_order.status == 'in_progress' %}
+                            badge bg-info text-white
+                        {% elif work_order.status == 'completed' %}
+                            badge bg-success text-white
+                        {% elif work_order.status == 'cancelled' %}
+                            badge bg-danger text-white
+                        {% else %}
+                            badge bg-secondary text-white
+                        {% endif %}
+                    ">
+                        {{ work_order.get_status_display }}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>{% trans "Basic Information" %}</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th width="40%">{% trans "Title" %}:</th>
+                                    <td>{{ work_order.title }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Description" %}:</th>
+                                    <td>{{ work_order.description|linebreaksbr }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Priority" %}:</th>
+                                    <td>
+                                        <span class="badge 
+                                            {% if work_order.priority == 'high' %}bg-danger
+                                            {% elif work_order.priority == 'medium' %}bg-warning text-dark
+                                            {% else %}bg-info text-dark{% endif %}
+                                        ">
+                                            {{ work_order.get_priority_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Created At" %}:</th>
+                                    <td>{{ work_order.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{% trans "Assignment" %}</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th width="40%">{% trans "Assigned To" %}:</th>
+                                    <td>
+                                        {% if work_order.assignee %}
+                                            {{ work_order.assignee.get_full_name|default:work_order.assignee.username }}
+                                        {% else %}
+                                            <span class="text-muted">{% trans "Not assigned" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Department" %}:</th>
+                                    <td>{{ work_order.department.name|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Due Date" %}:</th>
+                                    <td>{{ work_order.due_date|date:"Y-m-d H:i"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>{% trans "Completion Date" %}:</th>
+                                    <td>{{ work_order.completed_date|date:"Y-m-d H:i"|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="d-flex gap-2">
+                                {% if can_edit %}
+                                    <!-- Only show for technicians and managers -->
+                                    {% if work_order.status != 'completed' and work_order.status != 'cancelled' %}
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#updateStatusModal">
+                                            <i class="fas fa-sync-alt me-2"></i>{% trans "Update Status" %}
+                                        </button>
+                                    {% endif %}
+                                    
+                                    {% if work_order.service_request and work_order.service_request.device %}
+                                        <form method="post" action="{% url 'maintenance:cmms:work_order_detail' work_order.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="update_device_status" value="1">
+                                            <button type="submit" class="btn btn-info">
+                                                <i class="fas fa-check-circle me-2"></i>{% trans "Mark Device as Working" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                {% endif %}
+
+                                {% if is_doctor or can_edit %}
+                                    {% if not work_order.assignee and work_order.status == 'new' %}
+                                        <!-- Show assign button for doctors and managers on unassigned work orders -->
+                                        <a href="{% url 'maintenance:cmms:work_order_assign' work_order.id %}" class="btn btn-primary">
+                                            <i class="fas fa-user-plus me-2"></i>{% trans "Assign Technician" %}
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+
+                                <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-secondary ms-auto">
+                                    <i class="fas fa-arrow-left me-2"></i>{% trans "Back to List" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comments Section -->
+                    {% if comments %}
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>{% trans "Comments" %}</h6>
+                            <div class="timeline">
+                                {% for comment in comments %}
+                                    <div class="timeline-item">
+                                        <div class="timeline-marker"></div>
+                                        <div class="timeline-content">
+                                            <p class="mb-0">
+                                                <strong>{{ comment.user.get_full_name|default:comment.user.username }}</strong>
+                                            </p>
+                                            <p>{{ comment.comment|linebreaksbr }}</p>
+                                            <small class="text-muted">{{ comment.created_at|timesince }} {% trans "ago" %}</small>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+{% if can_edit %}
+<div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateStatusModalLabel">{% trans "Update Work Order Status" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:cmms:work_order_detail' work_order.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="status" class="form-label">{% trans "Status" %}</label>
+                        <select name="status" id="status" class="form-select" required>
+                            <option value="new" {% if work_order.status == 'new' %}selected{% endif %}>{% trans "New" %}</option>
+                            <option value="in_progress" {% if work_order.status == 'in_progress' %}selected{% endif %}>{% trans "In Progress" %}</option>
+                            <option value="completed" {% if work_order.status == 'completed' %}selected{% endif %}>{% trans "Completed" %}</option>
+                            <option value="cancelled" {% if work_order.status == 'cancelled' %}selected{% endif %}>{% trans "Cancelled" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="completion_notes" class="form-label">{% trans "Notes" %}</label>
+                        <textarea name="completion_notes" id="completion_notes" class="form-control" rows="3" placeholder="{% trans 'Add completion notes...' %}"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" name="update_status" class="btn btn-primary">{% trans "Save changes" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+        padding-left: 2rem;
+        border-left: 2px solid #dee2e6;
+    }
+    .timeline-item:last-child {
+        border-left: 2px solid transparent;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -7px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        top: 0.5rem;
+    }
+    .timeline-content {
+        padding: 0.5rem 0;
+    }
+</style>
+{% endblock %}

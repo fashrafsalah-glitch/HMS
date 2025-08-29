@@ -2,6 +2,7 @@ from django.urls import path, include
 from . import views
 from . import views_accessory
 from . import views_cmms
+from . import views_reports
 
 app_name = 'maintenance'
 
@@ -106,5 +107,8 @@ urlpatterns = [
     # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
     path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),
     path("test-links/", views.test_links, name="test_links"),
+    
+    # Reports URLs
+    path('department/<int:department_id>/export-report/', views_reports.export_department_devices_report, name='export_department_report'),
 
 ]

@@ -196,8 +196,16 @@ class HospitalmanagerRequiredMixin(UserPassesTestMixin):
         if not self.request.user.is_authenticated:
             messages.error(self.request, "Please log in to access this page.")
             return redirect(settings.LOGIN_URL)
+        
+        # Redirect doctors to staff patient list (only for patient-related pages)
+        if (hasattr(self.request.user, 'role') and 
+            self.request.user.role == 'doctor' and 
+            'patient' in self.request.path.lower()):
+            messages.info(self.request, "تم توجيهك لقائمة المرضى الخاصة بالطاقم الطبي")
+            return redirect("staff:patient_list")
+        
         messages.error(self.request, "You need hospital‑manager privileges to access this page.")
-        return redirect("manager:patient_list")
+        return redirect("/")
 
 class HRUserForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, label="Password")
@@ -1094,11 +1102,27 @@ def rooms_api(request):
     """API endpoint for rooms filtered by department"""
     department_id = request.GET.get('department')
     if department_id:
-        rooms = Room.objects.filter(department_id=department_id).values('id', 'number', 'room_type')
-        return JsonResponse(list(rooms), safe=False)
+        rooms = Room.objects.filter(department_id=department_id)
+        room_data = []
+        for room in rooms:
+            room_data.append({
+                'id': room.id,
+                'number': room.number,
+                'room_type': room.room_type,
+                'get_room_type_display': room.get_room_type_display()
+            })
+        return JsonResponse(room_data, safe=False)
     else:
-        rooms = Room.objects.all().values('id', 'number', 'room_type')
-        return JsonResponse(list(rooms), safe=False)
+        rooms = Room.objects.all()
+        room_data = []
+        for room in rooms:
+            room_data.append({
+                'id': room.id,
+                'number': room.number,
+                'room_type': room.room_type,
+                'get_room_type_display': room.get_room_type_display()
+            })
+        return JsonResponse(room_data, safe=False)
 
 # Department Views
 def department_list(request):
@@ -1166,10 +1190,38 @@ def department_devices(request, department_id):
         department=department
     ).exclude(id__in=pending_devices_ids)
 
-    return render(request, 'maintenance/department_device_ist1.html', {
+    # تجميع الأجهزة حسب الغرف
+    devices_by_room = {}
+    for device in actual_devices:
+        room = device.room
+        if room not in devices_by_room:
+            devices_by_room[room] = []
+        devices_by_room[room].append(device)
+    
+    # إحصائيات الأجهزة
+    stats = {
+        'working': actual_devices.filter(status='working').count(),
+        'needs_maintenance': actual_devices.filter(status='needs_maintenance').count(),
+        'out_of_order': actual_devices.filter(status='out_of_order').count(),
+        'in_use': actual_devices.filter(in_use=True).count(),
+    }
+    
+    # الأجهزة الحرجة
+    from django.db.models import Q
+    critical_devices = actual_devices.filter(
+        Q(status='out_of_order') | 
+        Q(status='needs_maintenance')
+    )
+    
+    return render(request, 'maintenance/department_device_list.html', {
         'department': department,
         'actual_devices': actual_devices,
-        'pending_transfers': pending_transfers
+        'devices_by_room': devices_by_room,
+        'pending_transfers': pending_transfers,
+        'stats': stats,
+        'critical_devices': critical_devices,
+        'total_devices': actual_devices.count(),
+        'active_devices': actual_devices.filter(status='working').count(),
     })
 def add_department(request):
     if request.method == 'POST':

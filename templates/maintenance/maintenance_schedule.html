@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}جدولة الصيانة الدورية{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        جدولة الصيانة الدورية - جهاز رقم {{ device_id }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        هذه الصفحة مخصصة لجدولة الصيانة الدورية للأجهزة الطبية
+                    </div>
+
+                    <form method="post" class="row g-3">
+                        {% csrf_token %}
+                        
+                        <div class="col-md-6">
+                            <label for="schedule_type" class="form-label">نوع الجدولة</label>
+                            <select class="form-select" id="schedule_type" name="schedule_type" required>
+                                <option value="">اختر نوع الجدولة</option>
+                                <option value="daily">يومي</option>
+                                <option value="weekly">أسبوعي</option>
+                                <option value="monthly">شهري</option>
+                                <option value="quarterly">ربع سنوي</option>
+                                <option value="semi_annual">نصف سنوي</option>
+                                <option value="annual">سنوي</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="next_maintenance" class="form-label">تاريخ الصيانة القادمة</label>
+                            <input type="date" class="form-control" id="next_maintenance" name="next_maintenance" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="maintenance_type" class="form-label">نوع الصيانة</label>
+                            <select class="form-select" id="maintenance_type" name="maintenance_type" required>
+                                <option value="">اختر نوع الصيانة</option>
+                                <option value="preventive">صيانة وقائية</option>
+                                <option value="calibration">معايرة</option>
+                                <option value="inspection">فحص دوري</option>
+                                <option value="cleaning">تنظيف شامل</option>
+                                <option value="replacement">استبدال قطع</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="assigned_technician" class="form-label">الفني المسؤول</label>
+                            <select class="form-select" id="assigned_technician" name="assigned_technician">
+                                <option value="">اختر الفني</option>
+                                <!-- سيتم تحميل الفنيين ديناميكياً -->
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="maintenance_notes" class="form-label">ملاحظات الصيانة</label>
+                            <textarea class="form-control" id="maintenance_notes" name="maintenance_notes" rows="3" 
+                                placeholder="أدخل تفاصيل الصيانة المطلوبة..."></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="send_notification" name="send_notification" checked>
+                                <label class="form-check-label" for="send_notification">
+                                    إرسال تنبيه قبل موعد الصيانة
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                حفظ الجدولة
+                            </button>
+                            <a href="{% url 'maintenance:device_detail' device_id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-right me-2"></i>
+                                العودة للجهاز
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- جدول الصيانات المجدولة -->
+            <div class="card mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        الصيانات المجدولة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>نوع الصيانة</th>
+                                    <th>التاريخ المجدول</th>
+                                    <th>الفني المسؤول</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        لا توجد صيانات مجدولة حالياً
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // تعيين التاريخ الافتراضي للصيانة القادمة
+    const nextMaintenanceInput = document.getElementById('next_maintenance');
+    const today = new Date();
+    today.setDate(today.getDate() + 30); // بعد شهر افتراضياً
+    nextMaintenanceInput.value = today.toISOString().split('T')[0];
+
+    // تحديث التاريخ بناءً على نوع الجدولة
+    document.getElementById('schedule_type').addEventListener('change', function() {
+        const scheduleType = this.value;
+        const today = new Date();
+        let nextDate = new Date(today);
+
+        switch(scheduleType) {
+            case 'daily':
+                nextDate.setDate(today.getDate() + 1);
+                break;
+            case 'weekly':
+                nextDate.setDate(today.getDate() + 7);
+                break;
+            case 'monthly':
+                nextDate.setMonth(today.getMonth() + 1);
+                break;
+            case 'quarterly':
+                nextDate.setMonth(today.getMonth() + 3);
+                break;
+            case 'semi_annual':
+                nextDate.setMonth(today.getMonth() + 6);
+                break;
+            case 'annual':
+                nextDate.setFullYear(today.getFullYear() + 1);
+                break;
+        }
+
+        if (scheduleType) {
+            nextMaintenanceInput.value = nextDate.toISOString().split('T')[0];
+        }
+    });
+});
+</script>
+{% endblock %}

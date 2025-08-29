@@ -82,13 +82,13 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.department.id_for_label }}">
+                                    <label for="{{ form.to_department.id_for_label }}">
                                         <i class="fas fa-building"></i> القسم الجديد
                                     </label>
-                                    {{ form.department }}
-                                    {% if form.department.errors %}
+                                    {{ form.to_department }}
+                                    {% if form.to_department.errors %}
                                         <div class="invalid-feedback d-block">
-                                            {{ form.department.errors.0 }}
+                                            {{ form.to_department.errors.0 }}
                                         </div>
                                     {% endif %}
                                 </div>
@@ -96,34 +96,19 @@
                             
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.room.id_for_label }}">
+                                    <label for="{{ form.to_room.id_for_label }}">
                                         <i class="fas fa-door-open"></i> الغرفة الجديدة
                                     </label>
-                                    {{ form.room }}
-                                    {% if form.room.errors %}
+                                    {{ form.to_room }}
+                                    {% if form.to_room.errors %}
                                         <div class="invalid-feedback d-block">
-                                            {{ form.room.errors.0 }}
+                                            {{ form.to_room.errors.0 }}
                                         </div>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="form-group">
-                                    <label for="{{ form.reason.id_for_label }}">
-                                        <i class="fas fa-comment"></i> سبب النقل
-                                    </label>
-                                    {{ form.reason }}
-                                    {% if form.reason.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form.reason.errors.0 }}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="form-group">
                             <button type="submit" class="btn btn-primary" {% if transfer_errors %}disabled{% endif %}>
@@ -142,9 +127,9 @@
 
 <script>
 // Auto-filter rooms by department
-document.getElementById('id_department').addEventListener('change', function() {
+document.getElementById('id_to_department').addEventListener('change', function() {
     const departmentId = this.value;
-    const roomSelect = document.getElementById('id_room');
+    const roomSelect = document.getElementById('id_to_room');
     
     // Clear current options
     roomSelect.innerHTML = '<option value="">---------</option>';
@@ -156,7 +141,7 @@ document.getElementById('id_department').addEventListener('change', function() {
                 data.forEach(room => {
                     const option = document.createElement('option');
                     option.value = room.id;
-                    option.textContent = room.name;
+                    option.textContent = `${room.get_room_type_display} - غرفة ${room.number}`;
                     roomSelect.appendChild(option);
                 });
             })
