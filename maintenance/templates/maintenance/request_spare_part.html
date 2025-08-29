@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-cogs"></i>
+                        {{ page_title }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- معلومات السياق -->
+                    {% if work_order %}
+                    <div class="alert alert-info mb-4">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-wrench"></i>
+                            معلومات أمر الشغل
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>رقم أمر الشغل:</strong> WO-{{ work_order.id }}<br>
+                                <strong>الوصف:</strong> {{ work_order.description|truncatechars:50 }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>الحالة:</strong> 
+                                <span class="badge bg-info">{{ work_order.get_status_display }}</span><br>
+                                <strong>تاريخ الإنشاء:</strong> {{ work_order.created_at|date:"Y-m-d H:i" }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if device %}
+                    <div class="alert alert-secondary mb-4">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-desktop"></i>
+                            معلومات الجهاز
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>اسم الجهاز:</strong> {{ device.name }}<br>
+                                <strong>رقم الجهاز:</strong> {{ device.device_id }}<br>
+                                <strong>الموديل:</strong> {{ device.model }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>القسم:</strong> {{ device.department.name }}<br>
+                                <strong>الغرفة:</strong> {{ device.room }}<br>
+                                <strong>الحالة:</strong> 
+                                <span class="badge bg-{% if device.status == 'working' %}success{% elif device.status == 'broken' %}danger{% else %}secondary{% endif %}">
+                                    {{ device.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- نموذج طلب قطعة الغيار -->
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="spare_part" class="required">قطعة الغيار</label>
+                                    <select name="spare_part" id="spare_part" class="form-control" required onchange="updatePartDetails()">
+                                        <option value="">اختر قطعة الغيار...</option>
+                                        {% for part in spare_parts %}
+                                        <option value="{{ part.id }}" 
+                                                data-stock="{{ part.current_stock }}" 
+                                                data-min-stock="{{ part.minimum_stock }}"
+                                                data-location="{{ part.location }}"
+                                                data-unit="{{ part.unit }}"
+                                                data-cost="{{ part.unit_cost }}"
+                                                data-supplier="{{ part.supplier.name|default:'غير محدد' }}">
+                                            {{ part.name }} - {{ part.part_number }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تفاصيل قطعة الغيار المختارة -->
+                        <div id="part-details" class="alert alert-light mb-4" style="display: none;">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-info-circle"></i>
+                                تفاصيل قطعة الغيار
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>المخزون المتاح:</strong> 
+                                    <span id="current-stock" class="badge bg-success">0</span>
+                                    <span id="stock-unit"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>الحد الأدنى:</strong> 
+                                    <span id="min-stock" class="text-muted">0</span>
+                                    <span id="min-unit"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>الموقع:</strong> 
+                                    <span id="part-location" class="text-info">غير محدد</span>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-4">
+                                    <strong>التكلفة للوحدة:</strong> 
+                                    <span id="unit-cost" class="text-success">0</span> ريال
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>المورد:</strong> 
+                                    <span id="supplier-name" class="text-primary">غير محدد</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <div id="stock-warning" class="text-danger" style="display: none;">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        مخزون منخفض!
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="quantity" class="required">الكمية المطلوبة</label>
+                                    <input type="number" name="quantity" id="quantity" class="form-control" 
+                                           min="1" value="1" required onchange="calculateTotalCost()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="priority">الأولوية</label>
+                                    <select name="priority" id="priority" class="form-control">
+                                        {% for value, label in priority_choices %}
+                                        <option value="{{ value }}" {% if value == 'medium' %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>التكلفة الإجمالية المتوقعة</label>
+                                    <div class="form-control-plaintext">
+                                        <span id="total-cost" class="h5 text-success">0 ريال</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="reason" class="required">سبب الطلب</label>
+                                    <textarea name="reason" id="reason" class="form-control" rows="3" 
+                                              placeholder="اشرح سبب الحاجة لهذه القطعة..." required></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="notes">ملاحظات إضافية</label>
+                                    <textarea name="notes" id="notes" class="form-control" rows="2" 
+                                              placeholder="أي ملاحظات أو تفاصيل إضافية..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane"></i> إرسال طلب قطعة الغيار
+                            </button>
+                            <a href="{% if work_order %}{% url 'maintenance:cmms:work_order_detail' work_order.id %}{% elif device %}{% url 'maintenance:device_detail' device.id %}{% else %}{% url 'maintenance:spare_parts:spare_part_list' %}{% endif %}" 
+                               class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .required::after {
+        content: " *";
+        color: red;
+    }
+    
+    .alert-info {
+        border-right: 4px solid #17a2b8;
+    }
+    
+    .alert-secondary {
+        border-right: 4px solid #6c757d;
+    }
+    
+    .alert-light {
+        border-right: 4px solid #28a745;
+    }
+    
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #004085;
+    }
+
+    #part-details {
+        transition: all 0.3s ease;
+    }
+
+    .badge {
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updatePartDetails() {
+    const select = document.getElementById('spare_part');
+    const detailsDiv = document.getElementById('part-details');
+    
+    if (select.value) {
+        const option = select.options[select.selectedIndex];
+        const stock = parseInt(option.dataset.stock);
+        const minStock = parseInt(option.dataset.minStock);
+        const location = option.dataset.location || 'غير محدد';
+        const unit = option.dataset.unit || 'قطعة';
+        const cost = parseFloat(option.dataset.cost) || 0;
+        const supplier = option.dataset.supplier || 'غير محدد';
+        
+        // تحديث المعلومات
+        document.getElementById('current-stock').textContent = stock;
+        document.getElementById('current-stock').className = stock > minStock ? 'badge bg-success' : 'badge bg-warning';
+        document.getElementById('stock-unit').textContent = unit;
+        document.getElementById('min-stock').textContent = minStock;
+        document.getElementById('min-unit').textContent = unit;
+        document.getElementById('part-location').textContent = location;
+        document.getElementById('unit-cost').textContent = cost.toFixed(2);
+        document.getElementById('supplier-name').textContent = supplier;
+        
+        // تحديث تحذير المخزون
+        const warning = document.getElementById('stock-warning');
+        if (stock <= minStock) {
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+        
+        // إظهار التفاصيل
+        detailsDiv.style.display = 'block';
+        
+        // حساب التكلفة الإجمالية
+        calculateTotalCost();
+    } else {
+        detailsDiv.style.display = 'none';
+    }
+}
+
+function calculateTotalCost() {
+    const select = document.getElementById('spare_part');
+    const quantity = parseInt(document.getElementById('quantity').value) || 0;
+    
+    if (select.value && quantity > 0) {
+        const option = select.options[select.selectedIndex];
+        const cost = parseFloat(option.dataset.cost) || 0;
+        const totalCost = cost * quantity;
+        
+        document.getElementById('total-cost').textContent = totalCost.toFixed(2) + ' ريال';
+    } else {
+        document.getElementById('total-cost').textContent = '0 ريال';
+    }
+}
+
+// التحقق من توفر الكمية المطلوبة
+document.getElementById('quantity').addEventListener('input', function() {
+    const select = document.getElementById('spare_part');
+    if (select.value) {
+        const option = select.options[select.selectedIndex];
+        const availableStock = parseInt(option.dataset.stock);
+        const requestedQuantity = parseInt(this.value);
+        
+        if (requestedQuantity > availableStock) {
+            this.setCustomValidity(`الكمية المطلوبة (${requestedQuantity}) أكبر من المخزون المتاح (${availableStock})`);
+        } else {
+            this.setCustomValidity('');
+        }
+    }
+    calculateTotalCost();
+});
+</script>
+{% endblock %}
