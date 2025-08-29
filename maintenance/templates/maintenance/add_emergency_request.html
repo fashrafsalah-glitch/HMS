@@ -1,4 +1,171 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
 {% block content %}
-<h3>🚨 طلب صيانة طارئة للجهاز ID: {{ device_id }}</h3>
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ title }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- معلومات الجهاز -->
+                    <div class="alert alert-info mb-4">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-info-circle"></i>
+                            معلومات الجهاز
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>اسم الجهاز:</strong> {{ device.name }}<br>
+                                <strong>رقم الجهاز:</strong> {{ device.device_id }}<br>
+                                <strong>الموديل:</strong> {{ device.model }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>القسم:</strong> {{ device.department.name }}<br>
+                                <strong>الغرفة:</strong> {{ device.room }}<br>
+                                <strong>الحالة:</strong> 
+                                <span class="badge bg-{% if device.status == 'working' %}success{% elif device.status == 'broken' %}danger{% else %}secondary{% endif %}">
+                                    {{ device.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- نموذج طلب الصيانة -->
+                    {% if form.errors %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>يرجى تصحيح الأخطاء التالية:</strong>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.title.id_for_label }}" class="required">{{ form.title.label }}</label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.title.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.description.id_for_label }}" class="required">{{ form.description.label }}</label>
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.description.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        يرجى وصف المشكلة بالتفصيل لتسهيل عملية الصيانة
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.request_type.id_for_label }}">{{ form.request_type.label }}</label>
+                                    {{ form.request_type }}
+                                    {% if form.request_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.request_type.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
+                                    {{ form.severity }}
+                                    {% if form.severity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.severity.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.impact.id_for_label }}">{{ form.impact.label }}</label>
+                                    {{ form.impact }}
+                                    {% if form.impact.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.impact.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- الحقول المخفية -->
+                        <input type="hidden" name="device" value="{{ device.pk }}">
+                        {{ form.is_auto_generated }}
+                        {{ form.auto_generated_reason }}
+                        
+                        <div class="form-group text-center mt-4">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="fas fa-paper-plane"></i> إرسال طلب الصيانة المستعجلة
+                            </button>
+                            <a href="{% url 'maintenance:device_detail' device.pk %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .required::after {
+        content: " *";
+        color: red;
+    }
+    
+    .alert-info {
+        border-right: 4px solid #17a2b8;
+    }
+    
+    .form-control:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+</style>
 {% endblock %}

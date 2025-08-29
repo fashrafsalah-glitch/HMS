@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 import json
 from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
+from .forms_cmms import ServiceRequestForm
 from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, WorkOrder, JobPlan
 from manager.models import Department, Room, Bed, Patient
 
@@ -731,11 +732,48 @@ def maintenance_history(request, device_id):
     })
 
 def add_emergency_request(request, pk):
-    return render(request, 'maintenance/add_emergency_request.html', {'device_id': pk})
+    device = get_object_or_404(Device, pk=pk)
+    
+    if request.method == 'POST':
+        form = ServiceRequestForm(request.POST, user=request.user)
+        if form.is_valid():
+            service_request = form.save(commit=False)
+            service_request.device = device
+            service_request.reporter = request.user
+            service_request.request_type = 'emergency'
+            service_request.severity = 'high'
+            # التأكد من وجود العنوان
+            if not service_request.title:
+                service_request.title = f'طلب صيانة مستعجلة - {device.name}'
+            service_request.save()
+            
+            messages.success(request, f'تم إنشاء طلب الصيانة المستعجلة للجهاز {device.name} بنجاح')
+            return redirect('maintenance:device_detail', pk=device.pk)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
+    else:
+        # تعبئة البيانات الافتراضية للجهاز
+        initial_data = {
+            'device': device,
+            'title': f'طلب صيانة مستعجلة - {device.name}',
+            'request_type': 'emergency',
+            'severity': 'high',
+            'impact': 'high'
+        }
+        form = ServiceRequestForm(initial=initial_data, user=request.user)
+        # جعل حقل الجهاز للقراءة فقط
+        form.fields['device'].widget.attrs['readonly'] = True
+        form.fields['device'].widget.attrs['disabled'] = True
+    
+    context = {
+        'device': device,
+        'form': form,
+        'title': f'طلب صيانة مستعجلة - {device.name}'
+    }
+    return render(request, 'maintenance/add_emergency_request.html', context)
 
 def add_spare_part(request, pk):
     return render(request, 'maintenance/add_spare_part.html', {'device_id': pk})
-
 
 
 

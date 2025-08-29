@@ -524,7 +524,7 @@ def work_order_create(request):
                 downtime.save()
             
             messages.success(request, 'تم إنشاء أمر الشغل بنجاح')
-            return redirect('maintenance:work_order_detail', wo_id=work_order.id)
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
     else:
         wo_form = WorkOrderForm(user=request.user, service_request=service_request)
         
