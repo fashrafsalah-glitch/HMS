@@ -311,6 +311,38 @@
         body.dark-mode .bg-light, body.dark-mode .text-bg-light { background-color: #3a3a3a !important; color: #e0e0e0 !important; border-color: #555 !important; }
         body.dark-mode .text-dark { color: #e0e0e0 !important; }
         body.dark-mode .border { border-color: #555 !important; }
+        
+        /* Fix text-white classes for both modes */
+        .text-white { color: white !important; }
+        .text-white-50 { color: rgba(255, 255, 255, 0.5) !important; }
+        
+        /* Ensure text-white works in light mode on gradient backgrounds */
+        body:not(.dark-mode) .text-white { color: white !important; }
+        body:not(.dark-mode) .text-white-50 { color: rgba(255, 255, 255, 0.7) !important; }
+        
+        /* Button outline fixes for both modes */
+        .btn-outline-light { 
+            border-color: rgba(255,255,255,0.5) !important; 
+            color: white !important; 
+            background-color: transparent !important; 
+        }
+        .btn-outline-light:hover { 
+            background-color: rgba(255,255,255,0.2) !important; 
+            border-color: rgba(255,255,255,0.8) !important; 
+            color: white !important; 
+        }
+        
+        /* Light mode button styling */
+        body:not(.dark-mode) .btn-light { 
+            background-color: rgba(255,255,255,0.9) !important; 
+            border-color: rgba(255,255,255,0.9) !important; 
+            color: #333 !important; 
+        }
+        body:not(.dark-mode) .btn-light:hover { 
+            background-color: white !important; 
+            border-color: white !important; 
+            color: #333 !important; 
+        }
 
         /* Components (dropdowns, modals, list groups, input groups) */
         /* Dropdowns: force dark backgrounds using Bootstrap variables */
