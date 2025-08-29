@@ -1,10 +1,9 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load widget_tweaks %}
 
 {% block title %}
-    {% if form.instance.id %}
-    تعديل قطعة الغيار - {{ form.instance.name }}
+    {% if spare_part %}
+    تعديل قطعة الغيار - {{ spare_part.name }}
     {% else %}
     إضافة قطعة غيار جديدة
     {% endif %}
@@ -13,94 +12,238 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
+        <div class="col-md-10 offset-md-1">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        {% if form.instance.id %}
-                        تعديل قطعة الغيار - {{ form.instance.name }}
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-cogs"></i>
+                        {% if spare_part %}
+                        تعديل قطعة الغيار - {{ spare_part.name }}
                         {% else %}
                         إضافة قطعة غيار جديدة
                         {% endif %}
                     </h3>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
+                    {% if form.errors %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>يرجى تصحيح الأخطاء التالية:</strong>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
                         
+                        <h5 class="text-primary mb-3"><i class="fas fa-info-circle"></i> المعلومات الأساسية</h5>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
-                                    {{ form.name|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.part_number.id_for_label }}">{{ form.part_number.label }}</label>
-                                    {{ form.part_number|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
-                                    {{ form.description|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.primary_supplier.id_for_label }}">{{ form.primary_supplier.label }}</label>
-                                    {{ form.primary_supplier|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.cost.id_for_label }}">{{ form.cost.label }}</label>
-                                    {{ form.cost|add_class:"form-control" }}
+                                    <label for="{{ form.name.id_for_label }}" class="required">{{ form.name.label }}</label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.name.errors.0 }}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
-                                    {{ form.quantity|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.min_quantity.id_for_label }}">{{ form.min_quantity.label }}</label>
-                                    {{ form.min_quantity|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.unit.id_for_label }}">{{ form.unit.label }}</label>
-                                    {{ form.unit|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
-                                    {{ form.location|add_class:"form-control" }}
-                                </div>
-                                <div class="form-group">
-                                    <label for="{{ form.lead_time_days.id_for_label }}">{{ form.lead_time_days.label }}</label>
-                                    {{ form.lead_time_days|add_class:"form-control" }}
+                                    <label for="{{ form.part_number.id_for_label }}" class="required">{{ form.part_number.label }}</label>
+                                    {{ form.part_number }}
+                                    {% if form.part_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.part_number.errors.0 }}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="row">
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
-                                    {{ form.notes|add_class:"form-control" }}
+                                    <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                                    {{ form.description }}
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="{{ form.datasheet_url.id_for_label }}">{{ form.datasheet_url.label }}</label>
-                                    {{ form.datasheet_url|add_class:"form-control" }}
+                                    <label for="{{ form.device_category.id_for_label }}">{{ form.device_category.label }}</label>
+                                    {{ form.device_category }}
                                 </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.manufacturer.id_for_label }}">{{ form.manufacturer.label }}</label>
+                                    {{ form.manufacturer }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.model_number.id_for_label }}">{{ form.model_number.label }}</label>
+                                    {{ form.model_number }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5 class="text-primary mb-3"><i class="fas fa-warehouse"></i> معلومات المخزون</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.current_stock.id_for_label }}" class="required">{{ form.current_stock.label }}</label>
+                                    {{ form.current_stock }}
+                                    {% if form.current_stock.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.current_stock.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.minimum_stock.id_for_label }}" class="required">{{ form.minimum_stock.label }}</label>
+                                    {{ form.minimum_stock }}
+                                    {% if form.minimum_stock.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.minimum_stock.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.maximum_stock.id_for_label }}">{{ form.maximum_stock.label }}</label>
+                                    {{ form.maximum_stock }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.reorder_point.id_for_label }}">{{ form.reorder_point.label }}</label>
+                                    {{ form.reorder_point }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.unit.id_for_label }}">{{ form.unit.label }}</label>
+                                    {{ form.unit }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.unit_cost.id_for_label }}">{{ form.unit_cost.label }}</label>
+                                    {{ form.unit_cost }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.last_purchase_price.id_for_label }}">{{ form.last_purchase_price.label }}</label>
+                                    {{ form.last_purchase_price }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.shelf_life_months.id_for_label }}">{{ form.shelf_life_months.label }}</label>
+                                    {{ form.shelf_life_months }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5 class="text-primary mb-3"><i class="fas fa-truck"></i> معلومات التوريد</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.primary_supplier.id_for_label }}">{{ form.primary_supplier.label }}</label>
+                                    {{ form.primary_supplier }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.storage_location.id_for_label }}">{{ form.storage_location.label }}</label>
+                                    {{ form.storage_location }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                                    {{ form.status }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-checkbox mt-4">
+                                        {{ form.is_critical }}
+                                        <label class="custom-control-label" for="{{ form.is_critical.id_for_label }}">
+                                            {{ form.is_critical.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-checkbox mt-4">
+                                        {{ form.is_consumable }}
+                                        <label class="custom-control-label" for="{{ form.is_consumable.id_for_label }}">
+                                            {{ form.is_consumable.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5 class="text-primary mb-3"><i class="fas fa-file-alt"></i> المرفقات</h5>
+                        <div class="row">
+                            <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
-                                    {{ form.image|add_class:"form-control" }}
+                                    {{ form.image }}
+                                    {% if spare_part and spare_part.image %}
+                                    <small class="form-text text-muted">
+                                        الصورة الحالية: <a href="{{ spare_part.image.url }}" target="_blank">عرض</a>
+                                    </small>
+                                    {% endif %}
                                 </div>
+                            </div>
+                            <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ form.compatible_devices.id_for_label }}">{{ form.compatible_devices.label }}</label>
-                                    {{ form.compatible_devices|add_class:"form-control" }}
+                                    <label for="{{ form.datasheet.id_for_label }}">{{ form.datasheet.label }}</label>
+                                    {{ form.datasheet }}
+                                    {% if spare_part and spare_part.datasheet %}
+                                    <small class="form-text text-muted">
+                                        الملف الحالي: <a href="{{ spare_part.datasheet.url }}" target="_blank">تحميل</a>
+                                    </small>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
                         
                         <div class="form-group text-center mt-4">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="fas fa-save"></i> حفظ
                             </button>
-                            <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-secondary">
+                            <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-secondary btn-lg">
                                 <i class="fas fa-times"></i> إلغاء
                             </a>
                         </div>

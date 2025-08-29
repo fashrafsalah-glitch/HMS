@@ -610,15 +610,20 @@ def spare_part_create(request):
     if request.method == 'POST':
         form = SparePartForm(request.POST, request.FILES)
         if form.is_valid():
-            spare_part = form.save()
+            spare_part = form.save(commit=False)
+            spare_part.created_by = request.user
+            spare_part.save()
             messages.success(request, f'تم إنشاء قطعة الغيار {spare_part.name} بنجاح')
             return redirect('maintenance:spare_parts:spare_part_detail', pk=spare_part.pk)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
     else:
         form = SparePartForm()
     
     context = {
         'form': form,
         'title': 'إضافة قطعة غيار جديدة',
+        'spare_part': None,  # للتوافق مع القالب
     }
     return render(request, 'maintenance/spare_part_form.html', context)
 
