@@ -52,7 +52,7 @@
                     <i class="fas fa-star fa-2x mb-2"></i>
                     <h3>
                         {% if device_scores %}
-                            {{ device_scores|first.score|floatformat:1 }}
+                            {{ device_scores.0.score|floatformat:1 }}
                         {% else %}
                             0.0
                         {% endif %}

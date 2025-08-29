@@ -91,50 +91,111 @@
                 <div class="history-header">
                     <h4 class="mb-0">
                         <i class="fas fa-history me-2"></i>
-                        {% trans "سجل عمليات الصيانة" %}
+                        {% trans "سجل عمليات الصيانة والبلاغات" %}
                     </h4>
                 </div>
                 <div class="card-body">
-                    {% if maintenance_logs %}
+                    {% if all_activities %}
                         <div class="row">
-                            {% for log in maintenance_logs %}
+                            {% for activity in all_activities %}
                                 <div class="col-md-6 mb-3">
                                     <div class="log-item">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <div>
                                                 <h6 class="mb-1">
                                                     <i class="fas fa-user text-warning me-1"></i>
-                                                    {% if log.maintained_by %}
-                                                        {{ log.maintained_by.get_full_name|default:log.maintained_by.username }}
+                                                    {% if activity.user %}
+                                                        {{ activity.user.get_full_name|default:activity.user.username }}
                                                     {% else %}
                                                         {% trans "مستخدم غير محدد" %}
                                                     {% endif %}
                                                 </h6>
                                                 <small class="text-muted">
                                                     <i class="fas fa-clock me-1"></i>
-                                                    {{ log.maintained_at|date:"Y-m-d H:i" }}
+                                                    {{ activity.date|date:"Y-m-d H:i" }}
                                                 </small>
                                             </div>
-                                            <span class="badge bg-warning">
-                                                <i class="fas fa-wrench me-1"></i>
-                                                {% trans "صيانة" %}
-                                            </span>
+                                            {% if activity.type == 'maintenance_log' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-wrench me-1"></i>
+                                                    {% trans "صيانة" %}
+                                                </span>
+                                            {% elif activity.type == 'service_request' %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {% trans "بلاغ" %}
+                                                </span>
+                                            {% elif activity.type == 'work_order' %}
+                                                <span class="badge bg-primary">
+                                                    <i class="fas fa-tasks me-1"></i>
+                                                    {% trans "أمر عمل" %}
+                                                </span>
+                                            {% endif %}
                                         </div>
-                                        {% if log.maintenance_type %}
+                                        
+                                        <div class="mt-2">
+                                            <h6 class="mb-1">{{ activity.description }}</h6>
+                                        </div>
+                                        
+                                        {% if activity.type == 'maintenance_log' %}
+                                            {% if activity.object.maintenance_type %}
+                                                <div class="mt-2">
+                                                    <small class="text-success">
+                                                        <i class="fas fa-tools me-1"></i>
+                                                        <strong>{% trans "النوع:" %}</strong> {{ activity.object.get_maintenance_type_display }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                            {% if activity.object.description %}
+                                                <div class="mt-2">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-sticky-note me-1"></i>
+                                                        {{ activity.object.description|truncatechars:100 }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                            {% if activity.object.cost %}
+                                                <div class="mt-2">
+                                                    <small class="text-info">
+                                                        <i class="fas fa-dollar-sign me-1"></i>
+                                                        <strong>{% trans "التكلفة:" %}</strong> {{ activity.object.cost }} ريال
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                        {% elif activity.type == 'service_request' %}
                                             <div class="mt-2">
-                                                <small class="text-warning">
-                                                    <i class="fas fa-tools me-1"></i>
-                                                    <strong>{% trans "النوع:" %}</strong> {{ log.maintenance_type }}
+                                                <small class="text-danger">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    <strong>{% trans "النوع:" %}</strong> {{ activity.object.get_request_type_display }}
+                                                    | <strong>{% trans "الحالة:" %}</strong> {{ activity.object.get_status_display }}
+                                                    | <strong>{% trans "الأولوية:" %}</strong> {{ activity.object.get_priority_display }}
                                                 </small>
                                             </div>
-                                        {% endif %}
-                                        {% if log.notes %}
+                                            {% if activity.object.description %}
+                                                <div class="mt-2">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-sticky-note me-1"></i>
+                                                        {{ activity.object.description|truncatechars:100 }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                        {% elif activity.type == 'work_order' %}
                                             <div class="mt-2">
-                                                <small class="text-muted">
-                                                    <i class="fas fa-sticky-note me-1"></i>
-                                                    {{ log.notes }}
+                                                <small class="text-primary">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    <strong>{% trans "رقم الأمر:" %}</strong> {{ activity.object.wo_number }}
+                                                    | <strong>{% trans "الحالة:" %}</strong> {{ activity.object.get_status_display }}
+                                                    | <strong>{% trans "الأولوية:" %}</strong> {{ activity.object.get_priority_display }}
                                                 </small>
                                             </div>
+                                            {% if activity.object.description %}
+                                                <div class="mt-2">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-sticky-note me-1"></i>
+                                                        {{ activity.object.description|truncatechars:100 }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -143,12 +204,18 @@
                     {% else %}
                         <div class="empty-state">
                             <i class="fas fa-wrench fa-3x mb-3 text-muted"></i>
-                            <h5 class="text-muted">{% trans "لا توجد سجلات صيانة" %}</h5>
-                            <p class="text-muted">{% trans "لم يتم تسجيل أي عمليات صيانة لهذا الجهاز حتى الآن" %}</p>
-                            <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-warning">
-                                <i class="fas fa-plus me-1"></i>
-                                {% trans "تسجيل أول عملية صيانة" %}
-                            </a>
+                            <h5 class="text-muted">{% trans "لا توجد سجلات صيانة أو بلاغات" %}</h5>
+                            <p class="text-muted">{% trans "لم يتم تسجيل أي عمليات صيانة أو بلاغات لهذا الجهاز حتى الآن" %}</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{% url 'maintenance:perform_maintenance' device.id %}" class="btn btn-success">
+                                    <i class="fas fa-plus me-1"></i>
+                                    {% trans "تسجيل صيانة" %}
+                                </a>
+                                <a href="{% url 'maintenance:cmms:service_request_create' %}?device={{ device.id }}" class="btn btn-danger">
+                                    <i class="fas fa-plus me-1"></i>
+                                    {% trans "إنشاء بلاغ" %}
+                                </a>
+                            </div>
                         </div>
                     {% endif %}
                 </div>

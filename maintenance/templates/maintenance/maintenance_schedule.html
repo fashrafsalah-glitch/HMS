@@ -28,7 +28,7 @@
                                     <p><strong>التكرار:</strong> شهرياً</p>
                                     <p><strong>آخر صيانة:</strong> غير محدد</p>
                                     <p><strong>الصيانة القادمة:</strong> غير محدد</p>
-                                    <button class="btn btn-success btn-sm">
+                                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-type="preventive">
                                         <i class="fas fa-plus"></i> جدولة صيانة
                                     </button>
                                 </div>
@@ -44,7 +44,7 @@
                                     <p><strong>التكرار:</strong> سنوياً</p>
                                     <p><strong>آخر معايرة:</strong> غير محدد</p>
                                     <p><strong>المعايرة القادمة:</strong> غير محدد</p>
-                                    <button class="btn btn-warning btn-sm">
+                                    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-type="calibration">
                                         <i class="fas fa-plus"></i> جدولة معايرة
                                     </button>
                                 </div>
@@ -52,6 +52,50 @@
                         </div>
                     </div>
                     
+                    <!-- الصيانات المجدولة -->
+                    <div class="mt-4">
+                        <h5>الصيانات المجدولة</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>اسم الجدولة</th>
+                                        <th>التكرار</th>
+                                        <th>التاريخ القادم</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for schedule in scheduled_maintenances %}
+                                    <tr>
+                                        <td>{{ schedule.job_plan.name }}</td>
+                                        <td>{{ schedule.get_frequency_display }}</td>
+                                        <td>{{ schedule.next_due_date|date:"Y-m-d" }}</td>
+                                        <td>
+                                            <span class="badge badge-success">نشط</span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:perform_maintenance' device.id %}?schedule_id={{ schedule.id }}" class="btn btn-sm btn-success">
+                                                <i class="fas fa-wrench"></i> تسجيل صيانة
+                                            </a>
+                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editScheduleModal" data-schedule-id="{{ schedule.id }}" data-schedule-type="{{ schedule.frequency }}" data-next-date="{{ schedule.next_due_date|date:'Y-m-d' }}">تعديل</button>
+                                            <button class="btn btn-sm btn-danger" data-schedule-id="{{ schedule.id }}" data-schedule-name="{{ schedule.job_plan.name|escapejs }}" onclick="confirmDelete(this)">حذف</button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            لا توجد صيانات مجدولة حتى الآن
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- سجل الصيانة -->
                     <div class="mt-4">
                         <h5>سجل الصيانة</h5>
                         <div class="table-responsive">
@@ -66,11 +110,64 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {% for log in maintenance_logs %}
+                                    <tr>
+                                        <td>{{ log.get_maintenance_type_display }}</td>
+                                        <td>{{ log.maintained_at|date:"Y-m-d" }}</td>
+                                        <td>{{ log.maintained_by.get_full_name|default:log.maintained_by.username }}</td>
+                                        <td>
+                                            <span class="badge badge-success">مكتمل</span>
+                                        </td>
+                                        <td>{{ log.description|truncatechars:50 }}</td>
+                                    </tr>
+                                    {% empty %}
                                     <tr>
                                         <td colspan="5" class="text-center text-muted">
                                             لا توجد سجلات صيانة حتى الآن
                                         </td>
                                     </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- أوامر العمل المرتبطة -->
+                    <div class="mt-4">
+                        <h5>أوامر العمل الأخيرة</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>رقم الأمر</th>
+                                        <th>العنوان</th>
+                                        <th>الحالة</th>
+                                        <th>تاريخ الإنشاء</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wo in work_orders %}
+                                    <tr>
+                                        <td>{{ wo.wo_number }}</td>
+                                        <td>{{ wo.title }}</td>
+                                        <td>
+                                            <span class="badge badge-{% if wo.status == 'closed' %}success{% elif wo.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                                                {{ wo.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ wo.created_at|date:"Y-m-d" }}</td>
+                                        <td>
+                                            <a href="{% url 'maintenance:cmms:work_order_detail' wo.id %}" class="btn btn-sm btn-info">عرض</a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            لا توجد أوامر عمل حتى الآن
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
                                 </tbody>
                             </table>
                         </div>
@@ -86,4 +183,160 @@
         </div>
     </div>
 </div>
+
+<!-- Modal لجدولة الصيانة -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" role="dialog" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalLabel">جدولة صيانة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="maintenance_type">نوع الصيانة</label>
+                        <select class="form-control" id="maintenance_type" name="maintenance_type" required>
+                            <option value="">اختر نوع الصيانة</option>
+                            <option value="preventive">صيانة وقائية</option>
+                            <option value="calibration">معايرة</option>
+                            <option value="inspection">فحص دوري</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="schedule_type">تكرار الصيانة</label>
+                        <select class="form-control" id="schedule_type" name="schedule_type" required>
+                            <option value="">اختر التكرار</option>
+                            <option value="daily">يومي</option>
+                            <option value="weekly">أسبوعي</option>
+                            <option value="monthly">شهري</option>
+                            <option value="quarterly">ربع سنوي</option>
+                            <option value="yearly">سنوي</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="next_maintenance">تاريخ الصيانة القادمة</label>
+                        <input type="date" class="form-control" id="next_maintenance" name="next_maintenance" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="maintenance_notes">ملاحظات</label>
+                        <textarea class="form-control" id="maintenance_notes" name="maintenance_notes" rows="3" placeholder="أدخل أي ملاحظات إضافية..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ الجدولة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal لتعديل الصيانة -->
+<div class="modal fade" id="editScheduleModal" tabindex="-1" role="dialog" aria-labelledby="editScheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editScheduleModalLabel">تعديل الصيانة المجدولة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:edit_schedule' device.id %}">
+                {% csrf_token %}
+                <input type="hidden" id="edit_schedule_id" name="schedule_id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit_schedule_type">تكرار الصيانة</label>
+                        <select class="form-control" id="edit_schedule_type" name="schedule_type" required>
+                            <option value="">اختر التكرار</option>
+                            <option value="daily">يومي</option>
+                            <option value="weekly">أسبوعي</option>
+                            <option value="monthly">شهري</option>
+                            <option value="quarterly">ربع سنوي</option>
+                            <option value="yearly">سنوي</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_next_maintenance">تاريخ الصيانة القادمة</label>
+                        <input type="date" class="form-control" id="edit_next_maintenance" name="next_maintenance" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// تحديث نوع الصيانة عند فتح المودال
+document.addEventListener('DOMContentLoaded', function() {
+    const scheduleModal = document.getElementById('scheduleModal');
+    if (scheduleModal) {
+        scheduleModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const type = button.getAttribute('data-type');
+            const modal = this;
+            
+            const maintenanceTypeSelect = modal.querySelector('#maintenance_type');
+            const modalTitle = modal.querySelector('.modal-title');
+            
+            if (type === 'preventive') {
+                maintenanceTypeSelect.value = 'preventive';
+                modalTitle.textContent = 'جدولة صيانة وقائية';
+            } else if (type === 'calibration') {
+                maintenanceTypeSelect.value = 'calibration';
+                modalTitle.textContent = 'جدولة معايرة';
+            }
+        });
+    }
+
+    // تحديث بيانات التعديل عند فتح مودال التعديل
+    const editScheduleModal = document.getElementById('editScheduleModal');
+    if (editScheduleModal) {
+        editScheduleModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const scheduleId = button.getAttribute('data-schedule-id');
+            const scheduleType = button.getAttribute('data-schedule-type');
+            const nextDate = button.getAttribute('data-next-date');
+            
+            const modal = this;
+            modal.querySelector('#edit_schedule_id').value = scheduleId;
+            modal.querySelector('#edit_schedule_type').value = scheduleType;
+            modal.querySelector('#edit_next_maintenance').value = nextDate;
+        });
+    }
+});
+
+// دالة تأكيد الحذف
+function confirmDelete(button) {
+    const scheduleId = button.getAttribute('data-schedule-id');
+    const scheduleName = button.getAttribute('data-schedule-name');
+    
+    if (confirm('هل أنت متأكد من حذف الصيانة المجدولة: ' + scheduleName + '؟')) {
+        // إرسال طلب حذف
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/maintenance/device/{{ device.id }}/delete-schedule/';
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        
+        const scheduleInput = document.createElement('input');
+        scheduleInput.type = 'hidden';
+        scheduleInput.name = 'schedule_id';
+        scheduleInput.value = scheduleId;
+        
+        form.appendChild(csrfInput);
+        form.appendChild(scheduleInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
 {% endblock %}

@@ -659,9 +659,10 @@ h1, h2, h3, h4, h5, h6 {
         <p class="mb-0">إدارة شاملة لصيانة الأجهزة الطبية والصيانة العامة للمستشفى</p>
     </div>
 
-    <!-- القسم الأول: صيانة الأجهزة -->
-    <div class="row mb-5">
-        <div class="col-12">
+    <!-- Navigation Grid - Modern Card Layout -->
+    <div class="row g-4 mb-5">
+        <!-- 1. Devices Section -->
+        <div class="col-lg-6 col-md-12">
             <div class="dashboard-card device-maintenance-section">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
@@ -669,183 +670,275 @@ h1, h2, h3, h4, h5, h6 {
                             <i class="fas fa-medical-kit fa-3x text-white"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">🔧 صيانة الأجهزة الطبية</h3>
-                            <p class="text-white-50 mb-0">إدارة ومتابعة جميع الأجهزة الطبية وحالتها</p>
+                            <h3 class="text-white mb-1">🔧 إدارة الأجهزة</h3>
+                            <p class="text-white-50 mb-0">إدارة ومتابعة جميع الأجهزة الطبية</p>
                         </div>
                     </div>
                     
-                    <!-- إحصائيات الأجهزة -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-primary" style="animation-delay: 0.1s;">
-                                <div class="stat-number">{{ total_devices }}</div>
-                                <div class="stat-label">إجمالي الأجهزة</div>
-                                <div class="stat-icon"><i class="fas fa-laptop-medical fa-3x"></i></div>
+                    <!-- Device Statistics -->
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <div class="stat-card bg-primary" style="animation-delay: 0.1s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 1.8rem;">{{ total_devices }}</div>
+                                <div class="stat-label" style="font-size: 0.9rem;">إجمالي الأجهزة</div>
                             </div>
                         </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-success" style="animation-delay: 0.2s;">
-                                <div class="stat-number">{{ working_devices }}</div>
-                                <div class="stat-label">تعمل بشكل طبيعي</div>
-                                <div class="stat-icon"><i class="fas fa-check-circle fa-3x"></i></div>
-                            </div>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-warning" style="animation-delay: 0.3s;">
-                                <div class="stat-number">{{ needs_maintenance }}</div>
-                                <div class="stat-label">تحتاج صيانة</div>
-                                <div class="stat-icon"><i class="fas fa-tools fa-3x"></i></div>
-                            </div>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-danger" style="animation-delay: 0.4s;">
-                                <div class="stat-number">{{ out_of_order }}</div>
-                                <div class="stat-label">خارج الخدمة</div>
-                                <div class="stat-icon"><i class="fas fa-exclamation-triangle fa-3x"></i></div>
-                            </div>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-info" style="animation-delay: 0.5s;">
-                                <div class="stat-number">{{ needs_cleaning }}</div>
-                                <div class="stat-label">تحتاج تنظيف</div>
-                                <div class="stat-icon"><i class="fas fa-spray-can fa-3x"></i></div>
-                            </div>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <div class="stat-card bg-secondary" style="animation-delay: 0.6s;">
-                                <div class="stat-number">{{ needs_sterilization }}</div>
-                                <div class="stat-label">تحتاج تعقيم</div>
-                                <div class="stat-icon"><i class="fas fa-shield-virus fa-3x"></i></div>
+                        <div class="col-6">
+                            <div class="stat-card bg-success" style="animation-delay: 0.2s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 1.8rem;">{{ working_devices }}</div>
+                                <div class="stat-label" style="font-size: 0.9rem;">تعمل بشكل طبيعي</div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- أزرار الإجراءات السريعة -->
-                    <div class="text-center">
-                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">الإجراءات السريعة</h5>
-                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
-                            <a href="{% url 'maintenance:device_list' %}" class="btn btn-light quick-action-btn">
-                                <i class="fas fa-list"></i> عرض جميع الأجهزة
-                            </a>
-                            <a href="{% url 'maintenance:add_device' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-plus"></i> إضافة جهاز جديد
-                            </a>
-                            <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-qrcode"></i> مسح QR Code
-                            </a>
-                            <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-history"></i> سجل الاستخدام
-                            </a>
-                        </div>
+                    <!-- Device Actions -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'maintenance:device_list' %}" class="btn btn-light quick-action-btn">
+                            <i class="fas fa-list"></i> عرض جميع الأجهزة
+                        </a>
+                        <a href="{% url 'maintenance:add_device' %}" class="btn btn-outline-light quick-action-btn">
+                            <i class="fas fa-plus"></i> إضافة جهاز جديد
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- قسم لوحات التحكم والتحليلات -->
-    <div class="row mb-5">
-        <div class="col-12">
-            <div class="dashboard-card" style="background: var(--dashboard-gradient); color: white; animation: slideInRight 0.7s ease-out;">
+        <!-- 2. KPI Dashboard -->
+        <div class="col-lg-6 col-md-12">
+            <div class="dashboard-card" style="background: var(--dashboard-gradient); color: white;">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
                             <i class="fas fa-chart-line fa-3x text-white"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">📊 لوحات التحكم والتحليلات</h3>
-                            <p class="text-white-50 mb-0">مؤشرات الأداء الرئيسية وتحليلات الصيانة</p>
+                            <h3 class="text-white mb-1">📊 مؤشرات الأداء</h3>
+                            <p class="text-white-50 mb-0">لوحات التحكم والتحليلات</p>
                         </div>
                     </div>
                     
-                    <!-- أزرار لوحات التحكم -->
-                    <div class="text-center">
-                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">لوحات التحكم المتاحة</h5>
-                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
-                            <a href="{% url 'maintenance:dashboard:cmms_dashboard' %}" class="btn btn-light quick-action-btn">
-                                <i class="fas fa-tachometer-alt"></i> لوحة تحكم الصيانة
-                            </a>
-                            <a href="{% url 'maintenance:dashboard:device_performance_dashboard' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-chart-bar"></i> أداء الأجهزة
-                            </a>
-                            <a href="{% url 'maintenance:dashboard:work_order_analytics' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-tasks"></i> تحليلات أوامر الشغل
-                            </a>
-                            <a href="{% url 'maintenance:dashboard:spare_parts_analytics' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-cogs"></i> تحليلات قطع الغيار
-                            </a>
-                            <a href="{% url 'maintenance:dashboard:maintenance_trends' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-chart-line"></i> اتجاهات الصيانة
-                            </a>
-                        </div>
+                    <!-- KPI Actions -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'maintenance:dashboard:cmms_dashboard' %}" class="btn btn-light quick-action-btn">
+                            <i class="fas fa-tachometer-alt"></i> لوحة تحكم الصيانة
+                        </a>
+                        <a href="{% url 'maintenance:dashboard:device_performance_dashboard' %}" class="btn btn-outline-light quick-action-btn">
+                            <i class="fas fa-chart-bar"></i> أداء الأجهزة
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- القسم الثاني: الصيانة العامة (CMMS) -->
-    <div class="row mb-5">
+    <!-- Second Row -->
+    <div class="row g-4 mb-5">
+        <!-- 3. Service Requests -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-concierge-bell fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">طلبات الخدمة</h4>
+                    <div class="stat-card bg-info mb-3" style="padding: 1rem;">
+                        <div class="stat-number" style="font-size: 2rem;">{{ total_service_requests }}</div>
+                        <div class="stat-label">إجمالي الطلبات</div>
+                    </div>
+                    <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-light quick-action-btn w-100">
+                        <i class="fas fa-list"></i> عرض الطلبات
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. SLA Management -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-handshake fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">اتفاقيات الخدمة</h4>
+                    <p class="text-white-50 mb-3">إدارة SLA والمعايير</p>
+                    <a href="{% url 'maintenance:cmms:sla_definition_list' %}" class="btn btn-light quick-action-btn w-100">
+                        <i class="fas fa-file-contract"></i> إدارة SLA
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Job Plans -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-tasks fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">خطط العمل</h4>
+                    <p class="text-white-50 mb-3">إدارة خطط الصيانة</p>
+                    <a href="{% url 'maintenance:cmms:job_plan_list' %}" class="btn btn-light quick-action-btn w-100">
+                        <i class="fas fa-clipboard-list"></i> عرض الخطط
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row -->
+    <div class="row g-4 mb-5">
+        <!-- 6. PM Schedules -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-calendar-check fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">الصيانة الوقائية</h4>
+                    <p class="text-white-50 mb-3">جدولة الصيانة الدورية</p>
+                    <a href="{% url 'maintenance:cmms:pm_schedule_list' %}" class="btn btn-light quick-action-btn w-100">
+                        <i class="fas fa-calendar-alt"></i> عرض الجداول
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. Calibrations -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-balance-scale fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">المعايرة</h4>
+                    <p class="text-white-50 mb-3">معايرة الأجهزة الطبية</p>
+                    <div class="alert alert-warning text-dark mb-3" style="font-size: 0.8rem;">
+                        <i class="fas fa-info-circle"></i> قيد التطوير
+                    </div>
+                    <button class="btn btn-light quick-action-btn w-100" disabled>
+                        <i class="fas fa-wrench"></i> إدارة المعايرة
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Downtime -->
+        <div class="col-lg-4 col-md-6">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-exclamation-triangle fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">فترات التوقف</h4>
+                    <p class="text-white-50 mb-3">تتبع أوقات التوقف</p>
+                    <div class="alert alert-warning text-dark mb-3" style="font-size: 0.8rem;">
+                        <i class="fas fa-info-circle"></i> قيد التطوير
+                    </div>
+                    <button class="btn btn-light quick-action-btn w-100" disabled>
+                        <i class="fas fa-clock"></i> إدارة التوقف
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fourth Row -->
+    <div class="row g-4 mb-5">
+        <!-- 9. QR Codes -->
+        <div class="col-lg-8">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); color: white;">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="me-3">
+                            <i class="fas fa-qrcode fa-3x text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-white mb-1">📱 نظام QR Code</h3>
+                            <p class="text-white-50 mb-0">مسح ومتابعة الأجهزة باستخدام رموز QR</p>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-light quick-action-btn">
+                            <i class="fas fa-camera"></i> مسح QR Code
+                        </a>
+                        <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-outline-light quick-action-btn">
+                            <i class="fas fa-history"></i> سجل الاستخدام
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spare Parts Section -->
+        <div class="col-lg-4">
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #e83e8c 0%, #d63384 100%); color: white;">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-cogs fa-4x text-white"></i>
+                    </div>
+                    <h4 class="text-white mb-2">قطع الغيار</h4>
+                    <p class="text-white-50 mb-3">إدارة المخزون والطلبات</p>
+                    <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-light quick-action-btn w-100">
+                        <i class="fas fa-warehouse"></i> إدارة المخزون
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Work Orders Section -->
+    <div class="row g-4 mb-5">
         <div class="col-12">
             <div class="dashboard-card general-maintenance-section">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-4">
                         <div class="me-3">
-                            <i class="fas fa-tools fa-3x text-white"></i>
+                            <i class="fas fa-clipboard-list fa-3x text-white"></i>
                         </div>
                         <div>
-                            <h3 class="text-white mb-1">🏗️ نظام الصيانة العامة (CMMS)</h3>
+                            <h3 class="text-white mb-1">🏗️ أوامر الشغل والصيانة العامة</h3>
                             <p class="text-white-50 mb-0">إدارة أوامر الشغل وطلبات الصيانة العامة</p>
                         </div>
                     </div>
                     
-                    <!-- إحصائيات CMMS -->
+                    <!-- CMMS Statistics -->
                     <div class="row g-3 mb-4">
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-primary" style="animation-delay: 0.1s;">
-                                <div class="stat-number">{{ total_work_orders }}</div>
+                            <div class="stat-card bg-primary" style="animation-delay: 0.1s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 2rem;">{{ total_work_orders }}</div>
                                 <div class="stat-label">إجمالي أوامر الشغل</div>
-                                <div class="stat-icon"><i class="fas fa-clipboard-list fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-warning" style="animation-delay: 0.2s;">
-                                <div class="stat-number">{{ pending_work_orders }}</div>
-                                <div class="stat-label">أوامر شغل معلقة</div>
-                                <div class="stat-icon"><i class="fas fa-clock fa-3x"></i></div>
+                            <div class="stat-card bg-warning" style="animation-delay: 0.2s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 2rem;">{{ pending_work_orders }}</div>
+                                <div class="stat-label">أوامر معلقة</div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-info" style="animation-delay: 0.3s;">
-                                <div class="stat-number">{{ total_service_requests }}</div>
+                            <div class="stat-card bg-info" style="animation-delay: 0.3s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 2rem;">{{ total_service_requests }}</div>
                                 <div class="stat-label">طلبات الخدمة</div>
-                                <div class="stat-icon"><i class="fas fa-concierge-bell fa-3x"></i></div>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6">
-                            <div class="stat-card bg-danger" style="animation-delay: 0.4s;">
-                                <div class="stat-number">{{ pending_service_requests }}</div>
+                            <div class="stat-card bg-danger" style="animation-delay: 0.4s; padding: 1rem;">
+                                <div class="stat-number" style="font-size: 2rem;">{{ pending_service_requests }}</div>
                                 <div class="stat-label">طلبات معلقة</div>
-                                <div class="stat-icon"><i class="fas fa-exclamation-circle fa-3x"></i></div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- أزرار CMMS -->
+                    <!-- CMMS Actions -->
                     <div class="text-center">
-                        <h5 class="text-white mb-3" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">إدارة الصيانة العامة</h5>
-                        <div class="d-flex flex-wrap justify-content-center" style="animation: fadeIn 0.8s ease-out;">
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
                             <a href="{% url 'maintenance:cmms:work_order_list' %}" class="btn btn-light quick-action-btn">
                                 <i class="fas fa-clipboard-list"></i> أوامر الشغل
                             </a>
-                            <a href="{% url 'maintenance:cmms:service_request_list' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-concierge-bell"></i> طلبات الخدمة
-                            </a>
-                            <a href="{% url 'maintenance:spare_parts:spare_part_list' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-cogs"></i> قطع الغيار
-                            </a>
-                            <a href="{% url 'maintenance:cmms:pm_schedule_list' %}" class="btn btn-outline-light quick-action-btn">
-                                <i class="fas fa-calendar-check"></i> الصيانة الوقائية
+                            <a href="{% url 'maintenance:test_links' %}" class="btn btn-outline-light quick-action-btn">
+                                <i class="fas fa-link"></i> روابط الاختبار
                             </a>
                         </div>
                     </div>
@@ -864,7 +957,7 @@ h1, h2, h3, h4, h5, h6 {
                 </div>
                 <div class="card-body recent-activity">
                     {% for maintenance in recent_maintenance %}
-                    <div class="activity-item" style="animation: fadeInRight 0.5s ease-out; animation-delay: calc(0.1s * {{ forloop.counter }}); transform: translateX(0);">
+                    <div class="activity-item" style="animation: fadeInRight 0.5s ease-out; animation-delay: 0.{{ forloop.counter }}s; transform: translateX(0);">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="mb-1">{{ maintenance.device.name }}</h6>
@@ -898,7 +991,7 @@ h1, h2, h3, h4, h5, h6 {
                 </div>
                 <div class="card-body recent-activity">
                     {% for device in popular_devices %}
-                    <div class="activity-item" style="animation: fadeInLeft 0.5s ease-out; animation-delay: calc(0.1s * {{ forloop.counter }}); transform: translateX(0);">
+                    <div class="activity-item" style="animation: fadeInLeft 0.5s ease-out; animation-delay: 0.{{ forloop.counter }}s; transform: translateX(0);">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="mb-1">{{ device.name }}</h6>

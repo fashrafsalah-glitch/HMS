@@ -11,8 +11,8 @@
         {% if job_plan %}تعديل خطة صيانة{% else %}إضافة خطة صيانة جديدة{% endif %}
     </h1>
     <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
-        <li class="breadcrumb-item"><a href="{% url 'job_plan_list' %}">خطط الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'maintenance:cmms:job_plan_list' %}">خطط الصيانة الوقائية</a></li>
         <li class="breadcrumb-item active">
             {% if job_plan %}تعديل خطة صيانة{% else %}إضافة خطة صيانة جديدة{% endif %}
         </li>
@@ -76,7 +76,7 @@
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'job_plan_list' %}" class="btn btn-secondary">
+                            <a href="{% url 'maintenance:cmms:job_plan_list' %}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> إلغاء
                             </a>
                             <button type="submit" class="btn btn-primary">

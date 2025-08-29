@@ -7,7 +7,7 @@
 <div class="container-fluid px-4">
     <h1 class="mt-4">خطط الصيانة الوقائية</h1>
     <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
         <li class="breadcrumb-item active">خطط الصيانة الوقائية</li>
     </ol>
     
@@ -18,7 +18,7 @@
                 قائمة خطط الصيانة الوقائية
             </div>
             <div>
-                <a href="{% url 'job_plan_create' %}" class="btn btn-primary btn-sm">
+                <a href="{% url 'maintenance:cmms:job_plan_create' %}" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus"></i> إضافة خطة جديدة
                 </a>
             </div>
@@ -41,7 +41,7 @@
                         {% for plan in job_plans %}
                         <tr>
                             <td>
-                                <a href="{% url 'job_plan_detail' plan.id %}">
+                                <a href="{% url 'maintenance:cmms:job_plan_detail' plan.id %}">
                                     {{ plan.name }}
                                 </a>
                             </td>
@@ -51,13 +51,13 @@
                             <td>{{ plan.steps.count }}</td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'job_plan_detail' plan.id %}" class="btn btn-info btn-sm">
+                                    <a href="{% url 'maintenance:cmms:job_plan_detail' plan.id %}" class="btn btn-info btn-sm">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{% url 'job_plan_update' plan.id %}" class="btn btn-warning btn-sm">
+                                    <a href="{% url 'maintenance:cmms:job_plan_update' plan.id %}" class="btn btn-warning btn-sm">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="{% url 'job_plan_delete' plan.id %}" class="btn btn-danger btn-sm">
+                                    <a href="{% url 'maintenance:cmms:job_plan_delete' plan.id %}" class="btn btn-danger btn-sm">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
@@ -113,7 +113,7 @@
             
             {% else %}
             <div class="alert alert-info">
-                لا توجد خطط صيانة وقائية مسجلة حتى الآن. <a href="{% url 'job_plan_create' %}">إضافة خطة جديدة</a>
+                لا توجد خطط صيانة وقائية مسجلة حتى الآن. <a href="{% url 'maintenance:cmms:job_plan_create' %}">إضافة خطة جديدة</a>
             </div>
             {% endif %}
         </div>

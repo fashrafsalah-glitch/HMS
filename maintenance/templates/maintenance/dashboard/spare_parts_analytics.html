@@ -210,7 +210,7 @@
                                     <td>{{ part.suggested_order_qty }}</td>
                                     <td>{{ part.preferred_supplier }}</td>
                                     <td>
-                                        <a href="{% url 'maintenance:spare_parts:create_purchase_order' part.id %}" class="btn btn-sm btn-primary">إنشاء طلب شراء</a>
+                                        <button class="btn btn-sm btn-secondary" disabled>طلب الشراء معطل مؤقتاً</button>
                                     </td>
                                 </tr>
                                 {% empty %}

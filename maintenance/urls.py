@@ -29,7 +29,9 @@ urlpatterns = [
     path('ajax/load-rooms/', views.load_rooms, name='ajax_load_rooms'),
     path('device/<int:pk>/info/', views.device_info, name='device_info'),
     path('device/<int:pk>/add-accessory/', views.redirect_to_accessories, name='add_accessory'),
-    path('device/<int:pk>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
+    path('device/<int:device_id>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
+    path('device/<int:device_id>/edit-schedule/', views.edit_schedule, name='edit_schedule'),
+    path('device/<int:device_id>/delete-schedule/', views.delete_schedule, name='delete_schedule'),
     path('device/<int:pk>/emergency-request/', views.add_emergency_request, name='add_emergency_request'),
     path('device/<int:pk>/add-spare-part/', views.add_spare_part, name='add_spare_part'),
    

@@ -1241,7 +1241,7 @@ def job_plan_create(request):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإنشاء خطط العمل')
-        return redirect('job_plan_list')
+        return redirect('maintenance:cmms:job_plan_list')
     
     if request.method == 'POST':
         form = JobPlanForm(request.POST)
@@ -1251,7 +1251,7 @@ def job_plan_create(request):
             job_plan.save()
             
             messages.success(request, 'تم إنشاء خطة العمل بنجاح')
-            return redirect('job_plan_detail', plan_id=job_plan.id)
+            return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     else:
         form = JobPlanForm()
     
@@ -1291,7 +1291,7 @@ def job_plan_detail(request, plan_id):
             step.save()
             
             messages.success(request, 'تم إضافة الخطوة بنجاح')
-            return redirect('job_plan_detail', plan_id=job_plan.id)
+            return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     else:
         step_form = JobPlanStepForm()
     
@@ -1320,14 +1320,14 @@ def job_plan_update(request, plan_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لتعديل خطط العمل')
-        return redirect('job_plan_detail', plan_id=job_plan.id)
+        return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     
     if request.method == 'POST':
         form = JobPlanForm(request.POST, instance=job_plan)
         if form.is_valid():
             form.save()
             messages.success(request, 'تم تحديث خطة العمل بنجاح')
-            return redirect('job_plan_detail', plan_id=job_plan.id)
+            return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     else:
         form = JobPlanForm(instance=job_plan)
     
@@ -1355,16 +1355,16 @@ def job_plan_delete(request, plan_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser:
         messages.error(request, 'ليس لديك صلاحية لحذف خطط العمل')
-        return redirect('job_plan_detail', plan_id=job_plan.id)
+        return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     
     # التحقق من عدم وجود جداول صيانة مرتبطة
     if job_plan.pm_schedules.exists():
         messages.error(request, 'لا يمكن حذف خطة العمل لوجود جداول صيانة مرتبطة بها')
-        return redirect('job_plan_detail', plan_id=job_plan.id)
+        return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     
     job_plan.delete()
     messages.success(request, 'تم حذف خطة العمل بنجاح')
-    return redirect('job_plan_list')
+    return redirect('maintenance:cmms:job_plan_list')
 
 @login_required
 def job_plan_step_delete(request, step_id):
@@ -1383,11 +1383,11 @@ def job_plan_step_delete(request, step_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لحذف خطوات العمل')
-        return redirect('job_plan_detail', plan_id=job_plan.id)
+        return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
     
     step.delete()
     messages.success(request, 'تم حذف الخطوة بنجاح')
-    return redirect('job_plan_detail', plan_id=job_plan.id)
+    return redirect('maintenance:cmms:job_plan_detail', plan_id=job_plan.id)
 
 @login_required
 def pm_schedule_list(request):
@@ -1411,7 +1411,10 @@ def pm_schedule_list(request):
     # فلترة حسب الحالة
     status_filter = request.GET.get('status', '')
     if status_filter:
-        pm_schedules = pm_schedules.filter(status=status_filter)
+        if status_filter == 'active':
+            pm_schedules = pm_schedules.filter(is_active=True)
+        elif status_filter == 'inactive':
+            pm_schedules = pm_schedules.filter(is_active=False)
     
     # فلترة حسب القسم
     department_filter = request.GET.get('department', '')
@@ -1438,7 +1441,7 @@ def pm_schedule_list(request):
         'status_filter': status_filter,
         'department_filter': department_filter,
         'search_query': search_query,
-        'status_choices': PreventiveMaintenanceSchedule.status.field.choices,
+        'status_choices': [('active', 'نشط'), ('inactive', 'غير نشط')],
     }
     
     return render(request, 'maintenance/cmms/pm_schedule_list.html', context)

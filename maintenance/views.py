@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 import json
 from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
-from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory
+from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, WorkOrder, JobPlan
 from manager.models import Department, Room, Bed, Patient
 
 from .models import DeviceAccessory, AccessoryTransaction
@@ -556,8 +556,17 @@ def add_accessory(request, pk):
         'form': form
     })
 
-def maintenance_schedule(request, pk):
-    device = get_object_or_404(Device, pk=pk)
+def maintenance_schedule(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    # جلب الصيانات المجدولة للجهاز
+    scheduled_maintenances = PreventiveMaintenanceSchedule.objects.filter(device=device)
+    
+    # جلب سجل الصيانة من DeviceMaintenanceLog
+    maintenance_logs = DeviceMaintenanceLog.objects.filter(device=device).order_by('-maintained_at')[:10]
+    
+    # جلب أوامر العمل المرتبطة بالجهاز
+    work_orders = WorkOrder.objects.filter(service_request__device=device).order_by('-created_at')[:5]
     
     if request.method == 'POST':
         # معالجة بيانات النموذج
@@ -566,13 +575,85 @@ def maintenance_schedule(request, pk):
         maintenance_type = request.POST.get('maintenance_type')
         maintenance_notes = request.POST.get('maintenance_notes')
         
-        messages.success(request, f'تم جدولة صيانة {maintenance_type} للجهاز {device.name} بتاريخ {next_maintenance}')
-        return redirect('maintenance:device_detail', pk=pk)
+        # إنشاء جدولة صيانة جديدة
+        from datetime import datetime
+        try:
+            next_date = datetime.strptime(next_maintenance, '%Y-%m-%d').date()
+            
+            # إنشاء أو الحصول على خطة عمل افتراضية
+            job_plan, created = JobPlan.objects.get_or_create(
+                name=f"خطة صيانة {maintenance_type}",
+                defaults={
+                    'description': f"خطة صيانة {maintenance_type} افتراضية",
+                    'estimated_duration': 60,  # 60 دقيقة افتراضي
+                    'created_by': request.user
+                }
+            )
+            
+            PreventiveMaintenanceSchedule.objects.create(
+                device=device,
+                job_plan=job_plan,
+                frequency=schedule_type,
+                next_due_date=next_date,
+                created_by=request.user
+            )
+            messages.success(request, f'تم جدولة صيانة {maintenance_type} للجهاز {device.name} بتاريخ {next_maintenance}')
+        except ValueError:
+            messages.error(request, 'تاريخ غير صحيح')
+        
+        return redirect('maintenance:maintenance_schedule', device_id=device_id)
     
     return render(request, 'maintenance/maintenance_schedule.html', {
         'device': device,
-        'device_id': pk
+        'device_id': device_id,
+        'scheduled_maintenances': scheduled_maintenances,
+        'maintenance_logs': maintenance_logs,
+        'work_orders': work_orders
     })
+
+@login_required
+def edit_schedule(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        schedule_id = request.POST.get('schedule_id')
+        schedule_type = request.POST.get('schedule_type')
+        next_maintenance = request.POST.get('next_maintenance')
+        
+        try:
+            schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id, device=device)
+            
+            from datetime import datetime
+            next_date = datetime.strptime(next_maintenance, '%Y-%m-%d').date()
+            
+            schedule.frequency = schedule_type
+            schedule.next_due_date = next_date
+            schedule.save()
+            
+            messages.success(request, 'تم تحديث الصيانة المجدولة بنجاح')
+        except ValueError:
+            messages.error(request, 'تاريخ غير صحيح')
+        except Exception as e:
+            messages.error(request, 'حدث خطأ أثناء التحديث')
+        return redirect('maintenance:maintenance_schedule', device_id=device_id)
+
+@login_required
+def delete_schedule(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    
+    if request.method == 'POST':
+        schedule_id = request.POST.get('schedule_id')
+        
+        try:
+            schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id, device=device)
+            schedule_name = schedule.job_plan.name
+            schedule.delete()
+            
+            messages.success(request, f'تم حذف الصيانة المجدولة "{schedule_name}" بنجاح')
+        except Exception as e:
+            messages.error(request, 'حدث خطأ أثناء الحذف')
+    
+    return redirect('maintenance:maintenance_schedule', device_id=device_id)
 
 # Device Operations Views
 def clean_device(request, device_id):
@@ -616,7 +697,7 @@ def perform_maintenance(request, device_id):
         DeviceMaintenanceLog.objects.create(
             device=device,
             maintained_by=request.user,
-            notes=notes,
+            description=notes,
             maintenance_type=maintenance_type
         )
         messages.success(request, f'تم تسجيل صيانة الجهاز "{device.name}" بنجاح')

@@ -7,8 +7,8 @@
 <div class="container-fluid px-4">
     <h1 class="mt-4">تفاصيل جدول الصيانة الوقائية</h1>
     <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">الرئيسية</a></li>
-        <li class="breadcrumb-item"><a href="{% url 'pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'maintenance:cmms:pm_schedule_list' %}">جداول الصيانة الوقائية</a></li>
         <li class="breadcrumb-item active">{{ schedule.device.name }}</li>
     </ol>
     
