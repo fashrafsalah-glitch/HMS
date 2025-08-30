@@ -7,8 +7,26 @@ from . import views_reports
 app_name = 'maintenance'
 
 urlpatterns = [
+    # Dashboard
+    path('', views.maintenance_dashboard_qr, name='maintenance_dashboard'),
+    path('dashboard_qr/', views.maintenance_dashboard_qr, name='dashboard_qr'),
     
-    path('', views.index, name='maintenance_index'),
+    # Operations Management
+    path('operations/', views.operations_list, name='operations_list'),
+    path('operations/create/', views.operation_create, name='operation_create'),
+    path('operations/<int:pk>/edit/', views.operation_edit, name='operation_edit'),
+    path('operations/<int:pk>/delete/', views.operation_delete, name='operation_delete'),
+    path('operations/<int:pk>/detail/', views.operation_detail, name='operation_detail'),
+    
+    # Sessions Management
+    path('sessions/', views.sessions_list, name='sessions_list'),
+    path('sessions/<int:pk>/', views.session_detail, name='session_detail'),
+    
+    # Executions Management
+    path('executions/', views.executions_list, name='executions_list'),
+    path('executions/<int:pk>/', views.execution_detail, name='execution_detail'),
+    
+    path('index/', views.index, name='maintenance_index'),
     path('devices/', views.device_list, name='device_list'),
     path('devices/add/', views.add_device, name='add_device'),
     path('devices/<int:pk>/', views.device_detail, name='device_detail'),
@@ -77,11 +95,14 @@ urlpatterns = [
     path('device/<int:device_id>/cleaning_history/', views.cleaning_history, name='cleaning_history'),
     path('device/<int:device_id>/maintenance_history/', views.maintenance_history, name='maintenance_history'),
 
-    # QR/Barcode Scanning System URLs
-    path('scan/', views.scan_session_page, name='scan_session'),
+    # QR/Barcode Scanning APIs
     path('api/scan-qr/', views.scan_qr_code, name='scan_qr_code'),
-    path('qr-test/', views.qr_test_page, name='qr_test_page'),
-    path('api/save-session/', views.save_scan_session, name='save_scan_session'),
+    path('scan-session/', views.scan_session_page, name='scan_session_page'),
+    path('api/scan-session/end/', views.end_scan_session, name='end_scan_session'),
+    
+    # Dynamic Operation APIs
+    path('api/operation/confirm/<int:execution_id>/', views.confirm_operation, name='confirm_operation'),
+    path('api/operation/cancel/<int:execution_id>/', views.cancel_operation, name='cancel_operation'),
     path('usage-logs/', views.device_usage_logs, name='device_usage_logs'),
     path('usage-logs/export/', views.export_device_usage_logs, name='export_device_usage_logs'),
 
@@ -90,6 +111,7 @@ urlpatterns = [
     path('api/reset-session/', views.reset_scan_session, name='reset_scan_session'),
     path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
     path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
+    path('qr-test/', views.qr_test_page, name='qr_test_page'),
 
     # Device Accessories URLs
     path('devices/<int:device_id>/accessories/', views_accessory.DeviceAccessoryListView.as_view(), name='device_accessories'),

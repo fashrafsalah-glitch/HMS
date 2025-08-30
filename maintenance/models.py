@@ -2937,5 +2937,190 @@ if not hasattr(SparePart, 'device_category'):
 class DeviceTransfer(DeviceTransferLog):
     class Meta:
         proxy = True
-        verbose_name = "Device Transfer"
-        verbose_name_plural = "Device Transfers"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DYNAMIC QR OPERATION SYSTEM MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class OperationDefinition(models.Model):
+    """Define reusable operations that can be triggered by QR scan sequences"""
+    name = models.CharField(max_length=100, unique=True, verbose_name="اسم العملية")
+    code = models.CharField(max_length=50, unique=True, verbose_name="رمز العملية")
+    description = models.TextField(blank=True, verbose_name="الوصف")
+    is_active = models.BooleanField(default=True, verbose_name="نشط")
+    
+    # Operation behavior
+    auto_execute = models.BooleanField(default=True, verbose_name="تنفيذ تلقائي")
+    requires_confirmation = models.BooleanField(default=False, verbose_name="يتطلب تأكيد")
+    
+    # Session settings
+    session_timeout_minutes = models.PositiveIntegerField(default=10, verbose_name="مهلة الجلسة (دقائق)")
+    allow_multiple_executions = models.BooleanField(default=True, verbose_name="السماح بتنفيذ متعدد")
+    
+    # Logging settings
+    log_to_usage = models.BooleanField(default=False, verbose_name="تسجيل في سجل الاستخدام")
+    log_to_transfer = models.BooleanField(default=False, verbose_name="تسجيل في سجل النقل")
+    log_to_handover = models.BooleanField(default=False, verbose_name="تسجيل في سجل التسليم")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "تعريف العملية"
+        verbose_name_plural = "تعريفات العمليات"
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class OperationStep(models.Model):
+    """Define the sequence of entity types required for an operation"""
+    ENTITY_TYPE_CHOICES = [
+        ('user', 'مستخدم'),
+        ('patient', 'مريض'),
+        ('device', 'جهاز'),
+        ('accessory', 'ملحق'),
+        ('bed', 'سرير'),
+        ('department', 'قسم'),
+        ('room', 'غرفة'),
+        ('lab_tube', 'أنبوب مختبر'),
+    ]
+    
+    operation = models.ForeignKey(
+        OperationDefinition,
+        on_delete=models.CASCADE,
+        related_name='steps',
+        verbose_name="العملية"
+    )
+    order = models.PositiveIntegerField(verbose_name="الترتيب")
+    entity_type = models.CharField(
+        max_length=50,
+        choices=ENTITY_TYPE_CHOICES,
+        verbose_name="نوع الكيان"
+    )
+    is_required = models.BooleanField(default=True, verbose_name="مطلوب")
+    
+    # Validation rules (JSON field for flexibility)
+    validation_rule = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="قواعد التحقق",
+        help_text="JSON rules for validating the scanned entity"
+    )
+    
+    # Optional: specify exact entity IDs or patterns
+    allowed_entity_ids = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="معرفات الكيانات المسموحة",
+        help_text="List of specific entity IDs allowed for this step"
+    )
+    
+    description = models.CharField(max_length=255, blank=True, verbose_name="وصف الخطوة")
+    
+    class Meta:
+        verbose_name = "خطوة العملية"
+        verbose_name_plural = "خطوات العملية"
+        ordering = ['operation', 'order']
+        unique_together = [['operation', 'order'], ['operation', 'entity_type']]
+    
+    def __str__(self):
+        return f"{self.operation.code} - Step {self.order}: {self.entity_type}"
+
+
+class OperationExecution(models.Model):
+    """Track execution of operations triggered by QR scans"""
+    STATUS_CHOICES = [
+        ('pending', 'معلق'),
+        ('in_progress', 'قيد التنفيذ'),
+        ('completed', 'مكتمل'),
+        ('failed', 'فشل'),
+        ('cancelled', 'ملغي'),
+    ]
+    
+    operation = models.ForeignKey(
+        OperationDefinition,
+        on_delete=models.CASCADE,
+        related_name='executions',
+        verbose_name="العملية"
+    )
+    session = models.ForeignKey(
+        ScanSession,
+        on_delete=models.CASCADE,
+        related_name='operation_executions',
+        verbose_name="جلسة المسح"
+    )
+    executed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="منفذ العملية"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="الحالة"
+    )
+    
+    # Store the scanned entities for this execution
+    scanned_entities = models.JSONField(
+        default=dict,
+        verbose_name="الكيانات الممسوحة",
+        help_text="Map of entity_type to entity data"
+    )
+    
+    # Execution metadata
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت البدء")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت الإكمال")
+    
+    # Results and logs
+    result_data = models.JSONField(default=dict, blank=True, verbose_name="بيانات النتيجة")
+    error_message = models.TextField(blank=True, verbose_name="رسالة الخطأ")
+    
+    # References to created logs
+    created_logs = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="السجلات المنشأة",
+        help_text="References to logs created by this execution"
+    )
+    
+    class Meta:
+        verbose_name = "تنفيذ العملية"
+        verbose_name_plural = "تنفيذات العمليات"
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"{self.operation.name} - {self.get_status_display()} - {self.started_at}"
+    
+    def complete(self):
+        """Mark execution as completed"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save()
+    
+    def fail(self, error_message):
+        """Mark execution as failed"""
+        self.status = 'failed'
+        self.error_message = error_message
+        self.completed_at = timezone.now()
+        self.save()
+
+
+# Extend ScanSession with operation tracking
+if not hasattr(ScanSession, 'context_json'):
+    ScanSession.add_to_class('context_json', models.JSONField(default=dict, blank=True, verbose_name="سياق الجلسة"))
+if not hasattr(ScanSession, 'last_activity'):
+    ScanSession.add_to_class('last_activity', models.DateTimeField(auto_now=True, verbose_name="آخر نشاط"))
+if not hasattr(ScanSession, 'current_operation'):
+    ScanSession.add_to_class('current_operation', models.ForeignKey(
+        OperationDefinition,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='active_sessions',
+        verbose_name="العملية الحالية"
+    ))

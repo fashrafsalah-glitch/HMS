@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Operations Management" %} | HMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-cogs"></i> {% trans "Operations Management" %}</h2>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'maintenance:operation_create' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> {% trans "New Operation" %}
+            </a>
+            <a href="{% url 'maintenance:maintenance_dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <form method="get" class="form-inline">
+                <div class="input-group w-100">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="{% trans 'Search operations...' %}" 
+                           value="{{ search_query }}">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i> {% trans "Search" %}
+                        </button>
+                        {% if search_query %}
+                        <a href="{% url 'maintenance:operations_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> {% trans "Clear" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Operations Table -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    {% if page_obj %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>{% trans "Name" %}</th>
+                                    <th>{% trans "Code" %}</th>
+                                    <th>{% trans "Auto Execute" %}</th>
+                                    <th>{% trans "Confirmation" %}</th>
+                                    <th>{% trans "Logging" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for operation in page_obj %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'maintenance:operation_detail' operation.id %}">
+                                            {{ operation.name }}
+                                        </a>
+                                    </td>
+                                    <td><code>{{ operation.code }}</code></td>
+                                    <td>
+                                        {% if operation.auto_execute %}
+                                            <span class="badge badge-success">{% trans "Yes" %}</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{% trans "No" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if operation.requires_confirmation %}
+                                            <span class="badge badge-warning">{% trans "Required" %}</span>
+                                        {% else %}
+                                            <span class="badge badge-info">{% trans "Not Required" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if operation.log_to_usage or operation.log_to_transfer or operation.log_to_handover %}
+                                            {% if operation.log_to_usage %}<span class="badge badge-primary">Usage</span>{% endif %}
+                                            {% if operation.log_to_transfer %}<span class="badge badge-info">Transfer</span>{% endif %}
+                                            {% if operation.log_to_handover %}<span class="badge badge-success">Handover</span>{% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if operation.is_active %}
+                                            <span class="badge badge-success">{% trans "Active" %}</span>
+                                        {% else %}
+                                            <span class="badge badge-danger">{% trans "Inactive" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'maintenance:operation_detail' operation.id %}" 
+                                               class="btn btn-info" title="{% trans 'View' %}">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'maintenance:operation_edit' operation.id %}" 
+                                               class="btn btn-warning" title="{% trans 'Edit' %}">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'maintenance:operation_delete' operation.id %}" 
+                                               class="btn btn-danger" title="{% trans 'Delete' %}">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        {% trans "No operations found" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    {% trans "First" %}
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    {% trans "Previous" %}
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    {% trans "Next" %}
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    {% trans "Last" %}
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-center text-muted">{% trans "No operations available" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

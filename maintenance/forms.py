@@ -596,3 +596,86 @@ class SparePartForm(forms.ModelForm):
             raise forms.ValidationError('المخزون الحالي لا يمكن أن يتجاوز الحد الأقصى')
         
         return cleaned_data
+
+
+class OperationDefinitionForm(forms.ModelForm):
+    """نموذج إدارة تعريفات العمليات"""
+    
+    class Meta:
+        model = OperationDefinition
+        fields = [
+            'name', 'code', 'description', 'auto_execute', 'requires_confirmation', 
+            'session_timeout_minutes', 'allow_multiple_executions',
+            'log_to_usage', 'log_to_transfer', 'log_to_handover', 'is_active'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'اسم العملية',
+                'required': True
+            }),
+            'code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'رمز العملية (مثل: DEVICE_USAGE)',
+                'required': True
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'وصف العملية'
+            }),
+            'auto_execute': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'requires_confirmation': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'session_timeout_minutes': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'max': '60',
+                'value': '10'
+            }),
+            'allow_multiple_executions': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'log_to_usage': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'log_to_transfer': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'log_to_handover': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+        labels = {
+            'name': _('Operation Name'),
+            'code': _('Operation Code'),
+            'description': _('Description'),
+            'auto_execute': _('Auto Execute'),
+            'requires_confirmation': _('Requires Confirmation'),
+            'session_timeout_minutes': _('Session Timeout (minutes)'),
+            'allow_multiple_executions': _('Allow Multiple Executions'),
+            'log_to_usage': _('Log to Usage'),
+            'log_to_transfer': _('Log to Transfer'),
+            'log_to_handover': _('Log to Handover'),
+            'is_active': _('Active'),
+        }
+    
+    def clean(self):
+        """التحقق من صحة البيانات"""
+        cleaned_data = super().clean()
+        auto_execute = cleaned_data.get('auto_execute')
+        requires_confirmation = cleaned_data.get('requires_confirmation')
+        
+        # التحقق من عدم تعارض الإعدادات
+        if auto_execute and requires_confirmation:
+            raise forms.ValidationError(
+                _('An operation cannot be both auto-execute and require confirmation')
+            )
+        
+        return cleaned_data

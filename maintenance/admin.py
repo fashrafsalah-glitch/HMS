@@ -3,7 +3,8 @@ from .models import (
     Device, DeviceCategory, DeviceSubCategory, Company, DeviceType, DeviceUsage,
     DeviceDailyUsageLog, DeviceUsageLogItem, ScanSession, ScanHistory,
     DeviceTransferLog, PatientTransferLog, DeviceHandoverLog, DeviceAccessory, DeviceAccessoryUsageLog,
-    DeviceTransferRequest, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog
+    DeviceTransferRequest, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog,
+    OperationDefinition, OperationStep, OperationExecution
 )
 
 from .models import (
@@ -87,5 +88,62 @@ class SparePartAdmin(admin.ModelAdmin):
     list_display = ['name', 'part_number', 'current_stock', 'minimum_stock', 'primary_supplier', 'unit_cost']
     list_filter = ['primary_supplier', 'unit', 'status']
     search_fields = ['name', 'part_number', 'description']
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DYNAMIC QR OPERATION SYSTEM ADMIN
+# ═══════════════════════════════════════════════════════════════════════════
+
+class OperationStepInline(admin.TabularInline):
+    model = OperationStep
+    extra = 1
+    ordering = ['order']
+    fields = ['order', 'entity_type', 'is_required', 'description', 'validation_rule', 'allowed_entity_ids']
+
+
+@admin.register(OperationDefinition)
+class OperationDefinitionAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'auto_execute', 'requires_confirmation', 'session_timeout_minutes']
+    list_filter = ['is_active', 'auto_execute', 'requires_confirmation', 'log_to_usage', 'log_to_transfer', 'log_to_handover']
+    search_fields = ['name', 'code', 'description']
+    inlines = [OperationStepInline]
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'code', 'description', 'is_active')
+        }),
+        ('Behavior Settings', {
+            'fields': ('auto_execute', 'requires_confirmation', 'session_timeout_minutes', 'allow_multiple_executions')
+        }),
+        ('Logging Settings', {
+            'fields': ('log_to_usage', 'log_to_transfer', 'log_to_handover')
+        }),
+    )
+
+
+@admin.register(OperationStep)
+class OperationStepAdmin(admin.ModelAdmin):
+    list_display = ['operation', 'order', 'entity_type', 'is_required', 'description']
+    list_filter = ['operation', 'entity_type', 'is_required']
+    search_fields = ['operation__name', 'entity_type', 'description']
+    ordering = ['operation', 'order']
+
+
+@admin.register(OperationExecution)
+class OperationExecutionAdmin(admin.ModelAdmin):
+    list_display = ['operation', 'session', 'executed_by', 'status', 'started_at', 'completed_at']
+    list_filter = ['status', 'operation', 'started_at']
+    search_fields = ['operation__name', 'session__session_id', 'executed_by__username']
+    readonly_fields = ['session', 'operation', 'executed_by', 'started_at', 'completed_at', 'scanned_entities', 'result_data', 'created_logs']
+    fieldsets = (
+        ('Execution Info', {
+            'fields': ('operation', 'session', 'executed_by', 'status')
+        }),
+        ('Timing', {
+            'fields': ('started_at', 'completed_at')
+        }),
+        ('Data', {
+            'fields': ('scanned_entities', 'result_data', 'error_message', 'created_logs')
+        }),
+    )
 
 

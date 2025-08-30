@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Session Details" %} | HMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-history"></i> {% trans "Session Details" %}</h2>
+            <p class="text-muted">
+                <code>{{ session.session_id }}</code>
+            </p>
+        </div>
+        <div class="col-md-4 text-right">
+            {% if session.status == 'active' %}
+            <button class="btn btn-danger" onclick="endSession()">
+                <i class="fas fa-stop"></i> {% trans "End Session" %}
+            </button>
+            {% endif %}
+            <a href="{% url 'maintenance:sessions_list' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> {% trans "Back to List" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Session Info -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Session Information" %}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th>{% trans "User" %}:</th>
+                            <td>{{ session.user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Status" %}:</th>
+                            <td>
+                                {% if session.status == 'active' %}
+                                    <span class="badge badge-success">{% trans "Active" %}</span>
+                                {% elif session.status == 'completed' %}
+                                    <span class="badge badge-info">{% trans "Completed" %}</span>
+                                {% elif session.status == 'expired' %}
+                                    <span class="badge badge-warning">{% trans "Expired" %}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ session.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Started" %}:</th>
+                            <td>{{ session.created_at|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Ended" %}:</th>
+                            <td>
+                                {% if session.ended_at %}
+                                    {{ session.ended_at|date:"Y-m-d H:i:s" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Duration" %}:</th>
+                            <td>
+                                {% if session.ended_at %}
+                                    {{ session.duration }} {% trans "seconds" %}
+                                {% else %}
+                                    <span class="text-muted">{% trans "Ongoing" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Total Scans" %}:</th>
+                            <td><span class="badge badge-primary">{{ session.scanned_entities|length }}</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanned Entities -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-qrcode"></i> {% trans "Scanned Entities" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if session.scanned_entities %}
+                    <div class="list-group">
+                        {% for entity in session.scanned_entities %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ entity.type|title }}</strong>
+                                    <br>
+                                    <small class="text-muted">ID: {{ entity.id }}</small>
+                                    {% if entity.name %}
+                                    <br>
+                                    <small>{{ entity.name }}</small>
+                                    {% endif %}
+                                </div>
+                                <span class="badge badge-secondary">
+                                    {{ forloop.counter }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No entities scanned yet" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Operation Executions -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-play-circle"></i> {% trans "Operation Executions" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if executions %}
+                    <div class="list-group">
+                        {% for execution in executions %}
+                        <a href="{% url 'maintenance:execution_detail' execution.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ execution.operation.name_en }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ execution.created_at|date:"H:i:s" }}</small>
+                                </div>
+                                <span class="badge badge-{% if execution.status == 'completed' %}success{% elif execution.status == 'pending' %}warning{% else %}danger{% endif %}">
+                                    {{ execution.get_status_display }}
+                                </span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No operations executed" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Timeline -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-stream"></i> {% trans "Activity Timeline" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for activity in activities %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">{{ activity.action }}</h6>
+                                <p class="text-muted">
+                                    <small>{{ activity.timestamp|date:"Y-m-d H:i:s" }}</small>
+                                </p>
+                                {% if activity.details %}
+                                <p>{{ activity.details }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted text-center">{% trans "No activity recorded" %}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    background: #007bff;
+    border-radius: 50%;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 17px;
+    height: calc(100% + 8px);
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item:last-child:before {
+    display: none;
+}
+</style>
+
+<script>
+function endSession() {
+    if (confirm('{% trans "Are you sure you want to end this session?" %}')) {
+        fetch("{% url 'maintenance:api_session_status' session.session_id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({action: 'end'})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('{% trans "Failed to end session" %}');
+            }
+        });
+    }
+}
+
+// Auto-refresh for active sessions
+{% if session.status == 'active' %}
+setInterval(function() {
+    location.reload();
+}, 30000); // Refresh every 30 seconds
+{% endif %}
+</script>
+{% endblock %}

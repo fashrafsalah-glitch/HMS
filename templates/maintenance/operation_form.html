@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+{% if action == 'create' %}
+    {% trans "Create Operation" %}
+{% else %}
+    {% trans "Edit Operation" %}
+{% endif %} | HMS
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        {% if action == 'create' %}
+                            <i class="fas fa-plus"></i> {% trans "Create New Operation" %}
+                        {% else %}
+                            <i class="fas fa-edit"></i> {% trans "Edit Operation" %}
+                        {% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="operationForm">
+                        {% csrf_token %}
+                        
+                        <!-- Name and Code Fields -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                        <div class="text-danger">{{ form.name.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ form.code.label_tag }}
+                                    {{ form.code }}
+                                    {% if form.code.errors %}
+                                        <div class="text-danger">{{ form.code.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description Field -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger">{{ form.description.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.auto_execute }}
+                                        <label class="custom-control-label" for="{{ form.auto_execute.id_for_label }}">
+                                            {{ form.auto_execute.label }}
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        {% trans "Execute automatically without user confirmation" %}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.requires_confirmation }}
+                                        <label class="custom-control-label" for="{{ form.requires_confirmation.id_for_label }}">
+                                            {{ form.requires_confirmation.label }}
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        {% trans "Require explicit confirmation before execution" %}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    {{ form.session_timeout_minutes.label_tag }}
+                                    {{ form.session_timeout_minutes }}
+                                    {% if form.session_timeout_minutes.errors %}
+                                        <div class="text-danger">{{ form.session_timeout_minutes.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Settings -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.allow_multiple_executions }}
+                                        <label class="custom-control-label" for="{{ form.allow_multiple_executions.id_for_label }}">
+                                            {{ form.allow_multiple_executions.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Logging Settings -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.log_to_usage }}
+                                        <label class="custom-control-label" for="{{ form.log_to_usage.id_for_label }}">
+                                            {{ form.log_to_usage.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.log_to_transfer }}
+                                        <label class="custom-control-label" for="{{ form.log_to_transfer.id_for_label }}">
+                                            {{ form.log_to_transfer.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.log_to_handover }}
+                                        <label class="custom-control-label" for="{{ form.log_to_handover.id_for_label }}">
+                                            {{ form.log_to_handover.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if action == 'edit' %}
+                        <!-- Active Status -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.is_active }}
+                                        <label class="custom-control-label" for="{{ form.is_active.id_for_label }}">
+                                            {{ form.is_active.label }}
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        {% trans "Inactive operations will not be available for execution" %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Form Actions -->
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                {% if action == 'create' %}
+                                    {% trans "Create Operation" %}
+                                {% else %}
+                                    {% trans "Update Operation" %}
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'maintenance:operations_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> {% trans "Cancel" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if action == 'edit' and operation.steps.exists %}
+            <!-- Operation Steps -->
+            <div class="card shadow mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-ol"></i> {% trans "Operation Steps" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Order" %}</th>
+                                    <th>{% trans "Entity Type" %}</th>
+                                    <th>{% trans "Required" %}</th>
+                                    <th>{% trans "Description" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for step in operation.steps.all %}
+                                <tr>
+                                    <td>{{ step.order }}</td>
+                                    <td>{{ step.entity_type }}</td>
+                                    <td>
+                                        {% if step.is_required %}
+                                            <span class="badge badge-danger">{% trans "Required" %}</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{% trans "Optional" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ step.description_en }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted mt-3">
+                        <i class="fas fa-info-circle"></i> 
+                        {% trans "To manage steps, please use the Django Admin interface" %}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleLogType() {
+    const createLog = document.getElementById('create_log').checked;
+    const logTypeGroup = document.getElementById('logTypeGroup');
+    
+    if (createLog) {
+        logTypeGroup.style.display = 'block';
+    } else {
+        logTypeGroup.style.display = 'none';
+        document.getElementById('log_type').value = '';
+    }
+}
+
+// Validate form
+document.getElementById('operationForm').addEventListener('submit', function(e) {
+    const nameEn = document.getElementById('name_en').value.trim();
+    const nameAr = document.getElementById('name_ar').value.trim();
+    
+    if (!nameEn || !nameAr) {
+        e.preventDefault();
+        alert('{% trans "Please fill in all required fields" %}');
+        return false;
+    }
+    
+    const autoExecute = document.getElementById('auto_execute').checked;
+    const requiresConfirmation = document.getElementById('requires_confirmation').checked;
+    
+    if (autoExecute && requiresConfirmation) {
+        e.preventDefault();
+        alert('{% trans "An operation cannot be both auto-execute and require confirmation" %}');
+        return false;
+    }
+});
+</script>
+{% endblock %}

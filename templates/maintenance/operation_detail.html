@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ operation.name_en }} | HMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>{{ operation.name_en }} / {{ operation.name_ar }}</h2>
+            <p class="text-muted">{{ operation.description_en }}</p>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'maintenance:operation_edit' operation.id %}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> {% trans "Edit" %}
+            </a>
+            <a href="{% url 'maintenance:operations_list' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> {% trans "Back to List" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Operation Details -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Operation Details" %}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="40%">{% trans "Status" %}:</th>
+                            <td>
+                                {% if operation.is_active %}
+                                    <span class="badge badge-success">{% trans "Active" %}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{% trans "Inactive" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Auto Execute" %}:</th>
+                            <td>
+                                {% if operation.auto_execute %}
+                                    <span class="badge badge-success">{% trans "Yes" %}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{% trans "No" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Requires Confirmation" %}:</th>
+                            <td>
+                                {% if operation.requires_confirmation %}
+                                    <span class="badge badge-warning">{% trans "Yes" %}</span>
+                                {% else %}
+                                    <span class="badge badge-info">{% trans "No" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Session Timeout" %}:</th>
+                            <td>{{ operation.session_timeout }} {% trans "seconds" %}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Create Log" %}:</th>
+                            <td>
+                                {% if operation.create_log %}
+                                    <span class="badge badge-primary">{{ operation.log_type|upper }}</span>
+                                {% else %}
+                                    <span class="text-muted">{% trans "No" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Created" %}:</th>
+                            <td>{{ operation.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Updated" %}:</th>
+                            <td>{{ operation.updated_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operation Steps -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-list-ol"></i> {% trans "Operation Steps" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if steps %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>{% trans "Entity Type" %}</th>
+                                    <th>{% trans "Required" %}</th>
+                                    <th>{% trans "Description" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for step in steps %}
+                                <tr>
+                                    <td>{{ step.order }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">{{ step.entity_type }}</span>
+                                    </td>
+                                    <td>
+                                        {% if step.is_required %}
+                                            <i class="fas fa-check text-danger"></i>
+                                        {% else %}
+                                            <i class="fas fa-minus text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ step.description_en }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No steps defined for this operation" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Executions -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> {% trans "Recent Executions" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_executions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Date/Time" %}</th>
+                                    <th>{% trans "User" %}</th>
+                                    <th>{% trans "Session" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Scanned Entities" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for execution in recent_executions %}
+                                <tr>
+                                    <td>{{ execution.created_at|date:"Y-m-d H:i:s" }}</td>
+                                    <td>{{ execution.user.username }}</td>
+                                    <td>
+                                        <a href="{% url 'maintenance:session_detail' execution.session.id %}">
+                                            {{ execution.session.session_id|truncatechars:12 }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{% if execution.status == 'completed' %}success{% elif execution.status == 'pending' %}warning{% else %}danger{% endif %}">
+                                            {{ execution.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% for entity in execution.scanned_entities %}
+                                            <span class="badge badge-info">{{ entity.type }}:{{ entity.id }}</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'maintenance:execution_detail' execution.id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No executions yet" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

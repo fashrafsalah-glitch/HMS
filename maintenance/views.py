@@ -1,21 +1,305 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseBadRequest, JsonResponse
-from django.views.decorators.http import require_GET, require_POST
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.timezone import now
 from django.utils import timezone
-from django.db.models import Q
-from django.template.loader import render_to_string
+from django.db.models import Q, Count, Sum
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from datetime import datetime, timedelta
+from .forms import OperationDefinitionForm
 import json
 from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
 from .forms_cmms import ServiceRequestForm
-from .models import Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, WorkOrder, JobPlan
+from .models import (Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, 
+                     DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, 
+                     DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, 
+                     WorkOrder, JobPlan, OperationDefinition, OperationStep, 
+                     OperationExecution, ScanSession, DeviceUsageLog, DeviceTransferLog)
 from manager.models import Department, Room, Bed, Patient
 
 from .models import DeviceAccessory, AccessoryTransaction
 from .forms import AccessoryScanForm
+
+@login_required
+def maintenance_dashboard_qr(request):
+    """
+    Dashboard view for maintenance module with statistics and quick actions
+    """
+    # Get date range for statistics (last 30 days)
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=30)
+    
+    # Statistics
+    stats = {
+        # Operations
+        'total_operations': OperationDefinition.objects.filter(is_active=True).count(),
+        'recent_executions': OperationExecution.objects.filter(
+            started_at__gte=start_date
+        ).count(),
+        'pending_executions': OperationExecution.objects.filter(
+            status='pending'
+        ).count(),
+        'completed_executions': OperationExecution.objects.filter(
+            status='completed',
+            started_at__gte=start_date
+        ).count(),
+        
+        # Devices
+        'total_devices': Device.objects.filter(availability=True).count(),
+        'devices_in_use': Device.objects.filter(status='in_use').count(),
+        'devices_need_maintenance': Device.objects.filter(status='needs_maintenance').count(),
+        'devices_need_cleaning': Device.objects.filter(clean_status='needs_cleaning').count(),
+        
+        # Sessions
+        'active_sessions': ScanSession.objects.filter(status='active').count(),
+        'today_sessions': ScanSession.objects.filter(
+            created_at__date=timezone.now().date()
+        ).count(),
+        
+        # Logs (last 30 days)
+        'usage_logs': DeviceUsageLog.objects.filter(
+            started_at__gte=start_date
+        ).count(),
+        'transfer_logs': DeviceTransferLog.objects.filter(
+            moved_at__gte=start_date
+        ).count(),
+        'cleaning_logs': DeviceCleaningLog.objects.filter(
+            cleaned_at__gte=start_date
+        ).count(),
+        'maintenance_logs': DeviceMaintenanceLog.objects.filter(
+            maintained_at__gte=start_date
+        ).count(),
+    }
+    
+    # Recent executions
+    recent_executions = OperationExecution.objects.select_related(
+        'operation', 'executed_by', 'session'
+    ).order_by('-started_at')[:10]
+    
+    # Pending operations
+    pending_operations = OperationExecution.objects.filter(
+        status='pending'
+    ).select_related('operation', 'executed_by').order_by('-started_at')[:5]
+    
+    # Active sessions
+    active_sessions = ScanSession.objects.filter(
+        status='active'
+    ).select_related('user').order_by('-created_at')[:5]
+    
+    # Devices needing attention
+    devices_need_attention = Device.objects.filter(
+        Q(status='needs_maintenance') | 
+        Q(clean_status='needs_cleaning') |
+        Q(sterilization_status='needs_sterilization')
+    )[:10]
+    
+    context = {
+        'stats': stats,
+        'recent_executions': recent_executions,
+        'pending_operations': pending_operations,
+        'active_sessions': active_sessions,
+        'devices_need_attention': devices_need_attention,
+        'current_time': timezone.now(),
+    }
+    
+    return render(request, 'maintenance/dashboard.html', context)
+
+@login_required
+def operations_list(request):
+    """
+    List all operation definitions with CRUD actions
+    """
+    operations = OperationDefinition.objects.all().order_by('name')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        operations = operations.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(code__icontains=search_query)
+        )
+    
+    # Pagination
+    paginator = Paginator(operations, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+    }
+    return render(request, 'maintenance/operations_list.html', context)
+
+@login_required
+def operation_create(request):
+    """إنشاء عملية جديدة"""
+    if request.method == 'POST':
+        form = OperationDefinitionForm(request.POST)
+        if form.is_valid():
+            operation = form.save()
+            messages.success(request, f'تم إنشاء العملية "{operation.name}" بنجاح')
+            return redirect('maintenance:operation_detail', operation.id)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء أدناه')
+    else:
+        form = OperationDefinitionForm()
+    
+    return render(request, 'maintenance/operation_form.html', {
+        'form': form,
+        'action': 'create'
+    })
+
+@login_required
+def operation_edit(request, pk):
+    """تعديل تعريف عملية موجودة"""
+    operation = get_object_or_404(OperationDefinition, pk=pk)
+    
+    if request.method == 'POST':
+        form = OperationDefinitionForm(request.POST, instance=operation)
+        if form.is_valid():
+            operation = form.save()
+            messages.success(request, f'تم تحديث العملية "{operation.name_en}" بنجاح')
+            return redirect('maintenance:operation_detail', operation.id)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء أدناه')
+    else:
+        form = OperationDefinitionForm(instance=operation)
+    
+    return render(request, 'maintenance/operation_form.html', {
+        'form': form,
+        'operation': operation,
+        'action': 'edit'
+    })
+
+@login_required
+def operation_delete(request, pk):
+    """
+    Delete an operation definition
+    """
+    operation = get_object_or_404(OperationDefinition, pk=pk)
+    
+    if request.method == 'POST':
+        operation_name = operation.name_en
+        operation.delete()
+        messages.success(request, f'Operation "{operation_name}" deleted successfully!')
+        return redirect('maintenance:operations_list')
+    
+    return render(request, 'maintenance/operation_confirm_delete.html', {'operation': operation})
+
+@login_required
+def operation_detail(request, pk):
+    """
+    View operation details including steps
+    """
+    operation = get_object_or_404(OperationDefinition, pk=pk)
+    steps = operation.steps.all().order_by('order')
+    executions = operation.executions.all().order_by('-started_at')[:10]
+    
+    context = {
+        'operation': operation,
+        'steps': steps,
+        'recent_executions': executions,
+    }
+    return render(request, 'maintenance/operation_detail.html', context)
+
+@login_required
+def sessions_list(request):
+    """
+    List all scan sessions
+    """
+    sessions = ScanSession.objects.all().select_related('user').order_by('-created_at')
+    
+    # Filter by status
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        sessions = sessions.filter(status=status_filter)
+    
+    # Filter by date
+    date_filter = request.GET.get('date', '')
+    if date_filter:
+        try:
+            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            sessions = sessions.filter(created_at__date=filter_date)
+        except ValueError:
+            pass
+    
+    # Pagination
+    paginator = Paginator(sessions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'date_filter': date_filter,
+    }
+    return render(request, 'maintenance/sessions_list.html', context)
+
+@login_required
+def session_detail(request, pk):
+    """
+    View session details including all scans and executions
+    """
+    session = get_object_or_404(ScanSession, pk=pk)
+    executions = session.executions.all().order_by('created_at')
+    
+    context = {
+        'session': session,
+        'executions': executions,
+    }
+    return render(request, 'maintenance/session_detail.html', context)
+
+@login_required
+def executions_list(request):
+    """
+    List all operation executions
+    """
+    executions = OperationExecution.objects.all().select_related(
+        'operation', 'executed_by', 'session'
+    ).order_by('-started_at')
+    
+    # Filter by status
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        executions = executions.filter(status=status_filter)
+    
+    # Filter by operation
+    operation_filter = request.GET.get('operation', '')
+    if operation_filter:
+        executions = executions.filter(operation_id=operation_filter)
+    
+    # Pagination
+    paginator = Paginator(executions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get operations for filter dropdown
+    operations = OperationDefinition.objects.filter(is_active=True)
+    
+    context = {
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'operation_filter': operation_filter,
+        'operations': operations,
+    }
+    return render(request, 'maintenance/executions_list.html', context)
+
+@login_required
+def execution_detail(request, pk):
+    """
+    View execution details
+    """
+    execution = get_object_or_404(OperationExecution, pk=pk)
+    
+    context = {
+        'execution': execution,
+    }
+    return render(request, 'maintenance/execution_detail.html', context)
 
 @login_required
 def clean_device(request, device_id):
@@ -1122,9 +1406,11 @@ def parse_qr_code(qr_code, sample_token=None):
 @login_required
 def scan_qr_code(request):
     """
-    API endpoint to scan and parse QR codes
-    Enhanced for Step 3: Handles lab tubes and operation tokens
+    API endpoint to scan and parse QR codes with dynamic operation support
     """
+    from .qr_operations import QROperationsManager
+    from .models import OperationExecution
+    
     print(f"[DEBUG] scan_qr_code called - Method: {request.method}")
     print(f"[DEBUG] Request body: {request.body}")
     print(f"[DEBUG] User: {request.user}")
@@ -1139,6 +1425,9 @@ def scan_qr_code(request):
         sample_token = data.get('sample_token', '').strip()
         session_id = data.get('session_id')
         print(f"[DEBUG] QR Code: {qr_code}, Session ID: {session_id}")
+        
+        # Initialize operations manager
+        ops_manager = QROperationsManager()
         
         if not qr_code and not sample_token:
             return JsonResponse({'error': 'QR code or sample token is required'}, status=400)
@@ -1158,12 +1447,21 @@ def scan_qr_code(request):
         if session_id:
             try:
                 scan_session = ScanSession.objects.get(session_id=session_id, status='active')
+                # Check session timeout
+                if ops_manager.check_session_timeout(scan_session):
+                    scan_session.status = 'expired'
+                    scan_session.save()
+                    scan_session = None
             except ScanSession.DoesNotExist:
                 pass
         
         # Create new session if none exists
         if not scan_session:
             scan_session = ScanSession.objects.create()
+            # Initialize context_json if not exists
+            if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
+                scan_session.context_json = {}
+                scan_session.save()
         
         # Add to scan history
         scan_history = ScanHistory.objects.create(
@@ -1175,20 +1473,11 @@ def scan_qr_code(request):
             is_valid=True
         )
         
-        # Handle session logic with operation auto-detection
+        # Update session with basic entity tracking (backward compatibility)
         session_updated = False
-        inferred_operation = None
-        
-        # Handle operation tokens
-        if entity_type == 'operation_token':
-            # Store operation hint in session context
-            if not scan_session.context_json:
-                scan_session.context_json = {}
-            scan_session.context_json['operation_hint'] = entity_data['operation']
-            session_updated = True
         
         # First scan should be a user (doctor/nurse/staff)
-        elif not scan_session.user and entity_type in ['customuser', 'user', 'doctor']:
+        if not scan_session.user and entity_type in ['customuser', 'user', 'doctor']:
             if entity_type == 'doctor':
                 # Get the user from doctor
                 doctor_model = apps.get_model('manager', 'Doctor')
@@ -1210,23 +1499,48 @@ def scan_qr_code(request):
                 scan_session.bed = bed_model.objects.get(pk=entity_id)
                 session_updated = True
         
-        # Auto-detect operation type based on scan sequence
-        scan_history = scan_session.scan_history.all()
-        entity_types_scanned = [h.entity_type for h in scan_history]
-        
-        if 'user' in entity_types_scanned and 'patient' in entity_types_scanned and entity_type in ['device', 'accessory']:
-            inferred_operation = 'usage'
-        elif entity_type == 'device' and any(t in entity_types_scanned for t in ['department', 'room', 'bed']):
-            inferred_operation = 'transfer'
-        elif 'patient' in entity_types_scanned and entity_type == 'bed':
-            inferred_operation = 'patient_transfer'
-        elif entity_types_scanned.count('user') >= 2 and 'device' in entity_types_scanned:
-            inferred_operation = 'handover'
-        elif entity_type == 'lab_tube':
-            inferred_operation = 'lab_sample_scan'
+        # Update last activity
+        if hasattr(scan_session, 'last_activity'):
+            scan_session.last_activity = timezone.now()
+            session_updated = True
         
         if session_updated:
             scan_session.save()
+        
+        # Get all scanned entities and match to operations
+        scanned_entities = ops_manager.get_scanned_entities(scan_session)
+        matched_operation = ops_manager.match_operation(scanned_entities)
+        
+        operation_executed = False
+        execution_result = None
+        execution_message = None
+        
+        # Execute operation if matched
+        if matched_operation:
+            # Update session's current operation
+            if hasattr(scan_session, 'current_operation'):
+                scan_session.current_operation = matched_operation
+                scan_session.save()
+            
+            # Check if we can execute multiple operations in same session
+            existing_executions = apps.get_model('maintenance', 'OperationExecution').objects.filter(
+                session=scan_session,
+                operation=matched_operation,
+                status__in=['completed', 'in_progress']
+            )
+            
+            can_execute = matched_operation.allow_multiple_executions or not existing_executions.exists()
+            
+            if can_execute:
+                success, execution, message = ops_manager.execute_operation(
+                    matched_operation,
+                    scan_session,
+                    request.user,
+                    scanned_entities
+                )
+                operation_executed = True
+                execution_result = execution
+                execution_message = message
         
         # Prepare response
         response_data = {
@@ -1235,13 +1549,23 @@ def scan_qr_code(request):
             'entity_type': entity_type,
             'entity_id': entity_id,
             'entity_data': entity_data,
-            'inferred_operation': inferred_operation,
+            'matched_operation': {
+                'name': matched_operation.name,
+                'code': matched_operation.code,
+                'requires_confirmation': matched_operation.requires_confirmation
+            } if matched_operation else None,
+            'operation_executed': operation_executed,
+            'execution': {
+                'id': execution_result.id,
+                'status': execution_result.status,
+                'message': execution_message
+            } if execution_result else None,
             'session_status': {
                 'user': scan_session.user.get_full_name() if scan_session.user else None,
                 'patient': str(scan_session.patient) if scan_session.patient else None,
                 'bed': str(scan_session.bed) if scan_session.bed else None,
                 'scan_count': scan_session.scan_history.count(),
-                'operation_hint': scan_session.context_json.get('operation_hint') if hasattr(scan_session, 'context_json') and scan_session.context_json else None,
+                'current_operation': scan_session.current_operation.name if hasattr(scan_session, 'current_operation') and scan_session.current_operation else None,
             }
         }
         
@@ -1254,7 +1578,7 @@ def scan_qr_code(request):
                 device = apps.get_model('maintenance', 'Device').objects.get(pk=entity_id)
                 
                 # Update device status when scanned for usage
-                if inferred_operation == 'usage' and scan_session.user and scan_session.patient:
+                if matched_operation and matched_operation.code == 'DEVICE_USAGE' and scan_session.user and scan_session.patient:
                     device.availability = False  # Mark as in use
                     device.save()
                     notifications.append(f"🔧 تم تعيين الجهاز كمستخدم: {device.name}")
@@ -1762,81 +2086,100 @@ def device_usage_logs(request):
 
 @login_required
 def export_device_usage_logs(request):
+    """Export device usage logs to Excel"""
+    # Implementation for exporting logs
+    pass
+
+
+@login_required
+@require_http_methods(["POST"])
+def confirm_operation(request, execution_id):
     """
-    Export device usage logs to Excel/PDF
+    API endpoint to confirm a pending operation execution
     """
-    from django.http import HttpResponse
-    import openpyxl
-    from openpyxl.utils import get_column_letter
-    from datetime import datetime
-    
-    # Get filtered logs (reuse filtering logic)
-    logs = DeviceUsageLog.objects.all().select_related(
-        'user', 'patient', 'bed', 'department'
-    ).prefetch_related('items__device')
-    
-    # Apply same filters as in device_usage_logs view
-    user_filter = request.GET.get('user')
-    patient_filter = request.GET.get('patient')
-    department_filter = request.GET.get('department')
-    operation_filter = request.GET.get('operation_type')
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
-    
-    if user_filter:
-        logs = logs.filter(user_id=user_filter)
-    if patient_filter:
-        logs = logs.filter(patient_id=patient_filter)
-    if department_filter:
-        logs = logs.filter(department_id=department_filter)
-    if operation_filter:
-        logs = logs.filter(operation_type=operation_filter)
-    if date_from:
-        logs = logs.filter(created_at__date__gte=date_from)
-    if date_to:
-        logs = logs.filter(created_at__date__lte=date_to)
-    
-    # Create Excel workbook
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Device Usage Logs"
-    
-    # Headers
-    headers = [
-        'Session ID', 'User', 'Patient', 'Bed', 'Department', 
-        'Operation Type', 'Devices Used', 'Created At', 'Completed At', 'Notes'
-    ]
-    
-    for col, header in enumerate(headers, 1):
-        ws.cell(row=1, column=col, value=header)
-    
-    # Data
-    for row, log in enumerate(logs.order_by('-created_at'), 2):
-        devices_used = ', '.join([str(item.device) for item in log.items.all()])
+    try:
+        from .models import OperationExecution
+        from .qr_operations import QROperationsManager
         
-        ws.cell(row=row, column=1, value=str(log.session_id))
-        ws.cell(row=row, column=2, value=log.user.get_full_name())
-        ws.cell(row=row, column=3, value=str(log.patient) if log.patient else '')
-        ws.cell(row=row, column=4, value=str(log.bed) if log.bed else '')
-        ws.cell(row=row, column=5, value=str(log.department) if log.department else '')
-        ws.cell(row=row, column=6, value=log.get_operation_type_display())
-        ws.cell(row=row, column=7, value=devices_used)
-        ws.cell(row=row, column=8, value=log.created_at.strftime('%Y-%m-%d %H:%M'))
-        ws.cell(row=row, column=9, value=log.completed_at.strftime('%Y-%m-%d %H:%M') if log.completed_at else '')
-        ws.cell(row=row, column=10, value=log.notes or '')
-    
-    # Auto-adjust column widths
-    for col in range(1, len(headers) + 1):
-        ws.column_dimensions[get_column_letter(col)].auto_size = True
-    
-    # Create response
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="device_usage_logs_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx"'
-    
-    wb.save(response)
-    return response
+        execution = OperationExecution.objects.get(
+            id=execution_id,
+            status='pending'
+        )
+        
+        # Get the operations manager
+        ops_manager = QROperationsManager(execution.session)
+        
+        # Confirm the operation
+        result = ops_manager.confirm_operation(execution_id)
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': result.get('message', 'تم تأكيد العملية بنجاح'),
+                'execution_id': execution_id,
+                'logs_created': result.get('logs_created', [])
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'فشل تأكيد العملية')
+            }, status=400)
+            
+    except OperationExecution.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'العملية غير موجودة أو تم تنفيذها بالفعل'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def cancel_operation(request, execution_id):
+    """
+    API endpoint to cancel a pending operation execution
+    """
+    try:
+        from .models import OperationExecution
+        from .qr_operations import QROperationsManager
+        
+        execution = OperationExecution.objects.get(
+            id=execution_id,
+            status='pending'
+        )
+        
+        # Get the operations manager
+        ops_manager = QROperationsManager(execution.session)
+        
+        # Cancel the operation
+        result = ops_manager.cancel_operation(execution_id)
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': 'تم إلغاء العملية بنجاح',
+                'execution_id': execution_id
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'فشل إلغاء العملية')
+            }, status=400)
+            
+    except OperationExecution.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'العملية غير موجودة أو تم تنفيذها بالفعل'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1954,6 +2297,56 @@ def get_session_status(request, session_id):
     
     except ScanSession.DoesNotExist:
         return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+
+def scan_session_page(request):
+    """
+    QR Scan session page for scanning workflow
+    """
+    return render(request, 'maintenance/scan_session.html', {
+        'title': 'جلسة مسح QR/Barcode'
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def end_scan_session(request):
+    """
+    End the current scan session
+    """
+    try:
+        data = json.loads(request.body) if request.body else {}
+        session_id = data.get('session_id')
+        
+        if session_id:
+            try:
+                session = ScanSession.objects.get(
+                    session_id=session_id,
+                    user=request.user,
+                    status='active'
+                )
+                session.status = 'completed'
+                session.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'تم إنهاء الجلسة بنجاح'
+                })
+            except ScanSession.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'الجلسة غير موجودة'
+                }, status=404)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'معرف الجلسة مطلوب'
+            }, status=400)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 

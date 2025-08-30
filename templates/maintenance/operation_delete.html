@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Operation" %} | HMS{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> {% trans "Delete Operation" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-warning"></i>
+                        <strong>{% trans "Warning!" %}</strong>
+                        {% trans "This action cannot be undone." %}
+                    </div>
+                    
+                    <p>{% trans "Are you sure you want to delete the following operation?" %}</p>
+                    
+                    <div class="bg-light p-3 rounded mb-3">
+                        <h5>{{ operation.name_en }} / {{ operation.name_ar }}</h5>
+                        {% if operation.description_en %}
+                        <p class="text-muted mb-1">{{ operation.description_en }}</p>
+                        {% endif %}
+                        {% if operation.description_ar %}
+                        <p class="text-muted mb-1" dir="rtl">{{ operation.description_ar }}</p>
+                        {% endif %}
+                        
+                        <div class="mt-2">
+                            <span class="badge badge-{% if operation.is_active %}success{% else %}secondary{% endif %}">
+                                {% if operation.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                            </span>
+                            {% if operation.auto_execute %}
+                            <span class="badge badge-info">{% trans "Auto Execute" %}</span>
+                            {% endif %}
+                            {% if operation.requires_confirmation %}
+                            <span class="badge badge-warning">{% trans "Requires Confirmation" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if operation.steps.exists %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        {% trans "This operation has" %} <strong>{{ operation.steps.count }}</strong> {% trans "defined steps that will also be deleted." %}
+                    </div>
+                    {% endif %}
+
+                    {% if recent_executions_count > 0 %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-history"></i>
+                        {% trans "This operation has" %} <strong>{{ recent_executions_count }}</strong> {% trans "execution records. These will remain in the system for audit purposes." %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="confirmation">
+                                {% trans "Type" %} <code>DELETE</code> {% trans "to confirm" %}:
+                            </label>
+                            <input type="text" class="form-control" id="confirmation" name="confirmation" 
+                                   placeholder="DELETE" required>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                                <i class="fas fa-trash"></i> {% trans "Delete Operation" %}
+                            </button>
+                            <a href="{% url 'maintenance:operation_detail' operation.id %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> {% trans "Cancel" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('confirmation').addEventListener('input', function() {
+    const deleteBtn = document.getElementById('deleteBtn');
+    if (this.value === 'DELETE') {
+        deleteBtn.disabled = false;
+        deleteBtn.classList.remove('btn-secondary');
+        deleteBtn.classList.add('btn-danger');
+    } else {
+        deleteBtn.disabled = true;
+        deleteBtn.classList.remove('btn-danger');
+        deleteBtn.classList.add('btn-secondary');
+    }
+});
+</script>
+{% endblock %}

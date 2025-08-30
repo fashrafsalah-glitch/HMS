@@ -14,26 +14,8 @@ class QRCodeMixin(models.Model):
         abstract = True
     
     def generate_qr_token(self):
-        """Generate QR token in format: entity_type:id or special format for Patient"""
+        """Generate simple permanent QR token in format: entity_type:id"""
         model_name = self.__class__.__name__.lower()
-        
-        # Special format for Patient: patient:<id>|MRN:<mrn>|Name:<first_last>|DOB:<yyyy-mm-dd>
-        if model_name == 'patient':
-            mrn = getattr(self, 'mrn', '') or ''
-            first_name = getattr(self, 'first_name', '') or ''
-            last_name = getattr(self, 'last_name', '') or ''
-            name = f"{first_name}_{last_name}".replace(' ', '_')
-            
-            # Get date of birth
-            dob = ''
-            if hasattr(self, 'date_of_birth') and self.date_of_birth:
-                dob = self.date_of_birth.strftime('%Y-%m-%d')
-            elif (getattr(self, 'birth_year', None) and 
-                  getattr(self, 'birth_month', None) and 
-                  getattr(self, 'birth_day', None)):
-                dob = f"{self.birth_year:04d}-{self.birth_month:02d}-{self.birth_day:02d}"
-            
-            return f"patient:{self.pk}|MRN:{mrn}|Name:{name}|DOB:{dob}"
         
         # Map model names to desired prefixes
         model_mapping = {
@@ -62,6 +44,6 @@ class QRCodeMixin(models.Model):
         buffer = BytesIO()
         img.save(buffer, format='PNG')
         
-        filename = f"{self.qr_token.replace(':', '_').replace('|', '_')}.png"
+        filename = f"{self.qr_token.replace(':', '_')}.png"
         self.qr_code.save(filename, ContentFile(buffer.getvalue()), save=False)
         return self.qr_code

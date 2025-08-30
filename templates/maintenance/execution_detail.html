@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Execution Details" %} | HMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-play-circle"></i> {% trans "Execution Details" %}</h2>
+            <p class="text-muted">{{ execution.operation.name_en }} - #{{ execution.id }}</p>
+        </div>
+        <div class="col-md-4 text-right">
+            {% if execution.status == 'pending' %}
+            <button class="btn btn-success" onclick="confirmExecution()">
+                <i class="fas fa-check"></i> {% trans "Confirm" %}
+            </button>
+            <button class="btn btn-danger" onclick="cancelExecution()">
+                <i class="fas fa-times"></i> {% trans "Cancel" %}
+            </button>
+            {% endif %}
+            <a href="{% url 'maintenance:executions_list' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> {% trans "Back to List" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Execution Info -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> {% trans "Execution Information" %}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th width="40%">{% trans "Operation" %}:</th>
+                            <td>
+                                <a href="{% url 'maintenance:operation_detail' execution.operation.id %}">
+                                    {{ execution.operation.name_en }}
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "User" %}:</th>
+                            <td>{{ execution.user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Session" %}:</th>
+                            <td>
+                                <a href="{% url 'maintenance:session_detail' execution.session.id %}">
+                                    <code>{{ execution.session.session_id|truncatechars:16 }}</code>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Status" %}:</th>
+                            <td>
+                                {% if execution.status == 'completed' %}
+                                    <span class="badge badge-success">{% trans "Completed" %}</span>
+                                {% elif execution.status == 'pending' %}
+                                    <span class="badge badge-warning">{% trans "Pending" %}</span>
+                                {% elif execution.status == 'cancelled' %}
+                                    <span class="badge badge-secondary">{% trans "Cancelled" %}</span>
+                                {% elif execution.status == 'failed' %}
+                                    <span class="badge badge-danger">{% trans "Failed" %}</span>
+                                {% else %}
+                                    <span class="badge badge-info">{{ execution.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Created" %}:</th>
+                            <td>{{ execution.created_at|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Completed" %}:</th>
+                            <td>
+                                {% if execution.completed_at %}
+                                    {{ execution.completed_at|date:"Y-m-d H:i:s" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if execution.error_message %}
+                        <tr>
+                            <th>{% trans "Error" %}:</th>
+                            <td class="text-danger">{{ execution.error_message }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanned Entities -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-qrcode"></i> {% trans "Scanned Entities" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if execution.scanned_entities %}
+                    <div class="list-group">
+                        {% for entity in execution.scanned_entities %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ entity.type|title }}</strong>
+                                    <br>
+                                    <small class="text-muted">ID: {{ entity.id }}</small>
+                                    {% if entity.name %}
+                                    <br>
+                                    <small>{{ entity.name }}</small>
+                                    {% endif %}
+                                </div>
+                                <span class="badge badge-secondary">
+                                    {{ forloop.counter }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No entities scanned" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operation Steps Validation -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-list-ol"></i> {% trans "Operation Steps Validation" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if execution.operation.steps.exists %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Step" %}</th>
+                                    <th>{% trans "Entity Type" %}</th>
+                                    <th>{% trans "Required" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                    <th>{% trans "Scanned Entity" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for step in execution.operation.steps.all %}
+                                <tr>
+                                    <td>{{ step.order }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">{{ step.entity_type }}</span>
+                                    </td>
+                                    <td>
+                                        {% if step.is_required %}
+                                            <span class="badge badge-danger">{% trans "Required" %}</span>
+                                        {% else %}
+                                            <span class="badge badge-info">{% trans "Optional" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% with step_validation=execution.step_validations|get_item:step.id %}
+                                        {% if step_validation.is_valid %}
+                                            <span class="badge badge-success">
+                                                <i class="fas fa-check"></i> {% trans "Valid" %}
+                                            </span>
+                                        {% elif step.is_required %}
+                                            <span class="badge badge-danger">
+                                                <i class="fas fa-times"></i> {% trans "Missing" %}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">
+                                                <i class="fas fa-minus"></i> {% trans "Skipped" %}
+                                            </span>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% with step_validation=execution.step_validations|get_item:step.id %}
+                                        {% if step_validation.scanned_entity %}
+                                            <small>
+                                                {{ step_validation.scanned_entity.type }}:{{ step_validation.scanned_entity.id }}
+                                            </small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "No steps defined for this operation" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution Log -->
+    {% if execution.execution_log %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> {% trans "Execution Log" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ execution.execution_log }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function confirmExecution() {
+    if (confirm('{% trans "Are you sure you want to confirm this operation?" %}')) {
+        fetch(`/api/operation/confirm/{{ execution.id }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || '{% trans "Failed to confirm operation" %}');
+            }
+        });
+    }
+}
+
+function cancelExecution() {
+    if (confirm('{% trans "Are you sure you want to cancel this operation?" %}')) {
+        fetch(`/api/operation/cancel/{{ execution.id }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || '{% trans "Failed to cancel operation" %}');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -156,7 +156,6 @@ def calculate_pm_compliance(department_id=None, days=30):
         wo_exists = WorkOrder.objects.filter(
             service_request__device=schedule.device,
             service_request__request_type='preventive',
-            service_request__is_auto_generated=True,
             created_at__range=[start_date, end_date],
             status__in=['closed', 'qa_verified']
         ).exists()
