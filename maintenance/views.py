@@ -447,8 +447,16 @@ def ajax_perform_maintenance(request, device_id):
 def assign_device(request, device_id):
     device = get_object_or_404(Device, id=device_id)
     
-    # Get all patients - simplified approach
-    patients = Patient.objects.all().order_by('first_name', 'last_name')
+    # Get patients from the same department as the device
+    if device.department:
+        # Filter patients by device's department through their current admission
+        patients = Patient.objects.filter(
+            admission__department=device.department,
+            admission__discharge_date__isnull=True  # Only active admissions
+        ).order_by('first_name', 'last_name').distinct()
+    else:
+        # If device has no department, show all patients
+        patients = Patient.objects.all().order_by('first_name', 'last_name')
 
     if request.method == 'POST':
         patient_id = request.POST.get('patient')
@@ -810,7 +818,12 @@ def add_device(request):
             print("Form Errors:", form.errors)  # ← اطبع الأخطاء هنا
     else:
         form = DeviceFormBasic()
-    return render(request, 'maintenance/add_device.html', {'form': form})
+    
+    # Add context for patients filtering by department
+    context = {
+        'form': form,
+    }
+    return render(request, 'maintenance/add_device.html', context)
 
 
 
@@ -1101,16 +1114,52 @@ def device_transfer_history(request, device_id):
 
 
 def get_rooms(request):
+    from django.template.loader import render_to_string
     department_id = request.GET.get('department_id')
-    rooms = Room.objects.filter(department_id=department_id).order_by('number')
-    html = render_to_string('maintenance/partials/room_dropdown.html', {'rooms': rooms})
-    return JsonResponse({'html': html})
+    if department_id:
+        try:
+            rooms = Room.objects.filter(department_id=department_id).order_by('number')
+            html = render_to_string('maintenance/partials/room_dropdown.html', {'rooms': rooms})
+            return JsonResponse({'html': html})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        rooms = Room.objects.none()
+        html = render_to_string('maintenance/partials/room_dropdown.html', {'rooms': rooms})
+        return JsonResponse({'html': html})
 
 def get_beds(request):
+    from django.template.loader import render_to_string
     room_id = request.GET.get('room_id')
-    beds = Bed.objects.filter(room_id=room_id).order_by('bed_number')
-    html = render_to_string('maintenance/partials/bed_dropdown.html', {'beds': beds})
-    return JsonResponse({'html': html})
+    if room_id:
+        try:
+            beds = Bed.objects.filter(room_id=room_id).order_by('bed_number')
+            html = render_to_string('maintenance/partials/bed_dropdown.html', {'beds': beds})
+            return JsonResponse({'html': html})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        beds = Bed.objects.none()
+        html = render_to_string('maintenance/partials/bed_dropdown.html', {'beds': beds})
+        return JsonResponse({'html': html})
+
+def get_patients_by_department(request):
+    department_id = request.GET.get('department_id')
+    if department_id:
+        # Get patients from the same department through their current admission
+        patients = Patient.objects.filter(
+            admission__department_id=department_id,
+            admission__discharge_date__isnull=True  # Only active admissions
+        ).order_by('first_name', 'last_name').distinct()
+    else:
+        patients = Patient.objects.none()
+    
+    # Generate HTML options for the select dropdown
+    options_html = '<option value="">---------</option>'
+    for patient in patients:
+        options_html += f'<option value="{patient.id}">{patient.first_name} {patient.last_name} (MRN: {patient.mrn})</option>'
+    
+    return JsonResponse({'html': options_html})
 
 
 def add_company(request):
@@ -1131,7 +1180,7 @@ def add_device_usage(request):
     form = DeviceUsageForm(request.POST or None)
     if form.is_valid():
         form.save()
-        return redirect('maintenance:device_list')
+        return redirect('maintenance:maintenance_index')
     return render(request, 'maintenance/add_device_usage.html', {'form': form})
 
 

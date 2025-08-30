@@ -55,6 +55,7 @@ urlpatterns = [
    
     path('ajax/get-rooms/', views.get_rooms, name='get_rooms'),
     path('ajax/get-beds/', views.get_beds, name='get_beds'),
+    path('ajax/get-patients-by-department/', views.get_patients_by_department, name='get_patients_by_department'),
 
 
    path('companies/add/', views.add_company, name='add_company'),

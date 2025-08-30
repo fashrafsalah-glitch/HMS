@@ -1403,6 +1403,18 @@ def job_plan_add_step(request, plan_id):
             messages.success(request, 'تم تحديث الخطوة بنجاح')
         else:
             # إضافة خطوة جديدة
+            # التحقق من رقم الخطوة وتجنب التكرار
+            if not step_number:
+                # إذا لم يتم تحديد رقم الخطوة، استخدم الرقم التالي المتاح
+                last_step = JobPlanStep.objects.filter(job_plan=job_plan).order_by('-step_number').first()
+                step_number = (last_step.step_number + 1) if last_step else 1
+            else:
+                step_number = int(step_number)
+                # التحقق من وجود خطوة بنفس الرقم
+                if JobPlanStep.objects.filter(job_plan=job_plan, step_number=step_number).exists():
+                    messages.error(request, f'يوجد بالفعل خطوة برقم {step_number}. يرجى اختيار رقم آخر.')
+                    return redirect('maintenance:cmms:job_plan_update', plan_id=job_plan.id)
+            
             JobPlanStep.objects.create(
                 job_plan=job_plan,
                 step_number=step_number,

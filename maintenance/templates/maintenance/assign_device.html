@@ -37,12 +37,18 @@
               <select name="patient" id="patient" class="form-select" required>
                 <option value="">— اختر مريضًا —</option>
                 {% for patient in patients %}
-                  <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }}</option>
+                  <option value="{{ patient.id }}">{{ patient.first_name }} {{ patient.last_name }} (MRN: {{ patient.mrn }})</option>
                 {% empty %}
                   <option value="" disabled>لا يوجد مرضى متاحون في هذا القسم</option>
                 {% endfor %}
               </select>
-              <div class="form-text">سيتم تعيين حالة الجهاز إلى "قيد الاستخدام".</div>
+              <div class="form-text">
+                {% if device.department %}
+                  عرض المرضى المقيمين في قسم: {{ device.department.name }}
+                {% else %}
+                  عرض جميع المرضى (الجهاز غير مرتبط بقسم)
+                {% endif %}
+              </div>
             </div>
 
             <div class="col-12 d-flex gap-2">

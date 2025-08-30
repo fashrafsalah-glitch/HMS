@@ -83,6 +83,8 @@ $(document).ready(function () {
                     $('#id_room').addClass('form-control');
                     // مسح الأسرة عند تغيير القسم
                     resetBeds();
+                    // تحديث قائمة المرضى حسب القسم
+                    loadPatientsByDepartment(departmentId);
                 },
                 error: function(xhr, status, error) {
                     console.error('Error loading rooms:', error);
@@ -93,6 +95,7 @@ $(document).ready(function () {
         } else {
             resetRooms();
             resetBeds();
+            resetPatients();
         }
     });
 
@@ -122,6 +125,25 @@ $(document).ready(function () {
         }
     });
 
+    // تحميل المرضى حسب القسم
+    function loadPatientsByDepartment(departmentId) {
+        if ($('#id_current_patient').length) {
+            $.ajax({
+                url: '{% url "maintenance:get_patients_by_department" %}',
+                type: 'GET',
+                data: { department_id: departmentId },
+                success: function (response) {
+                    console.log('Patients response:', response);
+                    $('#id_current_patient').html(response.html);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading patients:', error);
+                    $('#id_current_patient').html('<option value="">خطأ في تحميل المرضى</option>');
+                }
+            });
+        }
+    }
+
     // دوال مساعدة لإعادة تعيين القوائم
     function resetRooms() {
         $('#room-container').html('<label for="id_room">الغرفة</label><select name="room" class="form-control" id="id_room"><option value="">---------</option></select>');
@@ -129,6 +151,12 @@ $(document).ready(function () {
 
     function resetBeds() {
         $('#bed-container').html('<label for="id_bed">السرير</label><select name="bed" class="form-control" id="id_bed"><option value="">---------</option></select>');
+    }
+
+    function resetPatients() {
+        if ($('#id_current_patient').length) {
+            $('#id_current_patient').html('<option value="">---------</option>');
+        }
     }
 });
 </script>
