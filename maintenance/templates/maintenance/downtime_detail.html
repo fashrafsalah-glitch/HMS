@@ -11,10 +11,10 @@
                 <div class="card-header">
                     <h3 class="card-title">تفاصيل توقف الجهاز - {{ downtime.device.name }}</h3>
                     <div class="card-tools">
-                        <a href="{% url 'downtime_update' downtime.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:downtime_update' downtime.id %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
-                        <a href="{% url 'downtime_list' %}" class="btn btn-secondary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:downtime_list' %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-list"></i> العودة للقائمة
                         </a>
                     </div>
@@ -27,7 +27,7 @@
                                 <div class="info-box-content">
                                     <span class="info-box-text">الجهاز</span>
                                     <span class="info-box-number">
-                                        <a href="{% url 'device_detail' downtime.device.id %}">
+                                        <a href="{% url 'maintenance:device_detail' downtime.device.id %}">
                                             {{ downtime.device.name }}
                                         </a>
                                     </span>
@@ -105,7 +105,7 @@
                                     <th>أمر العمل</th>
                                     <td>
                                         {% if downtime.work_order %}
-                                        <a href="{% url 'work_order_detail' downtime.work_order.id %}">
+                                        <a href="{% url 'maintenance:cmms:work_order_detail' downtime.work_order.id %}">
                                             {{ downtime.work_order.wo_number }} - {{ downtime.work_order.description }}
                                         </a>
                                         {% else %}
@@ -155,7 +155,7 @@
                     <div class="row">
                         {% if downtime.status == 'ACTIVE' %}
                         <div class="col-md-6">
-                            <a href="{% url 'downtime_resolve' downtime.id %}" class="btn btn-success btn-block">
+                            <a href="{% url 'maintenance:spare_parts:downtime_update' downtime.id %}" class="btn btn-success btn-block">
                                 <i class="fas fa-check"></i> تسجيل انتهاء التوقف
                             </a>
                         </div>
@@ -165,24 +165,24 @@
                                 <i class="fas fa-tools"></i> إنشاء أمر عمل
                             </a>
                             {% else %}
-                            <a href="{% url 'maintenance:work_order_detail' downtime.related_work_order.id %}" class="btn btn-info btn-block">
+                            <a href="{% url 'maintenance:cmms:work_order_detail' downtime.related_work_order.id %}" class="btn btn-info btn-block">
                                 <i class="fas fa-clipboard-list"></i> عرض أمر العمل
                             </a>
                             {% endif %}
                         </div>
                         {% else %}
                         <div class="col-md-6">
-                            <a href="{% url 'device_detail' downtime.device.id %}" class="btn btn-info btn-block">
+                            <a href="{% url 'maintenance:device_detail' downtime.device.id %}" class="btn btn-info btn-block">
                                 <i class="fas fa-microscope"></i> عرض تفاصيل الجهاز
                             </a>
                         </div>
                         <div class="col-md-6">
                             {% if downtime.work_order %}
-                            <a href="{% url 'work_order_detail' downtime.work_order.id %}" class="btn btn-primary btn-block">
+                            <a href="{% url 'maintenance:cmms:work_order_detail' downtime.work_order.id %}" class="btn btn-primary btn-block">
                                 <i class="fas fa-clipboard-list"></i> عرض أمر العمل
                             </a>
                             {% else %}
-                            <a href="{% url 'downtime_list' %}?device={{ downtime.device.id }}" class="btn btn-secondary btn-block">
+                            <a href="{% url 'maintenance:spare_parts:downtime_list' %}?device={{ downtime.device.id }}" class="btn btn-secondary btn-block">
                                 <i class="fas fa-history"></i> سجل توقفات الجهاز
                             </a>
                             {% endif %}

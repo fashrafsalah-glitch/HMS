@@ -758,7 +758,7 @@ def calibration_list(request):
         'sort_by': sort_by,
         'selected_status': status,
         'due_filter': due_filter,
-        'status_choices': CalibrationRecord.STATUS_CHOICES,
+        'status_choices': CALIBRATION_STATUS_CHOICES,
     }
     return render(request, 'maintenance/calibration_list.html', context)
 

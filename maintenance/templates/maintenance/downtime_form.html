@@ -112,7 +112,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <button type="submit" class="btn btn-primary">حفظ</button>
-                                <a href="{% url 'downtime_list' %}" class="btn btn-secondary">إلغاء</a>
+                                <a href="{% url 'maintenance:spare_parts:downtime_list' %}" class="btn btn-secondary">إلغاء</a>
                             </div>
                             <div class="col-md-6 text-right">
                                 {% if form.instance.device %}
