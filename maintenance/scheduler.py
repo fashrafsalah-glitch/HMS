@@ -70,7 +70,7 @@ class CMMSScheduler:
         
         today = date.today()
         due_schedules = PreventiveMaintenanceSchedule.objects.filter(
-            status='active',
+            is_active=True,
             next_due_date__lte=today
         ).select_related('device', 'job_plan', 'created_by')
         
@@ -148,9 +148,8 @@ class CMMSScheduler:
         # فحص انتهاكات وقت الاستجابة
         response_violations = ServiceRequest.objects.filter(
             status__in=['new', 'assigned'],
-            response_due__lt=now,
-            sla__isnull=False
-        ).select_related('device', 'requested_by', 'assigned_to', 'sla')
+            created_at__lt=now - timezone.timedelta(hours=24)  # استخدام created_at بدلاً من response_due
+        ).select_related('device', 'requested_by', 'assigned_to')
         
         for request in response_violations:
             self.notification_manager.send_sla_violation_notification(
@@ -160,9 +159,8 @@ class CMMSScheduler:
         # فحص انتهاكات وقت الحل
         resolution_violations = ServiceRequest.objects.filter(
             status__in=['new', 'assigned', 'in_progress'],
-            resolution_due__lt=now,
-            sla__isnull=False
-        ).select_related('device', 'requested_by', 'assigned_to', 'sla')
+            created_at__lt=now - timezone.timedelta(days=7)  # استخدام created_at بدلاً من resolution_due
+        ).select_related('device', 'requested_by', 'assigned_to')
         
         for request in resolution_violations:
             self.notification_manager.send_sla_violation_notification(
@@ -246,7 +244,7 @@ class CMMSScheduler:
         # أوامر الشغل المتأخرة
         overdue_orders = WorkOrder.objects.filter(
             status__in=['new', 'assigned', 'in_progress'],
-            service_request__resolution_due__lt=now
+            created_at__lt=now - timezone.timedelta(days=7)  # استخدام created_at بدلاً من resolution_due
         ).select_related('service_request', 'assignee')
         
         for order in overdue_orders:

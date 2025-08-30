@@ -56,11 +56,11 @@ def cmms_dashboard(request):
         
         'overdue_work_orders': WorkOrder.objects.filter(
             status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'resolved'],
-            service_request__resolution_due__lt=timezone.now(),
+            created_at__lt=timezone.now() - timezone.timedelta(days=7),  # استخدام created_at بدلاً من resolution_due
             service_request__device__department_id=department_id if department_id else None
         ).count() if department_id else WorkOrder.objects.filter(
             status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'resolved'],
-            service_request__resolution_due__lt=timezone.now()
+            created_at__lt=timezone.now() - timezone.timedelta(days=7)  # استخدام created_at بدلاً من resolution_due
         ).count(),
         
         'low_stock_parts': SparePart.objects.filter(status='low_stock').count(),

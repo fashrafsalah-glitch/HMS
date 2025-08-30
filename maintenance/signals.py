@@ -99,11 +99,129 @@ def generate_accessory_qr_code(sender, instance, created, **kwargs):
 # CMMS SIGNALS - التحويل التلقائي للبلاغات وأوامر الشغل
 # ═══════════════════════════════════════════════════════════════
 
+from datetime import date
 from django.utils import timezone
-from datetime import timedelta
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUTOMATIC PM WORK ORDER GENERATION - إنشاء أوامر الصيانة الوقائية تلقائياً
+# ═══════════════════════════════════════════════════════════════
+
+@receiver(post_save, sender=PreventiveMaintenanceSchedule)
+def setup_pm_schedule_automation(sender, instance, created, **kwargs):
+    """
+    إعداد الجدولة التلقائية للصيانة الوقائية عند إنشاء جدول جديد
+    لا ينشئ أوامر شغل فوراً - فقط يعد الجدول للفحص التلقائي
+    """
+    if created:
+        try:
+            # تعيين تاريخ الاستحقاق التالي إذا لم يكن محدداً
+            if not instance.next_due_date:
+                if instance.start_date:
+                    instance.next_due_date = instance.start_date
+                else:
+                    instance.next_due_date = date.today()
+                instance.save(update_fields=['next_due_date'])
+            
+            logger.info(f"تم إعداد جدول الصيانة الوقائية {instance.id} - الموعد التالي: {instance.next_due_date}")
+            logger.info(f"سيتم إنشاء أمر الشغل تلقائياً في تاريخ الاستحقاق: {instance.next_due_date}")
+            
+        except Exception as e:
+            logger.error(f"خطأ في إعداد جدول الصيانة الوقائية {instance.id}: {str(e)}")
+
+
+def check_and_generate_pm_work_orders():
+    """
+    فحص وإنشاء أوامر الصيانة الوقائية المستحقة
+    يتم استدعاء هذه الدالة تلقائياً كل ساعة
+    """
+    try:
+        today = date.today()
+        
+        # إضافة logs للتشخيص
+        total_schedules = PreventiveMaintenanceSchedule.objects.count()
+        active_schedules = PreventiveMaintenanceSchedule.objects.filter(is_active=True).count()
+        
+        logger.info(f"إجمالي جداول الصيانة: {total_schedules}")
+        logger.info(f"جداول الصيانة النشطة: {active_schedules}")
+        
+        # البحث عن جداول الصيانة المستحقة (فقط التي موعدها اليوم أو قبل اليوم)
+        due_schedules = PreventiveMaintenanceSchedule.objects.filter(
+            is_active=True,
+            next_due_date__lte=today
+        ).select_related('device', 'job_plan', 'created_by', 'assigned_to')
+        
+        logger.info(f"جداول الصيانة المستحقة اليوم ({today}): {due_schedules.count()}")
+        
+        # طباعة تفاصيل الجداول للتشخيص
+        for schedule in due_schedules:
+            logger.info(f"جدول مستحق: {schedule.device.name} - تاريخ الاستحقاق: {schedule.next_due_date}")
+        
+        created_count = 0
+        
+        for schedule in due_schedules:
+            try:
+                # التحقق من عدم وجود بلاغ صيانة وقائية مفتوح للجهاز
+                existing_request = ServiceRequest.objects.filter(
+                    device=schedule.device,
+                    request_type='preventive',
+                    status__in=['new', 'assigned', 'in_progress']
+                ).exists()
+                
+                if existing_request:
+                    logger.info(f"يوجد بلاغ صيانة وقائية مفتوح للجهاز {schedule.device.name} - تم التجاهل")
+                    continue
+                
+                # إنشاء بلاغ الصيانة الوقائية
+                service_request = ServiceRequest.objects.create(
+                    device=schedule.device,
+                    reporter=schedule.created_by,
+                    title=f"صيانة وقائية - {schedule.device.name}",
+                    description=f"صيانة وقائية مجدولة للجهاز {schedule.device.name} - {schedule.job_plan.name if schedule.job_plan else 'صيانة عامة'}",
+                    request_type='preventive',
+                    priority='medium',
+                    status='new',
+                    assigned_to=schedule.assigned_to,
+                    estimated_hours=schedule.job_plan.estimated_hours if schedule.job_plan else 2.0
+                )
+                
+                # إنشاء أمر الشغل (سيتم إنشاؤه تلقائياً بواسطة signal البلاغ)
+                # لكن نتأكد من إنشاؤه يدوياً للتحكم الكامل
+                wo = WorkOrder.objects.create(
+                    service_request=service_request,
+                    title=f"صيانة وقائية - {schedule.device.name}",
+                    description=f"صيانة وقائية مجدولة للجهاز {schedule.device.name} حسب الخطة {schedule.job_plan.name}",
+                    assignee=schedule.assignee,
+                    priority='medium',
+                    wo_type='preventive',
+                    status='new',
+                    created_by=service_request.created_by
+                )
+                
+                # تحديث جدول الصيانة
+                schedule.last_completed_date = today
+                schedule.next_due_date = schedule.calculate_next_due_date()
+                schedule.save(update_fields=['last_completed_date', 'next_due_date'])
+                
+                created_count += 1
+                
+                logger.info(f"تم إنشاء أمر صيانة وقائية {wo.wo_number} للجهاز {schedule.device.name}")
+                
+            except Exception as e:
+                logger.error(f"خطأ في إنشاء أمر الصيانة الوقائية للجدول {schedule.id}: {str(e)}")
+                continue
+        
+        if created_count > 0:
+            logger.info(f"تم إنشاء {created_count} أمر صيانة وقائية جديد")
+        
+        return created_count
+        
+    except Exception as e:
+        logger.error(f"خطأ عام في فحص الصيانة الوقائية: {str(e)}")
+        return 0
 
 
 @receiver(post_save, sender=ServiceRequest)

@@ -6,4 +6,14 @@ class MaintenanceConfig(AppConfig):
     name = 'maintenance'
     
     def ready(self):
-        import maintenance.signals
+        """تشغيل المهام التلقائية عند بدء التطبيق"""
+        import maintenance.signals  # تحميل الـ signals
+        
+        # بدء تشغيل مهام الصيانة التلقائية
+        try:
+            from .tasks import start_maintenance_tasks
+            start_maintenance_tasks()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"خطأ في بدء مهام الصيانة التلقائية: {str(e)}")

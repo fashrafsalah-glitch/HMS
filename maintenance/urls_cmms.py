@@ -54,6 +54,7 @@ urlpatterns = [
     path('job-plans/<int:plan_id>/', views_cmms.job_plan_detail, name='job_plan_detail'),
     path('job-plans/<int:plan_id>/update/', views_cmms.job_plan_update, name='job_plan_update'),
     path('job-plans/<int:plan_id>/delete/', views_cmms.job_plan_delete, name='job_plan_delete'),
+    path('job-plans/<int:plan_id>/add-step/', views_cmms.job_plan_add_step, name='job_plan_add_step'),
     path('job-plans/steps/<int:step_id>/delete/', views_cmms.job_plan_step_delete, name='job_plan_step_delete'),
     
     # جداول الصيانة الوقائية (PM Schedules)
@@ -64,4 +65,5 @@ urlpatterns = [
     path('pm-schedules/<int:schedule_id>/delete/', views_cmms.pm_schedule_delete, name='pm_schedule_delete'),
     path('pm-schedules/<int:schedule_id>/generate-wo/', views_cmms.pm_schedule_generate_wo, name='pm_schedule_generate_wo'),
     path('pm-schedules/<int:schedule_id>/toggle-status/', views_cmms.pm_schedule_toggle_status, name='pm_schedule_toggle_status'),
+    path('pm-schedules/test-generation/', views_cmms.test_pm_generation, name='test_pm_generation'),
 ]

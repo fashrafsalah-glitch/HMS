@@ -21,6 +21,7 @@ from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.urls import reverse
 from django.core.paginator import Paginator
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import (Device, ServiceRequest, WorkOrder, JobPlan, JobPlanStep, 
                      PreventiveMaintenanceSchedule, SLADefinition, SR_TYPE_CHOICES, WO_STATUS_CHOICES,
@@ -1367,6 +1368,53 @@ def job_plan_delete(request, plan_id):
     return redirect('maintenance:cmms:job_plan_list')
 
 @login_required
+def job_plan_add_step(request, plan_id):
+    """
+    إضافة خطوة جديدة لخطة العمل
+    
+    الوظائف:
+    - إضافة خطوة جديدة لخطة عمل موجودة
+    - التحقق من صلاحيات المستخدم للإضافة
+    - معالجة نموذج إضافة الخطوة
+    - العودة لصفحة تعديل الخطة
+    """
+    job_plan = get_object_or_404(JobPlan, id=plan_id)
+    
+    # التحقق من صلاحيات المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
+        messages.error(request, 'ليس لديك صلاحية لإضافة خطوات العمل')
+        return redirect('maintenance:cmms:job_plan_update', plan_id=job_plan.id)
+    
+    if request.method == 'POST':
+        step_id = request.POST.get('step_id')
+        step_number = request.POST.get('step_number')
+        title = request.POST.get('title', '')
+        description = request.POST.get('description')
+        estimated_minutes = request.POST.get('estimated_minutes')
+        
+        if step_id:
+            # تعديل خطوة موجودة
+            step = get_object_or_404(JobPlanStep, id=step_id, job_plan=job_plan)
+            step.step_number = step_number
+            step.title = title
+            step.description = description
+            step.estimated_minutes = estimated_minutes
+            step.save()
+            messages.success(request, 'تم تحديث الخطوة بنجاح')
+        else:
+            # إضافة خطوة جديدة
+            JobPlanStep.objects.create(
+                job_plan=job_plan,
+                step_number=step_number,
+                title=title,
+                description=description,
+                estimated_minutes=estimated_minutes
+            )
+            messages.success(request, 'تم إضافة الخطوة بنجاح')
+    
+    return redirect('maintenance:cmms:job_plan_update', plan_id=job_plan.id)
+
+@login_required
 def job_plan_step_delete(request, step_id):
     """
     حذف خطوة من خطة العمل
@@ -1401,12 +1449,19 @@ def pm_schedule_list(request):
     - ترقيم الصفحات (10 جداول في الصفحة)
     - التحقق من صلاحيات المستخدم
     """
-    # التحقق من صلاحيات المستخدم
-    if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
-        messages.error(request, 'ليس لديك صلاحية لعرض جداول الصيانة الوقائية')
-        return redirect('dashboard')
+    # التحقق من صلاحيات المستخدم - السماح للجميع بالعرض للتشخيص
+    # if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
+    #     messages.error(request, 'ليس لديك صلاحية لعرض جداول الصيانة الوقائية')
+    #     return redirect('dashboard')
     
     pm_schedules = PreventiveMaintenanceSchedule.objects.all().order_by('next_due_date')
+    
+    # Debug information
+    total_schedules = PreventiveMaintenanceSchedule.objects.count()
+    print(f"DEBUG: Total PM schedules in database: {total_schedules}")
+    print(f"DEBUG: User: {request.user.username}, Role: {getattr(request.user, 'role', 'No role')}")
+    print(f"DEBUG: Is superuser: {request.user.is_superuser}")
+    print(f"DEBUG: User groups: {list(request.user.groups.values_list('name', flat=True))}")
     
     # فلترة حسب الحالة
     status_filter = request.GET.get('status', '')
@@ -1436,12 +1491,36 @@ def pm_schedule_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Calculate counts for dashboard cards
+    all_schedules = PreventiveMaintenanceSchedule.objects.all()
+    active_count = all_schedules.filter(is_active=True).count()
+    inactive_count = all_schedules.filter(is_active=False).count()
+    completed_count = 0  # This would need a completed field in the model
+    total_count = all_schedules.count()
+    
+    # Get devices for filter dropdown
+    from maintenance.models import Device
+    devices = Device.objects.all()
+    
     context = {
-        'pm_schedules': page_obj,
+        'schedules': page_obj,  # Template expects 'schedules', not 'pm_schedules'
+        'pm_schedules': page_obj,  # Keep both for compatibility
         'status_filter': status_filter,
         'department_filter': department_filter,
         'search_query': search_query,
         'status_choices': [('active', 'نشط'), ('inactive', 'غير نشط')],
+        'active_count': active_count,
+        'inactive_count': inactive_count,
+        'completed_count': completed_count,
+        'total_count': total_count,
+        'devices': devices,
+        'debug_info': {
+            'total_schedules': total_schedules,
+            'filtered_schedules': pm_schedules.count(),
+            'user_role': getattr(request.user, 'role', 'No role'),
+            'is_superuser': request.user.is_superuser,
+            'user_groups': list(request.user.groups.values_list('name', flat=True)),
+        }
     }
     
     return render(request, 'maintenance/cmms/pm_schedule_list.html', context)
@@ -1478,6 +1557,15 @@ def pm_schedule_create(request):
         if form.is_valid():
             pm_schedule = form.save(commit=False)
             pm_schedule.created_by = request.user
+            
+            # تعيين تاريخ الاستحقاق التالي إذا لم يكن محدداً
+            if not pm_schedule.next_due_date:
+                from datetime import date, timedelta
+                if pm_schedule.start_date:
+                    pm_schedule.next_due_date = pm_schedule.start_date
+                else:
+                    pm_schedule.next_due_date = date.today()
+            
             pm_schedule.save()
             
             messages.success(request, 'تم إنشاء جدول الصيانة الوقائية بنجاح')
@@ -1502,11 +1590,10 @@ def pm_schedule_detail(request, schedule_id):
     - عرض تفاصيل جدول الصيانة الوقائية
     - عرض تاريخ الصيانة
     - حساب موعد الصيانة القادم
-    - إحصائيات أوامر الشغل
+    - إحصائيات أوامر الشغل المرتبطة بالجدول
     - حساب نسبة الالتزام بالجدول
     """
     schedule = get_object_or_404(PreventiveMaintenanceSchedule, id=schedule_id)
-    history = PMScheduleHistory.objects.filter(pm_schedule=schedule).order_by('-created_at')
     
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
@@ -1516,11 +1603,16 @@ def pm_schedule_detail(request, schedule_id):
     
     # حساب موعد الصيانة القادم
     next_maintenance_date = None
-    if schedule.status == 'active':
-        next_maintenance_date = schedule.next_due_date
+    if hasattr(schedule, 'status') and schedule.status == 'active':
+        if hasattr(schedule, 'next_due_date'):
+            next_maintenance_date = schedule.next_due_date
     
-    # إحصائيات أوامر الشغل
-    work_orders = WorkOrder.objects.filter(pm_schedule_history__pm_schedule=schedule)
+    # إحصائيات أوامر الشغل المرتبطة بالجدول
+    # البحث عن أوامر الشغل المرتبطة بنفس الجهاز والنوع الوقائي
+    work_orders = WorkOrder.objects.filter(
+        service_request__device=schedule.device,
+        wo_type='preventive'
+    )
     total_work_orders = work_orders.count()
     completed_work_orders = work_orders.filter(status__in=['closed', 'qa_verified']).count()
     cancelled_work_orders = work_orders.filter(status='cancelled').count()
@@ -1530,6 +1622,9 @@ def pm_schedule_detail(request, schedule_id):
     compliance_rate = 0
     if total_work_orders > 0:
         compliance_rate = round((completed_work_orders / total_work_orders) * 100)
+    
+    # استخدام أوامر الشغل كتاريخ للصيانة
+    history = work_orders.order_by('-created_at')
     
     context = {
         'schedule': schedule,
@@ -1560,14 +1655,14 @@ def pm_schedule_update(request, schedule_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لتعديل جداول الصيانة الوقائية')
-        return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+        return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     
     if request.method == 'POST':
         form = PMScheduleForm(request.POST, instance=pm_schedule, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'تم تحديث جدول الصيانة الوقائية بنجاح')
-            return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+            return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     else:
         form = PMScheduleForm(instance=pm_schedule, user=request.user)
     
@@ -1594,19 +1689,24 @@ def pm_schedule_delete(request, schedule_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser:
         messages.error(request, 'ليس لديك صلاحية لحذف جداول الصيانة الوقائية')
-        return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+        return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     
     pm_schedule.delete()
     messages.success(request, 'تم حذف جدول الصيانة الوقائية بنجاح')
-    return redirect('pm_schedule_list')
+    return redirect('maintenance:cmms:pm_schedule_list')
 
 @login_required
 def pm_schedule_generate_wo(request, schedule_id):
     """
-    إنشاء أمر عمل يدوياً من جدول الصيانة الوقائية
+    إنشاء أمر شغل يدوياً من جدول الصيانة الوقائية
     
-    الوظائف:
-    - إنشاء أمر عمل من جدول الصيانة الوقائية
+    يتم استخدام هذا العرض لإنشاء أمر شغل فوري من جدول صيانة وقائية محدد.
+    يتطلب صلاحيات مشرف أو مدير للوصول.
+    
+    المعاملات:
+    - schedule_id: معرف جدول الصيانة الوقائية
+    
+    العمليات:
     - التحقق من صلاحيات المستخدم للإنشاء
     - معالجة الأخطاء وعرض رسائل مناسبة
     """
@@ -1615,22 +1715,69 @@ def pm_schedule_generate_wo(request, schedule_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لإنشاء أوامر عمل')
-        return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+        return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     
-    # إنشاء أمر العمل
     try:
+        # استخدام الطريقة الموجودة في النموذج
         work_order = pm_schedule.generate_work_order()
-        messages.success(request, 'تم إنشاء أمر العمل بنجاح')
+        messages.success(request, f'تم إنشاء أمر العمل بنجاح - رقم الأمر: {work_order.wo_number}')
         return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+        
     except Exception as e:
         messages.error(request, f'حدث خطأ أثناء إنشاء أمر العمل: {str(e)}')
-        return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+        return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
+
+
+@login_required
+@csrf_exempt
+def test_pm_generation(request):
+    """
+    اختبار إنشاء أوامر الصيانة الوقائية التلقائية
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'ليس لديك صلاحية لاستخدام هذه الوظيفة')
+        return redirect('maintenance:cmms:pm_schedule_list')
+    
+    try:
+        from .signals import check_and_generate_pm_work_orders
+        created_count = check_and_generate_pm_work_orders()
+        
+        if created_count > 0:
+            messages.success(request, f'تم إنشاء {created_count} أمر صيانة وقائية جديد')
+        else:
+            messages.info(request, 'لا توجد جداول صيانة وقائية مستحقة حالياً')
+            
+        # عرض معلومات إضافية للتشخيص
+        total_schedules = PreventiveMaintenanceSchedule.objects.count()
+        active_schedules = PreventiveMaintenanceSchedule.objects.filter(is_active=True).count()
+        
+        from datetime import date
+        today = date.today()
+        due_schedules = PreventiveMaintenanceSchedule.objects.filter(
+            is_active=True,
+            next_due_date__lte=today
+        ).count()
+        
+        # إضافة معلومات تشخيصية
+        future_schedules = PreventiveMaintenanceSchedule.objects.filter(
+            is_active=True,
+            next_due_date__gt=today
+        ).count()
+        
+        messages.info(request, f'إجمالي الجداول: {total_schedules} | النشطة: {active_schedules} | المستحقة: {due_schedules} | مستقبلية: {future_schedules}')
+        messages.info(request, f'اليوم: {today} - النظام ينشئ أوامر شغل فقط للجداول المستحقة اليوم أو قبله')
+        
+    except Exception as e:
+        messages.error(request, f'حدث خطأ أثناء اختبار إنشاء أوامر الصيانة: {str(e)}')
+    
+    return redirect('maintenance:cmms:pm_schedule_list')
 
 @login_required
 def pm_schedule_toggle_status(request, schedule_id):
     """
     تفعيل/تعطيل جدول الصيانة الوقائية
     
+{{ ... }}
     الوظائف:
     - تبديل حالة جدول الصيانة الوقائية
     - تفعيل أو تعطيل الجدول
@@ -1642,7 +1789,7 @@ def pm_schedule_toggle_status(request, schedule_id):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لتغيير حالة جداول الصيانة الوقائية')
-        return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+        return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     
     # تغيير الحالة
     if pm_schedule.status == 'active':

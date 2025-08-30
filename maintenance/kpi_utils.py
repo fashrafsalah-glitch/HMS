@@ -482,7 +482,7 @@ def get_critical_alerts(department_id=None):
     # أوامر الشغل المتأخرة
     overdue_work_orders = WorkOrder.objects.filter(
         status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'on_hold', 'resolved'],
-        service_request__resolution_due__lt=timezone.now()
+        created_at__lt=timezone.now() - timezone.timedelta(days=7)  # استخدام created_at بدلاً من resolution_due
     )
     
     if department_id:

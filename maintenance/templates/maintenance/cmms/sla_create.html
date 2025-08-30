@@ -43,21 +43,49 @@
                         
                         <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="{{ form.response_time.id_for_label }}">وقت الاستجابة (ساعة):</label>
-                                {{ form.response_time }}
-                                {% if form.response_time.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.response_time.errors }}</div>
+                                <label for="{{ form.severity.id_for_label }}">درجة الخطورة:</label>
+                                {{ form.severity }}
+                                {% if form.severity.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.severity.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">مستوى خطورة المشكلة</small>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.priority.id_for_label }}">الأولوية:</label>
+                                {{ form.priority }}
+                                {% if form.priority.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.priority.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">أولوية معالجة المشكلة</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="{{ form.response_time_hours.id_for_label }}">وقت الاستجابة (ساعة):</label>
+                                {{ form.response_time_hours }}
+                                {% if form.response_time_hours.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.response_time_hours.errors }}</div>
                                 {% endif %}
                                 <small class="form-text text-muted">الوقت المستهدف للاستجابة الأولية</small>
                             </div>
                             <div class="form-group col-md-6">
-                                <label for="{{ form.resolution_time.id_for_label }}">وقت الحل (ساعة):</label>
-                                {{ form.resolution_time }}
-                                {% if form.resolution_time.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.resolution_time.errors }}</div>
+                                <label for="{{ form.resolution_time_hours.id_for_label }}">وقت الحل (ساعة):</label>
+                                {{ form.resolution_time_hours }}
+                                {% if form.resolution_time_hours.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.resolution_time_hours.errors }}</div>
                                 {% endif %}
                                 <small class="form-text text-muted">الوقت المستهدف لحل المشكلة</small>
                             </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.device_category.id_for_label }}">فئة الجهاز:</label>
+                            {{ form.device_category }}
+                            {% if form.device_category.errors %}
+                                <div class="invalid-feedback d-block">{{ form.device_category.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">نوع الأجهزة المطبق عليها هذا SLA</small>
                         </div>
                         
                         <div class="form-group">

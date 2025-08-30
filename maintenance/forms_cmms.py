@@ -55,9 +55,8 @@ class WorkOrderForm(forms.ModelForm):
             field.widget.attrs['class'] = 'form-control'
         
         # هنا بنفلتر الفنيين اللي ممكن يتعينوا على أمر الشغل
-        # دي محتاجة تتعدل حسب نظام الصلاحيات في المشروع
-        # حاليًا بنفترض إن فيه جروب اسمه 'Technician' للفنيين
-        technicians = User.objects.filter(groups__name='Technician')
+        # فلترة بناءً على رول المستخدم
+        technicians = User.objects.filter(role='technician', is_active=True)
         self.fields['assignee'].queryset = technicians
         self.fields['assignee'].required = False  # ممكن نعمل أمر شغل بدون تعيين فني في البداية
 
@@ -166,10 +165,11 @@ class JobPlanForm(forms.ModelForm):
     
     class Meta:
         model = JobPlan
-        fields = ['name', 'description', 'job_type', 'estimated_hours', 'device_category']
+        fields = ['name', 'description', 'device_category', 'job_type', 'estimated_hours', 'instructions', 'safety_notes']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
             'instructions': forms.Textarea(attrs={'rows': 4}),
+            'safety_notes': forms.Textarea(attrs={'rows': 2}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -217,15 +217,16 @@ class PMScheduleForm(forms.ModelForm):
             self.fields['device'].queryset = Device.objects.filter(department=self.user.department)
         
         # تحديد الفنيين المتاحين للتعيين
-        technicians = User.objects.filter(groups__name='Technician')
+        # فلترة الفنيين بناءً على الرول
+        technicians = User.objects.filter(role='technician', is_active=True)
         self.fields['assigned_to'].queryset = technicians
         
-        # إخفاء حقول معينة حسب التكرار المختار
+        # إخفاء حقول معينة حسب التكرار المختار (إذا كانت موجودة)
         instance = kwargs.get('instance')
         if instance:
-            if instance.frequency != 'weekly':
+            if instance.frequency != 'weekly' and 'day_of_week' in self.fields:
                 self.fields['day_of_week'].widget = forms.HiddenInput()
-            if instance.frequency != 'monthly':
+            if instance.frequency != 'monthly' and 'day_of_month' in self.fields:
                 self.fields['day_of_month'].widget = forms.HiddenInput()
 
 # =============== Work Order Parts Forms ===============

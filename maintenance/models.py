@@ -1679,6 +1679,12 @@ class DowntimeEvent(models.Model):
     أحداث التوقف للأجهزة
     هنا بنتتبع فترات توقف الأجهزة عن العمل
     """
+    DOWNTIME_TYPE_CHOICES = [
+        ('planned', 'مخطط'),
+        ('unplanned', 'غير مخطط'),
+        ('emergency', 'طوارئ'),
+    ]
+    
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='downtime_events', verbose_name="الجهاز")
     start_time = models.DateTimeField(verbose_name="وقت بداية التوقف", null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True, verbose_name="وقت نهاية التوقف")
@@ -2023,6 +2029,7 @@ class PreventiveMaintenanceSchedule(models.Model):
     
     # Next occurrence
     next_due_date = models.DateField(verbose_name="تاريخ الاستحقاق التالي", null=True, blank=True)
+    last_completed_date = models.DateField(verbose_name="تاريخ آخر إنجاز", null=True, blank=True)
     
     # Assignment
     assigned_to = models.ForeignKey(
@@ -2051,19 +2058,23 @@ class PreventiveMaintenanceSchedule(models.Model):
         return f"{self.name} - {self.device.name}"
     
     def calculate_next_due_date(self):
-        """حساب تاريخ الاستحقاق التالي"""
-        from datetime import timedelta
+        """حساب تاريخ الاستحقاق التالي بناءً على التاريخ الحالي وليس التاريخ السابق"""
+        from datetime import timedelta, date
         import calendar
         
+        # استخدم التاريخ الحالي كنقطة بداية لحساب التاريخ التالي
+        today = date.today()
+        base_date = self.last_completed_date or today
+        
         if self.frequency == 'daily':
-            return self.next_due_date + timedelta(days=1)
+            return base_date + timedelta(days=1)
         elif self.frequency == 'weekly':
-            return self.next_due_date + timedelta(weeks=1)
+            return base_date + timedelta(weeks=1)
         elif self.frequency == 'monthly':
             # Add one month
-            year = self.next_due_date.year
-            month = self.next_due_date.month
-            day = self.next_due_date.day
+            year = base_date.year
+            month = base_date.month
+            day = base_date.day
             
             if month == 12:
                 year += 1
@@ -2076,18 +2087,17 @@ class PreventiveMaintenanceSchedule(models.Model):
             if day > max_day:
                 day = max_day
             
-            from datetime import date
             return date(year, month, day)
         elif self.frequency == 'quarterly':
-            return self.next_due_date + timedelta(days=90)
+            return base_date + timedelta(days=90)
         elif self.frequency == 'semi_annual':
-            return self.next_due_date + timedelta(days=180)
+            return base_date + timedelta(days=180)
         elif self.frequency == 'annual':
-            return self.next_due_date + timedelta(days=365)
+            return base_date + timedelta(days=365)
         elif self.frequency == 'custom' and self.interval_days:
-            return self.next_due_date + timedelta(days=self.interval_days)
+            return base_date + timedelta(days=self.interval_days)
         
-        return self.next_due_date
+        return base_date + timedelta(days=1)  # افتراضي يومي
     
     def is_due(self):
         """التحقق من استحقاق الصيانة"""
@@ -2102,11 +2112,11 @@ class PreventiveMaintenanceSchedule(models.Model):
     def generate_work_order(self):
         """إنشاء أمر عمل للصيانة الوقائية"""
         # Create service request first
-        sr = ServiceRequest.objects.create(
+        service_request = ServiceRequest.objects.create(
             device=self.device,
             reporter=self.created_by,
-            title=f"صيانة وقائية - {self.name}",
-            description=f"صيانة وقائية مجدولة: {self.description}",
+            title=f"صيانة وقائية - {self.device.name}",
+            description=f"صيانة وقائية مجدولة للجهاز {self.device.name}",
             request_type='preventive',
             priority='medium',
             status='new'
@@ -2114,19 +2124,21 @@ class PreventiveMaintenanceSchedule(models.Model):
         
         # Create work order
         wo = WorkOrder.objects.create(
-            service_request=sr,
-            title=f"صيانة وقائية - {self.name}",
-            description=self.job_plan.instructions,
+            service_request=service_request,
+            title=f"صيانة وقائية - {self.device.name}",
+            description=self.job_plan.instructions if self.job_plan else "صيانة وقائية عامة",
             wo_type='preventive',
             priority='medium',
             created_by=self.created_by,
             assignee=self.assigned_to,
-            estimated_hours=self.job_plan.estimated_hours
+            estimated_hours=self.job_plan.estimated_hours if self.job_plan else 2.0
         )
         
-        # Update next due date
+        # Update last completed date and next due date
+        from datetime import date
+        self.last_completed_date = date.today()
         self.next_due_date = self.calculate_next_due_date()
-        self.save()
+        self.save(update_fields=['last_completed_date', 'next_due_date'])
         
         return wo
 

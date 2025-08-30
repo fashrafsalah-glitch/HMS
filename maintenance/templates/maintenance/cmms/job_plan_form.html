@@ -46,11 +46,11 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label for="{{ form.device_type.id_for_label }}" class="form-label">نوع الجهاز <span class="text-danger">*</span></label>
-                            {{ form.device_type }}
-                            {% if form.device_type.errors %}
+                            <label for="{{ form.device_category.id_for_label }}" class="form-label">فئة الجهاز <span class="text-danger">*</span></label>
+                            {{ form.device_category }}
+                            {% if form.device_category.errors %}
                             <div class="text-danger">
-                                {{ form.device_type.errors }}
+                                {{ form.device_category.errors }}
                             </div>
                             {% endif %}
                         </div>
@@ -66,11 +66,41 @@
                         </div>
                         
                         <div class="mb-3">
+                            <label for="{{ form.job_type.id_for_label }}" class="form-label">نوع العمل <span class="text-danger">*</span></label>
+                            {{ form.job_type }}
+                            {% if form.job_type.errors %}
+                            <div class="text-danger">
+                                {{ form.job_type.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
                             <label for="{{ form.estimated_hours.id_for_label }}" class="form-label">الوقت المقدر (ساعات) <span class="text-danger">*</span></label>
                             {{ form.estimated_hours }}
                             {% if form.estimated_hours.errors %}
                             <div class="text-danger">
                                 {{ form.estimated_hours.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.instructions.id_for_label }}" class="form-label">تعليمات العمل</label>
+                            {{ form.instructions }}
+                            {% if form.instructions.errors %}
+                            <div class="text-danger">
+                                {{ form.instructions.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.safety_notes.id_for_label }}" class="form-label">ملاحظات السلامة</label>
+                            {{ form.safety_notes }}
+                            {% if form.safety_notes.errors %}
+                            <div class="text-danger">
+                                {{ form.safety_notes.errors }}
                             </div>
                             {% endif %}
                         </div>
@@ -109,26 +139,23 @@
                         {% for step in job_plan.steps.all %}
                         <div class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1">{{ step.step_number }}. {{ step.description|truncatechars:30 }}</h5>
+                                <h5 class="mb-1">{{ step.step_number }}. {{ step.title|truncatechars:30 }}</h5>
                                 <div>
                                     <button type="button" class="btn btn-warning btn-sm edit-step" 
                                             data-id="{{ step.id }}" 
                                             data-number="{{ step.step_number }}" 
+                                            data-title="{{ step.title }}"
                                             data-description="{{ step.description }}" 
-                                            data-minutes="{{ step.estimated_minutes }}" 
-                                            data-tools="{{ step.tools_required }}" 
-                                            data-safety="{{ step.safety_instructions }}">
+                                            data-minutes="{{ step.estimated_minutes }}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <a href="{% url 'job_plan_step_delete' step.id %}" class="btn btn-danger btn-sm">
+                                    <a href="{% url 'maintenance:cmms:job_plan_step_delete' step.id %}" class="btn btn-danger btn-sm">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
                             </div>
-                            <p class="mb-1">الوقت المقدر: {{ step.estimated_minutes }} دقيقة</p>
-                            {% if step.tools_required %}
-                            <small>الأدوات المطلوبة: {{ step.tools_required|truncatechars:50 }}</small>
-                            {% endif %}
+                            <p class="mb-1">{{ step.description|truncatechars:50 }}</p>
+                            <small class="text-muted">الوقت المقدر: {{ step.estimated_minutes }} دقيقة</small>
                         </div>
                         {% endfor %}
                     </div>
@@ -153,7 +180,7 @@
                 <h5 class="modal-title" id="addStepModalLabel">إضافة خطوة عمل جديدة</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="post" action="{% url 'job_plan_add_step' job_plan.id %}" id="step-form">
+            <form method="post" action="{% url 'maintenance:cmms:job_plan_add_step' job_plan.id %}" id="step-form">
                 <div class="modal-body">
                     {% csrf_token %}
                     <input type="hidden" name="step_id" id="step_id" value="">
@@ -164,23 +191,18 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="id_description" class="form-label">وصف الخطوة <span class="text-danger">*</span></label>
-                        <textarea name="description" id="id_description" class="form-control" rows="2" required></textarea>
+                        <label for="id_title" class="form-label">عنوان الخطوة <span class="text-danger">*</span></label>
+                        <input type="text" name="title" id="id_title" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">وصف الخطوة</label>
+                        <textarea name="description" id="id_description" class="form-control" rows="2"></textarea>
                     </div>
                     
                     <div class="mb-3">
                         <label for="id_estimated_minutes" class="form-label">الوقت المقدر (دقائق) <span class="text-danger">*</span></label>
                         <input type="number" name="estimated_minutes" id="id_estimated_minutes" class="form-control" required min="1">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_tools_required" class="form-label">الأدوات المطلوبة</label>
-                        <textarea name="tools_required" id="id_tools_required" class="form-control" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_safety_instructions" class="form-label">تعليمات السلامة</label>
-                        <textarea name="safety_instructions" id="id_safety_instructions" class="form-control" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -202,17 +224,15 @@
         $('.edit-step').click(function() {
             var id = $(this).data('id');
             var number = $(this).data('number');
+            var title = $(this).data('title');
             var description = $(this).data('description');
             var minutes = $(this).data('minutes');
-            var tools = $(this).data('tools');
-            var safety = $(this).data('safety');
             
             $('#step_id').val(id);
             $('#id_step_number').val(number);
+            $('#id_title').val(title);
             $('#id_description').val(description);
             $('#id_estimated_minutes').val(minutes);
-            $('#id_tools_required').val(tools);
-            $('#id_safety_instructions').val(safety);
             
             $('#addStepModalLabel').text('تعديل خطوة العمل');
             $('#addStepModal').modal('show');

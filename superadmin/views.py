@@ -39,7 +39,7 @@ class CustomLoginView(LoginView):
                 # مثال: صفحة جدول المناوبات
                 return reverse_lazy('hr:shift_patient_list')
             elif user.role == 'technician':
-                return reverse_lazy('maintenance:maintenance_list')
+                return reverse_lazy('maintenance:cmms:technician_dashboard')
             else:
                 # أي دور آخر - صفحة عامة آمنة
                 return reverse_lazy('core:home')

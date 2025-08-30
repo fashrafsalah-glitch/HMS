@@ -21,23 +21,23 @@
                         معلومات الجدول
                     </div>
                     <div>
-                        <a href="{% url 'pm_schedule_update' schedule.id %}" class="btn btn-warning btn-sm">
+                        <a href="{% url 'maintenance:cmms:pm_schedule_update' schedule.id %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
-                        <a href="{% url 'pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
+                        <a href="{% url 'maintenance:cmms:pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
                             <i class="fas fa-trash"></i> حذف
                         </a>
                         {% if schedule.status == 'active' %}
-                        <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm">
+                        <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-pause"></i> إيقاف
                         </a>
                         {% elif schedule.status == 'inactive' %}
-                        <a href="{% url 'pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm">
+                        <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm">
                             <i class="fas fa-play"></i> تنشيط
                         </a>
                         {% endif %}
                         {% if schedule.status == 'active' %}
-                        <a href="{% url 'pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:cmms:pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-tools"></i> إنشاء أمر شغل
                         </a>
                         {% endif %}
@@ -55,7 +55,7 @@
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">خطة العمل:</div>
                         <div class="col-md-9">
-                            <a href="{% url 'job_plan_detail' schedule.job_plan.id %}">
+                            <a href="{% url 'maintenance:cmms:job_plan_detail' schedule.job_plan.id %}">
                                 {{ schedule.job_plan.name }}
                             </a>
                         </div>
