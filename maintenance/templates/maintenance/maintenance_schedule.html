@@ -195,34 +195,102 @@
             <form method="post">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="maintenance_type">نوع الصيانة</label>
-                        <select class="form-control" id="maintenance_type" name="maintenance_type" required>
-                            <option value="">اختر نوع الصيانة</option>
-                            <option value="preventive">صيانة وقائية</option>
-                            <option value="calibration">معايرة</option>
-                            <option value="inspection">فحص دوري</option>
-                        </select>
+                    <div class="form-group mb-3">
+                        <label for="id_name" class="form-label">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {% if form.name.help_text %}
+                            <div class="form-text">{{ form.name.help_text }}</div>
+                        {% endif %}
                     </div>
-                    <div class="form-group">
-                        <label for="schedule_type">تكرار الصيانة</label>
-                        <select class="form-control" id="schedule_type" name="schedule_type" required>
-                            <option value="">اختر التكرار</option>
-                            <option value="daily">يومي</option>
-                            <option value="weekly">أسبوعي</option>
-                            <option value="monthly">شهري</option>
-                            <option value="quarterly">ربع سنوي</option>
-                            <option value="yearly">سنوي</option>
-                        </select>
+                    
+                    <div class="form-group mb-3">
+                        <label for="id_description" class="form-label">{{ form.description.label }}</label>
+                        {{ form.description }}
+                        {% if form.description.help_text %}
+                            <div class="form-text">{{ form.description.help_text }}</div>
+                        {% endif %}
                     </div>
-                    <div class="form-group">
-                        <label for="next_maintenance">تاريخ الصيانة القادمة</label>
-                        <input type="date" class="form-control" id="next_maintenance" name="next_maintenance" required>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_job_plan" class="form-label">{{ form.job_plan.label }}</label>
+                                {{ form.job_plan }}
+                                {% if form.job_plan.help_text %}
+                                    <div class="form-text">{{ form.job_plan.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_frequency" class="form-label">{{ form.frequency.label }}</label>
+                                {{ form.frequency }}
+                                {% if form.frequency.help_text %}
+                                    <div class="form-text">{{ form.frequency.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="maintenance_notes">ملاحظات</label>
-                        <textarea class="form-control" id="maintenance_notes" name="maintenance_notes" rows="3" placeholder="أدخل أي ملاحظات إضافية..."></textarea>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_start_date" class="form-label">{{ form.start_date.label }}</label>
+                                {{ form.start_date }}
+                                {% if form.start_date.help_text %}
+                                    <div class="form-text">{{ form.start_date.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_next_due_date" class="form-label">{{ form.next_due_date.label }}</label>
+                                {{ form.next_due_date }}
+                                {% if form.next_due_date.help_text %}
+                                    <div class="form-text">{{ form.next_due_date.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_end_date" class="form-label">{{ form.end_date.label }} (اختياري)</label>
+                                {{ form.end_date }}
+                                {% if form.end_date.help_text %}
+                                    <div class="form-text">{{ form.end_date.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="id_interval_days" class="form-label">{{ form.interval_days.label }} (اختياري)</label>
+                                {{ form.interval_days }}
+                                {% if form.interval_days.help_text %}
+                                    <div class="form-text">{{ form.interval_days.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="id_assigned_to" class="form-label">{{ form.assigned_to.label }}</label>
+                        {{ form.assigned_to }}
+                        {% if form.assigned_to.help_text %}
+                            <div class="form-text">{{ form.assigned_to.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="id_is_active">
+                            {{ form.is_active.label }}
+                        </label>
+                    </div>
+                    
+                    <!-- حقل مخفي لنوع الصيانة للتوافق مع الكود القديم -->
+                    <input type="hidden" id="maintenance_type" name="maintenance_type" value="preventive">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>

@@ -598,6 +598,105 @@ class SparePartForm(forms.ModelForm):
         return cleaned_data
 
 
+class PreventiveMaintenanceScheduleForm(forms.ModelForm):
+    """نموذج جدولة الصيانة الوقائية والمعايرة"""
+    
+    class Meta:
+        model = PreventiveMaintenanceSchedule
+        fields = [
+            'name', 'description', 'job_plan', 'frequency', 'interval_days',
+            'start_date', 'end_date', 'next_due_date', 'assigned_to', 'is_active'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'اسم الجدولة (مثل: صيانة وقائية شهرية)',
+                'required': True
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'وصف تفصيلي للصيانة المطلوبة'
+            }),
+            'job_plan': forms.Select(attrs={
+                'class': 'form-control',
+                'required': True
+            }),
+            'frequency': forms.Select(attrs={
+                'class': 'form-control',
+                'required': True
+            }),
+            'interval_days': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'placeholder': 'عدد الأيام (اختياري)'
+            }),
+            'start_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True
+            }),
+            'end_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'next_due_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True
+            }),
+            'assigned_to': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            })
+        }
+        labels = {
+            'name': 'اسم الجدولة',
+            'description': 'الوصف',
+            'job_plan': 'خطة العمل',
+            'frequency': 'التكرار',
+            'interval_days': 'الفترة بالأيام',
+            'start_date': 'تاريخ البدء',
+            'end_date': 'تاريخ الانتهاء',
+            'next_due_date': 'تاريخ الاستحقاق التالي',
+            'assigned_to': 'مُعين إلى',
+            'is_active': 'نشط'
+        }
+
+    def __init__(self, *args, **kwargs):
+        device = kwargs.pop('device', None)
+        super().__init__(*args, **kwargs)
+        
+        # فلترة خطط العمل النشطة فقط
+        self.fields['job_plan'].queryset = JobPlan.objects.filter(is_active=True)
+        
+        # فلترة المستخدمين (الفنيين فقط)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.fields['assigned_to'].queryset = User.objects.filter(is_active=True)
+        
+        # إضافة خيار فارغ
+        self.fields['assigned_to'].empty_label = "اختر الفني المسؤول"
+        self.fields['job_plan'].empty_label = "اختر خطة العمل"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        next_due_date = cleaned_data.get('next_due_date')
+        
+        # التحقق من صحة التواريخ
+        if start_date and end_date and start_date >= end_date:
+            raise forms.ValidationError("تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء")
+        
+        if start_date and next_due_date and next_due_date < start_date:
+            raise forms.ValidationError("تاريخ الاستحقاق التالي يجب أن يكون بعد تاريخ البدء")
+        
+        return cleaned_data
+
+
 class OperationDefinitionForm(forms.ModelForm):
     """نموذج إدارة تعريفات العمليات"""
     

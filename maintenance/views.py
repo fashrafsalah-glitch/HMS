@@ -854,46 +854,48 @@ def maintenance_schedule(request, device_id):
     work_orders = WorkOrder.objects.filter(service_request__device=device).order_by('-created_at')[:5]
     
     if request.method == 'POST':
-        # معالجة بيانات النموذج
-        schedule_type = request.POST.get('schedule_type')
-        next_maintenance = request.POST.get('next_maintenance')
-        maintenance_type = request.POST.get('maintenance_type')
-        maintenance_notes = request.POST.get('maintenance_notes')
+        from .forms import PreventiveMaintenanceScheduleForm
+        form = PreventiveMaintenanceScheduleForm(request.POST, device=device)
         
-        # إنشاء جدولة صيانة جديدة
-        from datetime import datetime
-        try:
-            next_date = datetime.strptime(next_maintenance, '%Y-%m-%d').date()
+        if form.is_valid():
+            # إنشاء جدولة صيانة جديدة
+            schedule = form.save(commit=False)
+            schedule.device = device
+            schedule.created_by = request.user
             
-            # إنشاء أو الحصول على خطة عمل افتراضية
-            job_plan, created = JobPlan.objects.get_or_create(
-                name=f"خطة صيانة {maintenance_type}",
-                defaults={
-                    'description': f"خطة صيانة {maintenance_type} افتراضية",
-                    'estimated_duration': 60,  # 60 دقيقة افتراضي
-                    'created_by': request.user
-                }
-            )
+            # إذا لم يتم تحديد خطة عمل، أنشئ واحدة افتراضية
+            if not schedule.job_plan:
+                maintenance_type = request.POST.get('maintenance_type', 'صيانة عامة')
+                job_plan, created = JobPlan.objects.get_or_create(
+                    name=f"خطة صيانة {maintenance_type} - {device.name}",
+                    defaults={
+                        'description': f"خطة صيانة {maintenance_type} افتراضية للجهاز {device.name}",
+                        'estimated_duration': 60,  # 60 دقيقة افتراضي
+                        'created_by': request.user,
+                        'is_active': True
+                    }
+                )
+                schedule.job_plan = job_plan
             
-            PreventiveMaintenanceSchedule.objects.create(
-                device=device,
-                job_plan=job_plan,
-                frequency=schedule_type,
-                next_due_date=next_date,
-                created_by=request.user
-            )
-            messages.success(request, f'تم جدولة صيانة {maintenance_type} للجهاز {device.name} بتاريخ {next_maintenance}')
-        except ValueError:
-            messages.error(request, 'تاريخ غير صحيح')
-        
-        return redirect('maintenance:maintenance_schedule', device_id=device_id)
+            schedule.save()
+            messages.success(request, f'تم جدولة الصيانة "{schedule.name}" للجهاز {device.name} بنجاح')
+            return redirect('maintenance:maintenance_schedule', device_id=device_id)
+        else:
+            # عرض أخطاء النموذج
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{form.fields[field].label}: {error}')
+    else:
+        from .forms import PreventiveMaintenanceScheduleForm
+        form = PreventiveMaintenanceScheduleForm(device=device)
     
     return render(request, 'maintenance/maintenance_schedule.html', {
         'device': device,
         'device_id': device_id,
         'scheduled_maintenances': scheduled_maintenances,
         'maintenance_logs': maintenance_logs,
-        'work_orders': work_orders
+        'work_orders': work_orders,
+        'form': form
     })
 
 @login_required
