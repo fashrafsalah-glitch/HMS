@@ -94,17 +94,48 @@ def device_performance_dashboard(request):
     if department_id:
         devices = devices.filter(department_id=department_id)
     
+    # حساب إحصائيات الأجهزة العامة
+    total_devices = devices.count()
+    down_devices = devices.filter(status='out_of_service').count()
+    
     # حساب نقاط الأداء لكل جهاز
     device_scores = []
+    performance_categories = {'excellent': 0, 'very_good': 0, 'good': 0, 'fair': 0, 'poor': 0}
+    
     for device in devices[:20]:  # أول 20 جهاز بس عشان الصفحة متبطئش
         try:
             score = get_device_performance_score(device.id)
+            mtbf = calculate_mtbf(device_id=device.id)
+            mttr = calculate_mttr(device_id=device.id)
+            availability = calculate_availability(device_id=device.id)
+            
+            # تصنيف الأداء
+            if score >= 90:
+                performance_categories['excellent'] += 1
+                performance_color = 'success'
+            elif score >= 80:
+                performance_categories['very_good'] += 1
+                performance_color = 'info'
+            elif score >= 70:
+                performance_categories['good'] += 1
+                performance_color = 'primary'
+            elif score >= 50:
+                performance_categories['fair'] += 1
+                performance_color = 'warning'
+            else:
+                performance_categories['poor'] += 1
+                performance_color = 'danger'
+            
             device_scores.append({
                 'device': device,
                 'score': score,
-                'mtbf': calculate_mtbf(device_id=device.id),
-                'mttr': calculate_mttr(device_id=device.id),
-                'availability': calculate_availability(device_id=device.id),
+                'mtbf': mtbf,
+                'mttr': mttr,
+                'availability': availability,
+                'performance_score': score,
+                'performance_color': performance_color,
+                'failures_count': ServiceRequest.objects.filter(device=device, request_type='corrective').count(),
+                'total_downtime': round(mttr * ServiceRequest.objects.filter(device=device, request_type='corrective').count(), 1)
             })
         except Exception as e:
             # في حالة حدوث خطأ، نضع قيم افتراضية
@@ -114,19 +145,75 @@ def device_performance_dashboard(request):
                 'mtbf': 0,
                 'mttr': 0,
                 'availability': 0,
+                'performance_score': 0,
+                'performance_color': 'danger',
+                'failures_count': 0,
+                'total_downtime': 0
             })
+            performance_categories['poor'] += 1
     
-    # ترتيب الأجهزة حسب النقاط
-    device_scores.sort(key=lambda x: x['score'], reverse=True)
+    # ترتيب الأجهزة حسب النقاط (الأسوأ أولاً للجدول)
+    worst_performing_devices = sorted(device_scores, key=lambda x: x['score'])[:10]
+    
+    # حساب متوسط الإحصائيات
+    avg_uptime = sum([d['availability'] for d in device_scores]) / len(device_scores) if device_scores else 0
+    avg_mtbf = sum([d['mtbf'] for d in device_scores]) / len(device_scores) if device_scores else 0
+    avg_mttr = sum([d['mttr'] for d in device_scores]) / len(device_scores) if device_scores else 0
+    
+    # بيانات تحليل الأعطال حسب النوع
+    failure_types = ServiceRequest.objects.filter(request_type='corrective').values('request_type').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    # إضافة تحليل حسب الخطورة بدلاً من failure_type
+    severity_analysis = ServiceRequest.objects.filter(request_type='corrective').values('severity').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    failure_types_labels = [f['severity'] or 'غير محدد' for f in severity_analysis]
+    failure_types_data = [f['count'] for f in severity_analysis]
+    
+    # بيانات استخدام الأقسام
+    department_usage = devices.values('department__name').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    department_usage_labels = [d['department__name'] or 'غير محدد' for d in department_usage]
+    department_usage_data = [d['count'] for d in department_usage]
+    
+    # بيانات توزيع الأجهزة حسب العمر (استخدام production_date بدلاً من purchase_date)
+    from datetime import datetime
+    current_year = datetime.now().year
+    device_age_data = {
+        'less_than_1_year': devices.filter(production_date__year=current_year).count(),
+        'one_to_3_years': devices.filter(production_date__year__in=[current_year-1, current_year-2]).count(),
+        'three_to_5_years': devices.filter(production_date__year__in=[current_year-3, current_year-4]).count(),
+        'five_to_7_years': devices.filter(production_date__year__in=[current_year-5, current_year-6]).count(),
+        'more_than_7_years': devices.filter(production_date__year__lt=current_year-6).count()
+    }
     
     # جلب الأقسام للفلترة
     departments = Department.objects.all().order_by('name')
     
     context = {
         'device_scores': device_scores,
+        'worst_performing_devices': worst_performing_devices,
         'departments': departments,
         'selected_department_id': department_id,
         'page_title': 'أداء الأجهزة',
+        'device_stats': {
+            'avg_uptime': avg_uptime,
+            'avg_mtbf': avg_mtbf,
+            'avg_mttr': avg_mttr,
+            'down_devices_count': down_devices,
+            'total_devices': total_devices
+        },
+        'device_performance_data': performance_categories,
+        'failure_types_labels': failure_types_labels,
+        'failure_types_data': failure_types_data,
+        'department_usage_labels': department_usage_labels,
+        'department_usage_data': department_usage_data,
+        'device_age_data': device_age_data,
     }
     
     return render(request, 'maintenance/dashboard/device_performance_dashboard.html', context)
@@ -143,8 +230,7 @@ def work_order_analytics(request):
     # حساب إحصائيات أوامر الشغل
     wo_stats = calculate_work_order_stats(department_id=department_id, days=days)
     
-    # إحصائيات حسب نوع الطلب
-    request_type_stats = {}
+    # فلترة أوامر الشغل حسب القسم والتاريخ
     work_orders = WorkOrder.objects.filter(
         created_at__gte=timezone.now() - timedelta(days=days)
     )
@@ -152,34 +238,169 @@ def work_order_analytics(request):
     if department_id:
         work_orders = work_orders.filter(service_request__device__department_id=department_id)
     
-    for request_type in ['breakdown', 'preventive', 'calibration', 'inspection']:
-        count = work_orders.filter(service_request__request_type=request_type).count()
-        request_type_stats[request_type] = count
+    # إحصائيات أوامر الشغل الأساسية
+    total_work_orders = work_orders.count()
+    completed_work_orders = work_orders.filter(status='closed')
     
-    # إحصائيات حسب الأولوية
-    priority_stats = {}
-    for priority in ['low', 'medium', 'high', 'critical']:
-        count = work_orders.filter(service_request__priority=priority).count()
-        priority_stats[priority] = count
+    # حساب متوسط وقت الإنجاز
+    avg_completion_time = 0
+    if completed_work_orders.exists():
+        completion_times = []
+        for wo in completed_work_orders:
+            if wo.actual_end and wo.actual_start:
+                completion_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                completion_times.append(completion_time)
+        avg_completion_time = sum(completion_times) / len(completion_times) if completion_times else 0
+    
+    # حساب نسبة الالتزام بالـ SLA
+    sla_compliant = work_orders.filter(
+        service_request__resolution_due__gte=F('actual_end')
+    ).count() if work_orders.filter(actual_end__isnull=False).exists() else 0
+    sla_compliance = (sla_compliant / total_work_orders * 100) if total_work_orders > 0 else 0
+    
+    # أوامر الشغل المتأخرة
+    overdue_work_orders_count = work_orders.filter(
+        status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'resolved'],
+        service_request__resolution_due__lt=timezone.now()
+    ).count()
+    
+    # إحصائيات أوامر الشغل للكاردات
+    work_order_stats = {
+        'total_work_orders': total_work_orders,
+        'avg_completion_time': round(avg_completion_time, 1),
+        'sla_compliance': round(sla_compliance, 1),
+        'sla_compliance_color': 'success' if sla_compliance >= 80 else 'warning' if sla_compliance >= 60 else 'danger',
+        'overdue_work_orders': overdue_work_orders_count
+    }
+    
+    # توزيع أوامر الشغل حسب الحالة
+    work_order_status = {
+        'new': work_orders.filter(status='new').count(),
+        'assigned': work_orders.filter(status='assigned').count(),
+        'in_progress': work_orders.filter(status='in_progress').count(),
+        'wait_parts': work_orders.filter(status='wait_parts').count(),
+        'resolved': work_orders.filter(status='resolved').count(),
+        'closed': work_orders.filter(status='closed').count(),
+        'cancelled': work_orders.filter(status='cancelled').count()
+    }
+    
+    # توزيع أوامر الشغل حسب النوع
+    work_order_type = {
+        'corrective': work_orders.filter(service_request__request_type='breakdown').count(),
+        'preventive': work_orders.filter(service_request__request_type='preventive').count(),
+        'inspection': work_orders.filter(service_request__request_type='inspection').count(),
+        'calibration': work_orders.filter(service_request__request_type='calibration').count(),
+        'upgrade': work_orders.filter(service_request__request_type='upgrade').count() if work_orders.filter(service_request__request_type='upgrade').exists() else 0,
+        'installation': work_orders.filter(service_request__request_type='installation').count() if work_orders.filter(service_request__request_type='installation').exists() else 0
+    }
+    
+    # توزيع أوامر الشغل حسب الأولوية
+    work_order_priority = {
+        'critical': work_orders.filter(service_request__priority='critical').count(),
+        'high': work_orders.filter(service_request__priority='high').count(),
+        'medium': work_orders.filter(service_request__priority='medium').count(),
+        'low': work_orders.filter(service_request__priority='low').count()
+    }
+    
+    # اتجاهات أوامر الشغل (آخر 12 أسبوع)
+    weeks = []
+    new_orders = []
+    completed_orders = []
+    
+    for i in range(12):
+        week_start = timezone.now() - timedelta(weeks=i+1)
+        week_end = timezone.now() - timedelta(weeks=i)
+        
+        week_label = f"الأسبوع {12-i}"
+        weeks.append(week_label)
+        
+        week_new = work_orders.filter(created_at__range=[week_start, week_end]).count()
+        week_completed = work_orders.filter(
+            status='closed',
+            actual_end__range=[week_start, week_end]
+        ).count()
+        
+        new_orders.append(week_new)
+        completed_orders.append(week_completed)
+    
+    work_order_trends = {
+        'weeks': weeks,
+        'new_orders': new_orders,
+        'completed_orders': completed_orders
+    }
+    
+    # أوامر الشغل حسب القسم
+    departments_list = Department.objects.all()
+    dept_names = []
+    dept_counts = []
+    
+    for dept in departments_list:
+        dept_work_orders = work_orders.filter(service_request__device__department=dept).count()
+        if dept_work_orders > 0:
+            dept_names.append(dept.name)
+            dept_counts.append(dept_work_orders)
+    
+    department_work_orders = {
+        'departments': dept_names,
+        'counts': dept_counts
+    }
+    
+    # إحصائيات الفنيين
+    from hr.models import CustomUser
+    technicians = CustomUser.objects.filter(role='technician')
+    technician_stats = []
+    
+    for tech in technicians:
+        tech_work_orders = work_orders.filter(assignee=tech)
+        tech_completed = tech_work_orders.filter(status='closed')
+        tech_overdue = tech_work_orders.filter(
+            status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'resolved'],
+            service_request__resolution_due__lt=timezone.now()
+        )
+        
+        # حساب متوسط وقت الإنجاز للفني
+        tech_completion_times = []
+        for wo in tech_completed:
+            if wo.actual_end and wo.actual_start:
+                completion_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                tech_completion_times.append(completion_time)
+        
+        tech_avg_completion = sum(tech_completion_times) / len(tech_completion_times) if tech_completion_times else 0
+        
+        # حساب نسبة الالتزام بالـ SLA للفني
+        tech_sla_compliant = tech_work_orders.filter(
+            service_request__resolution_due__gte=F('actual_end')
+        ).count() if tech_work_orders.filter(actual_end__isnull=False).exists() else 0
+        tech_sla_compliance = (tech_sla_compliant / tech_work_orders.count() * 100) if tech_work_orders.count() > 0 else 0
+        
+        if tech_work_orders.count() > 0:
+            technician_stats.append({
+                'name': f"{tech.first_name} {tech.last_name}",
+                'total_work_orders': tech_work_orders.count(),
+                'completed_work_orders': tech_completed.count(),
+                'overdue_work_orders': tech_overdue.count(),
+                'avg_completion_time': round(tech_avg_completion, 1),
+                'sla_compliance': round(tech_sla_compliance, 1),
+                'sla_compliance_color': 'success' if tech_sla_compliance >= 80 else 'warning' if tech_sla_compliance >= 60 else 'danger'
+            })
     
     # أوامر الشغل الأكثر تأخيراً
-    overdue_work_orders = WorkOrder.objects.filter(
+    overdue_work_orders = work_orders.filter(
         status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'resolved'],
         service_request__resolution_due__lt=timezone.now()
     ).order_by('service_request__resolution_due')
-    
-    if department_id:
-        overdue_work_orders = overdue_work_orders.filter(
-            service_request__device__department_id=department_id
-        )
     
     # جلب الأقسام للفلترة
     departments = Department.objects.all().order_by('name')
     
     context = {
-        'wo_stats': wo_stats,
-        'request_type_stats': request_type_stats,
-        'priority_stats': priority_stats,
+        'work_order_stats': work_order_stats,
+        'work_order_status': work_order_status,
+        'work_order_type': work_order_type,
+        'work_order_priority': work_order_priority,
+        'work_order_trends': work_order_trends,
+        'department_work_orders': department_work_orders,
+        'technician_stats': technician_stats,
         'overdue_work_orders': overdue_work_orders[:10],
         'departments': departments,
         'selected_department_id': department_id,
@@ -195,30 +416,56 @@ def spare_parts_analytics(request):
     تحليلات قطع الغيار
     هنا بنشوف وضع المخزون وحركة قطع الغيار
     """
+    from django.db.models import Sum, Count, Avg, F, Q, Max
+    from .models import SparePartTransaction
+    
     # حساب إحصائيات قطع الغيار
     spare_parts_stats = calculate_spare_parts_stats()
     
+    # حساب القيمة الإجمالية للمخزون من البيانات الحقيقية
+    total_inventory_value = SparePart.objects.aggregate(
+        total_value=Sum(F('current_stock') * F('unit_cost'))
+    )['total_value'] or 0
+    
+    # حساب معدل دوران المخزون الحقيقي
+    # معدل دوران المخزون = إجمالي الاستهلاك السنوي / متوسط المخزون
+    annual_consumption = SparePartTransaction.objects.filter(
+        transaction_type='out',
+        transaction_date__gte=timezone.now() - timedelta(days=365)
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    
+    avg_inventory = SparePart.objects.aggregate(
+        avg_stock=Avg('current_stock')
+    )['avg_stock'] or 1
+    
+    inventory_turnover = annual_consumption / avg_inventory if avg_inventory > 0 else 0
+    
     # إضافة بيانات مفقودة للإحصائيات
     spare_parts_stats.update({
-        'total_value': spare_parts_stats.get('total_inventory_value', 0),
+        'total_value': total_inventory_value,
         'below_threshold_count': spare_parts_stats.get('low_stock_parts', 0) + spare_parts_stats.get('out_of_stock_parts', 0),
         'below_threshold_color': 'danger' if spare_parts_stats.get('low_stock_parts', 0) + spare_parts_stats.get('out_of_stock_parts', 0) > 0 else 'success',
-        'inventory_turnover': 2.5  # قيمة افتراضية
+        'inventory_turnover': round(inventory_turnover, 1)
     })
     
-    # قطع الغيار الأكثر استخداماً - بيانات وهمية للعرض
+    # قطع الغيار الأكثر استخداماً - بيانات حقيقية
     most_used_parts = []
-    spare_parts = SparePart.objects.all()[:10]
-    for i, part in enumerate(spare_parts):
+    # جلب قطع الغيار مع عدد مرات الاستخدام الحقيقي
+    parts_usage = SparePart.objects.annotate(
+        usage_count=Count('transactions', filter=Q(transactions__transaction_type='out')),
+        last_transaction=Max('transactions__transaction_date')
+    ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+    
+    for part in parts_usage:
         most_used_parts.append({
             'part_number': part.part_number,
             'name': part.name,
             'category': part.device_category.name if part.device_category else 'عام',
-            'usage_count': 15 - i,  # قيم وهمية
-            'last_used': timezone.now() - timedelta(days=i*3),
+            'usage_count': part.usage_count,
+            'last_used': part.last_transaction or part.created_at,
             'current_stock': part.current_stock,
-            'stock_status': 'متاح' if part.current_stock > 10 else 'منخفض',
-            'stock_status_color': 'success' if part.current_stock > 10 else 'warning'
+            'stock_status': 'متاح' if part.current_stock > part.minimum_stock else 'منخفض' if part.current_stock > 0 else 'نفد',
+            'stock_status_color': 'success' if part.current_stock > part.minimum_stock else 'warning' if part.current_stock > 0 else 'danger'
         })
     
     # قطع الغيار المحتاجة إعادة طلب
@@ -239,31 +486,81 @@ def spare_parts_analytics(request):
             'preferred_supplier': part.primary_supplier.name if part.primary_supplier else 'غير محدد'
         })
     
-    # بيانات الرسوم البيانية
+    # بيانات الرسوم البيانية - بيانات حقيقية
+    # توزيع قطع الغيار حسب الفئة
+    category_data = SparePart.objects.values('device_category__name').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
     spare_parts_category = {
-        'categories': ['كهربائية', 'ميكانيكية', 'إلكترونية', 'استهلاكية', 'أخرى'],
-        'counts': [25, 30, 15, 20, 10]
+        'categories': [item['device_category__name'] or 'غير محدد' for item in category_data],
+        'counts': [item['count'] for item in category_data]
     }
+    
+    # توزيع قطع الغيار حسب الموردين
+    supplier_data = SparePart.objects.values('primary_supplier__name').annotate(
+        count=Count('id')
+    ).order_by('-count')[:8]
     
     supplier_distribution = {
-        'suppliers': ['المورد الأول', 'المورد الثاني', 'المورد الثالث', 'أخرى'],
-        'counts': [40, 25, 20, 15]
+        'suppliers': [item['primary_supplier__name'] or 'غير محدد' for item in supplier_data],
+        'counts': [item['count'] for item in supplier_data]
     }
     
+    # اتجاهات الاستهلاك - بيانات حقيقية من المعاملات
+    import calendar
+    monthly_consumption = {}
+    for i in range(6):
+        month_start = timezone.now().replace(day=1) - timedelta(days=30*i)
+        month_end = month_start.replace(day=calendar.monthrange(month_start.year, month_start.month)[1])
+        
+        month_transactions = SparePartTransaction.objects.filter(
+            transaction_type='out',
+            transaction_date__range=[month_start, month_end]
+        )
+        
+        monthly_consumption[month_start.strftime('%Y-%m')] = {
+            'name': calendar.month_name[month_start.month],
+            'quantity': month_transactions.aggregate(total=Sum('quantity'))['total'] or 0,
+            'cost': month_transactions.aggregate(
+                total=Sum(F('quantity') * F('spare_part__unit_cost'))
+            )['total'] or 0
+        }
+    
+    # ترتيب البيانات حسب التاريخ
+    sorted_months = sorted(monthly_consumption.items())
     consumption_trends = {
-        'months': ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'],
-        'quantities': [45, 52, 38, 61, 43, 55],
-        'costs': [15000, 18000, 14000, 22000, 16000, 19000]
+        'months': [data['name'] for _, data in sorted_months],
+        'quantities': [data['quantity'] for _, data in sorted_months],
+        'costs': [float(data['cost']) for _, data in sorted_months]
     }
+    
+    # تكلفة قطع الغيار حسب الجهاز - بيانات حقيقية
+    device_cost_data = SparePartTransaction.objects.filter(
+        transaction_type='out',
+        device__isnull=False,
+        transaction_date__gte=timezone.now() - timedelta(days=365)
+    ).values('device__name').annotate(
+        total_cost=Sum(F('quantity') * F('spare_part__unit_cost'))
+    ).order_by('-total_cost')[:10]
     
     device_cost = {
-        'devices': ['جهاز الأشعة', 'جهاز التنفس', 'جهاز القلب', 'المختبر'],
-        'costs': [25000, 18000, 15000, 12000]
+        'devices': [item['device__name'] for item in device_cost_data],
+        'costs': [float(item['total_cost'] or 0) for item in device_cost_data]
     }
     
+    # تكلفة قطع الغيار حسب القسم - بيانات حقيقية
+    department_cost_data = SparePartTransaction.objects.filter(
+        transaction_type='out',
+        device__department__isnull=False,
+        transaction_date__gte=timezone.now() - timedelta(days=365)
+    ).values('device__department__name').annotate(
+        total_cost=Sum(F('quantity') * F('spare_part__unit_cost'))
+    ).order_by('-total_cost')[:10]
+    
     department_cost = {
-        'departments': ['الطوارئ', 'العناية المركزة', 'الجراحة', 'المختبر'],
-        'costs': [35000, 28000, 22000, 18000]
+        'departments': [item['device__department__name'] for item in department_cost_data],
+        'costs': [float(item['total_cost'] or 0) for item in department_cost_data]
     }
     
     context = {
@@ -280,15 +577,31 @@ def spare_parts_analytics(request):
     
     return render(request, 'maintenance/dashboard/spare_parts_analytics.html', context)
 
+def calculate_real_sla_compliance(work_orders):
+    """حساب نسبة الالتزام بالـ SLA الحقيقية"""
+    if not work_orders.exists():
+        return 0
+    
+    compliant_count = 0
+    total_count = work_orders.count()
+    
+    for wo in work_orders:
+        if wo.actual_end and wo.service_request.resolution_due:
+            if wo.actual_end <= wo.service_request.resolution_due:
+                compliant_count += 1
+    
+    return (compliant_count / total_count * 100) if total_count > 0 else 0
+
 @login_required
 def maintenance_trends(request):
     """
     اتجاهات الصيانة
     هنا بنشوف إزاي الأداء بيتغير على مدار الوقت
     """
-    from django.db.models import Count, Avg
+    from django.db.models import Count, Avg, Sum, F, Q
     from datetime import datetime, timedelta
     import calendar
+    from .models import SparePartTransaction
     
     department_id = request.GET.get('department')
     date_range = request.GET.get('date_range', 'last_6_months')
@@ -468,7 +781,7 @@ def maintenance_trends(request):
         monthly_kpis[month_key] = {
             'response_time': sum(month_response_times) / len(month_response_times) if month_response_times else 0,
             'repair_time': sum(month_repair_times) / len(month_repair_times) if month_repair_times else 0,
-            'sla_compliance': 85 + (len(month_response_times) * 2) if month_response_times else 85  # تقدير بسيط
+            'sla_compliance': calculate_real_sla_compliance(month_completed) if month_completed.exists() else 0
         }
     
     kpi_trends = {
@@ -478,12 +791,47 @@ def maintenance_trends(request):
         'sla_compliance': [round(monthly_kpis.get(key, {}).get('sla_compliance', 85), 0) for key in monthly_data.keys()]
     }
     
-    # تكاليف الصيانة (بيانات تقديرية لأن لا يوجد نموذج تكلفة)
+    # تكاليف الصيانة - بيانات حقيقية من معاملات قطع الغيار
+    monthly_costs = {}
+    for month_key, month_data in monthly_data.items():
+        year, month = month_key.split('-')
+        month_start = datetime(int(year), int(month), 1)
+        month_end = month_start.replace(day=calendar.monthrange(int(year), int(month))[1])
+        
+        # تكلفة قطع الغيار الحقيقية
+        parts_cost = SparePartTransaction.objects.filter(
+            transaction_type='out',
+            transaction_date__range=[month_start, month_end]
+        ).aggregate(
+            total=Sum(F('quantity') * F('spare_part__unit_cost'))
+        )['total'] or 0
+        
+        # تقدير تكلفة العمالة بناءً على ساعات العمل الفعلية
+        month_work_orders = work_orders.filter(
+            created_at__year=int(year),
+            created_at__month=int(month),
+            status='closed'
+        )
+        
+        total_labor_hours = 0
+        for wo in month_work_orders:
+            if wo.actual_end and wo.actual_start:
+                labor_hours = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                total_labor_hours += labor_hours
+        
+        labor_cost = total_labor_hours * 50  # 50 ريال/ساعة كمتوسط
+        
+        monthly_costs[month_key] = {
+            'parts_cost': float(parts_cost),
+            'labor_cost': labor_cost,
+            'other_cost': (float(parts_cost) + labor_cost) * 0.1  # 10% تكاليف إضافية
+        }
+    
     cost_trends = {
         'time_periods': [data['name'] for data in monthly_data.values()],
-        'parts_cost': [data['corrective'] * 1000 + data['preventive'] * 500 for data in monthly_data.values()],
-        'labor_cost': [data['corrective'] * 800 + data['preventive'] * 400 for data in monthly_data.values()],
-        'other_cost': [data['corrective'] * 200 + data['preventive'] * 100 for data in monthly_data.values()]
+        'parts_cost': [monthly_costs.get(key, {}).get('parts_cost', 0) for key in monthly_data.keys()],
+        'labor_cost': [monthly_costs.get(key, {}).get('labor_cost', 0) for key in monthly_data.keys()],
+        'other_cost': [monthly_costs.get(key, {}).get('other_cost', 0) for key in monthly_data.keys()]
     }
     
     # توزيع الصيانة حسب الأقسام الحقيقي

@@ -4,6 +4,14 @@
 {% block title %}أداء الأجهزة | لوحة التحكم{% endblock %}
 
 {% block content %}
+<!-- JSON Data for Charts -->
+{{ device_performance_data|json_script:"device-performance-data" }}
+{{ failure_types_labels|json_script:"failure-types-labels" }}
+{{ failure_types_data|json_script:"failure-types-data" }}
+{{ department_usage_labels|json_script:"department-usage-labels" }}
+{{ department_usage_data|json_script:"department-usage-data" }}
+{{ device_age_data|json_script:"device-age-data" }}
+
 <div class="container-fluid mt-4">
     <div class="row mb-4">
         <div class="col-md-12">
@@ -63,7 +71,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">تصنيف الأجهزة حسب الأداء</h5>
+                    <h5 class="mb-0" style="color: #f7fafc;">تصنيف الأجهزة حسب الأداء</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -75,7 +83,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">الأجهزة الأكثر تعطلاً</h5>
+                    <h5 class="mb-0" style="color: #f7fafc;">الأجهزة الأكثر تعطلاً</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -92,8 +100,8 @@
                                 {% for device in worst_performing_devices %}
                                 <tr>
                                     <td>
-                                        <a href="{% url 'maintenance:device_detail' device.id %}">{{ device.name }}</a>
-                                        <small class="text-muted d-block">{{ device.serial_number }}</small>
+                                        <a href="{% url 'maintenance:device_detail' device.device.id %}">{{ device.device.name }}</a>
+                                        <small class="text-muted d-block">{{ device.device.serial_number }}</small>
                                     </td>
                                     <td>{{ device.failures_count }}</td>
                                     <td>{{ device.total_downtime }} ساعة</td>
@@ -128,7 +136,7 @@
         <div class="col-md-12">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">تحليل الأعطال حسب النوع</h5>
+                    <h5 class="mb-0" style="color: #f7fafc;">تحليل الأعطال حسب النوع</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -144,7 +152,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">الأقسام الأكثر استخداماً للأجهزة</h5>
+                    <h5 class="mb-0" style="color: #f7fafc;">الأقسام الأكثر استخداماً للأجهزة</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -156,7 +164,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">توزيع الأجهزة حسب العمر</h5>
+                    <h5 class="mb-0" style="color: #f7fafc;">توزيع الأجهزة حسب العمر</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -167,11 +175,16 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    // Parse JSON data
+    const devicePerformanceData = JSON.parse(document.getElementById('device-performance-data').textContent) || {};
+    const failureTypesLabels = JSON.parse(document.getElementById('failure-types-labels').textContent) || [];
+    const failureTypesData = JSON.parse(document.getElementById('failure-types-data').textContent) || [];
+    const departmentUsageLabels = JSON.parse(document.getElementById('department-usage-labels').textContent) || [];
+    const departmentUsageData = JSON.parse(document.getElementById('department-usage-data').textContent) || [];
+    const deviceAgeData = JSON.parse(document.getElementById('device-age-data').textContent) || {};
+
     // بيانات تصنيف الأجهزة حسب الأداء
     const devicePerformanceCtx = document.getElementById('devicePerformanceChart').getContext('2d');
     const devicePerformanceChart = new Chart(devicePerformanceCtx, {
@@ -180,11 +193,11 @@
             labels: ['ممتاز (90-100%)', 'جيد جداً (80-89%)', 'جيد (70-79%)', 'متوسط (50-69%)', 'ضعيف (<50%)'],
             datasets: [{
                 data: [
-                    {{ device_performance_data.excellent }},
-                    {{ device_performance_data.very_good }},
-                    {{ device_performance_data.good }},
-                    {{ device_performance_data.fair }},
-                    {{ device_performance_data.poor }}
+                    devicePerformanceData.excellent || 0,
+                    devicePerformanceData.very_good || 0,
+                    devicePerformanceData.good || 0,
+                    devicePerformanceData.fair || 0,
+                    devicePerformanceData.poor || 0
                 ],
                 backgroundColor: [
                     '#28a745',
@@ -211,10 +224,10 @@
     const failureTypesChart = new Chart(failureTypesCtx, {
         type: 'bar',
         data: {
-            labels: {{ failure_types_labels|safe }},
+            labels: failureTypesLabels,
             datasets: [{
                 label: 'عدد الأعطال',
-                data: {{ failure_types_data|safe }},
+                data: failureTypesData,
                 backgroundColor: '#36a2eb'
             }]
         },
@@ -234,9 +247,9 @@
     const departmentUsageChart = new Chart(departmentUsageCtx, {
         type: 'doughnut',
         data: {
-            labels: {{ department_usage_labels|safe }},
+            labels: departmentUsageLabels,
             datasets: [{
-                data: {{ department_usage_data|safe }},
+                data: departmentUsageData,
                 backgroundColor: [
                     '#4bc0c0',
                     '#ff6384',
@@ -267,11 +280,11 @@
             datasets: [{
                 label: 'عدد الأجهزة',
                 data: [
-                    {{ device_age_data.less_than_1_year }},
-                    {{ device_age_data.one_to_3_years }},
-                    {{ device_age_data.three_to_5_years }},
-                    {{ device_age_data.five_to_7_years }},
-                    {{ device_age_data.more_than_7_years }}
+                    deviceAgeData.less_than_1_year || 0,
+                    deviceAgeData.one_to_3_years || 0,
+                    deviceAgeData.three_to_5_years || 0,
+                    deviceAgeData.five_to_7_years || 0,
+                    deviceAgeData.more_than_7_years || 0
                 ],
                 backgroundColor: '#9966ff'
             }]

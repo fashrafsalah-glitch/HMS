@@ -218,9 +218,6 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // عرض/إخفاء حقول التاريخ المخصص
@@ -488,7 +485,7 @@
     // توزيع الصيانة حسب نوع الجهاز
     const deviceTypeMaintenanceCtx = document.getElementById('deviceTypeMaintenanceChart').getContext('2d');
     const deviceTypeMaintenanceChart = new Chart(deviceTypeMaintenanceCtx, {
-        type: 'horizontalBar',
+        type: 'bar',
         data: {
             labels: {{ device_type_maintenance.device_types|safe }},
             datasets: [
@@ -505,6 +502,7 @@
             ]
         },
         options: {
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             scales: {
@@ -550,11 +548,7 @@
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'عدد طلبات الصيانة'
-                    }
+                    beginAtZero: true
                 }
             }
         }

@@ -3,54 +3,6 @@
 
 {% block title %}تحليلات أوامر الشغل | لوحة التحكم{% endblock %}
 
-{% block extra_css %}
-<style>
-/* Color fixes for better contrast in both light and dark modes */
-[data-bs-theme="light"] .bg-primary .text-white,
-[data-bs-theme="light"] .card-header.bg-primary h5,
-[data-bs-theme="light"] .card-header.bg-primary .text-white {
-    color: #ffffff !important;
-}
-
-[data-bs-theme="dark"] .bg-primary .text-white,
-[data-bs-theme="dark"] .card-header.bg-primary h5,
-[data-bs-theme="dark"] .card-header.bg-primary .text-white {
-    color: #ffffff !important;
-}
-
-/* Ensure proper contrast for gradient backgrounds */
-[data-bs-theme="light"] .dashboard-card .text-white,
-[data-bs-theme="light"] .dashboard-section .text-white {
-    color: #2c3e50 !important;
-}
-
-[data-bs-theme="dark"] .dashboard-card .text-white,
-[data-bs-theme="dark"] .dashboard-section .text-white {
-    color: #f7fafc !important;
-}
-
-/* Fix card header backgrounds */
-.card-header.bg-primary {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
-    border: none;
-}
-
-/* Improve table readability */
-[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-/* Progress bar improvements */
-.progress {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-[data-bs-theme="dark"] .progress {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-</style>
-{% endblock %}
-
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="container-fluid mt-4">
@@ -112,7 +64,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">توزيع أوامر الشغل حسب الحالة</h5>
+                    <h5 class="mb-0">توزيع أوامر الشغل حسب الحالة</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 300px;">
@@ -124,7 +76,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">توزيع أوامر الشغل حسب النوع</h5>
+                    <h5 class="mb-0">توزيع أوامر الشغل حسب النوع</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 300px;">
@@ -140,7 +92,7 @@
         <div class="col-md-12">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">أوامر الشغل حسب الفني</h5>
+                    <h5 class="mb-0">أوامر الشغل حسب الفني</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -194,7 +146,7 @@
         <div class="col-md-12">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">اتجاهات أوامر الشغل (آخر 12 أسبوع)</h5>
+                    <h5 class="mb-0">اتجاهات أوامر الشغل (آخر 12 أسبوع)</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 400px;">
@@ -210,7 +162,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">أوامر الشغل حسب القسم</h5>
+                    <h5 class="mb-0">أوامر الشغل حسب القسم</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 300px;">
@@ -222,7 +174,7 @@
         <div class="col-md-6">
             <div class="card dashboard-section">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0" style="color: #f7fafc;">أوامر الشغل حسب الأولوية</h5>
+                    <h5 class="mb-0">أوامر الشغل حسب الأولوية</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 300px;">
@@ -240,17 +192,15 @@
 {{ work_order_priority|json_script:"priority-data" }}
 {{ work_order_trends|json_script:"trends-data" }}
 {{ department_work_orders|json_script:"department-data" }}
-{{ technician_stats|json_script:"technician-data" }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Parse JSON data safely
-    const statusData = JSON.parse(document.getElementById('status-data').textContent) || {};
-    const typeData = JSON.parse(document.getElementById('type-data').textContent) || {};
-    const priorityData = JSON.parse(document.getElementById('priority-data').textContent) || {};
-    const trendsData = JSON.parse(document.getElementById('trends-data').textContent) || {};
-    const departmentData = JSON.parse(document.getElementById('department-data').textContent) || {};
-    const technicianData = JSON.parse(document.getElementById('technician-data').textContent) || {};
+    // Get data from JSON scripts
+    const statusData = JSON.parse(document.getElementById('status-data').textContent);
+    const typeData = JSON.parse(document.getElementById('type-data').textContent);
+    const priorityData = JSON.parse(document.getElementById('priority-data').textContent);
+    const trendsData = JSON.parse(document.getElementById('trends-data').textContent);
+    const departmentData = JSON.parse(document.getElementById('department-data').textContent);
 
     // توزيع أوامر الشغل حسب الحالة
     const workOrderStatusCtx = document.getElementById('workOrderStatusChart').getContext('2d');

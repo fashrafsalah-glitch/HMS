@@ -317,31 +317,88 @@ def get_monthly_trends(department_id=None, months=6):
     جلب الاتجاهات الشهرية للمؤشرات
     هنا بنشوف إزاي الأداء بيتغير على مدار الشهور
     """
+    import calendar
+    from django.db.models import Count, Avg, Q
+    from .models import ServiceRequest, WorkOrder, Device
+    
     trends = []
     
     for i in range(months):
         # حساب تاريخ بداية ونهاية الشهر
         current_date = timezone.now().replace(day=1) - timedelta(days=i*30)
         month_start = current_date.replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         
-        # حساب المؤشرات للشهر
+        # حساب نهاية الشهر بدقة
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1) - timedelta(days=1)
+        
+        # فلتر الأجهزة حسب القسم إن وجد
+        devices_filter = Q()
+        if department_id:
+            devices_filter = Q(department_id=department_id)
+        
+        # حساب إحصائيات أوامر الشغل للشهر المحدد
+        work_orders_month = WorkOrder.objects.filter(
+            created_at__range=[month_start, month_end]
+        )
+        if department_id:
+            work_orders_month = work_orders_month.filter(
+                service_request__device__department_id=department_id
+            )
+        
+        total_wo = work_orders_month.count()
+        completed_wo = work_orders_month.filter(status='closed').count()
+        overdue_wo = work_orders_month.filter(
+            actual_end__isnull=True,
+            service_request__resolution_due__lt=timezone.now()
+        ).count()
+        
+        # حساب نسب الأداء للشهر
+        completion_rate = (completed_wo / total_wo * 100) if total_wo > 0 else 0
+        overdue_rate = (overdue_wo / total_wo * 100) if total_wo > 0 else 0
+        
+        # حساب متوسط وقت الإصلاح للشهر
+        completed_orders = work_orders_month.filter(
+            status='closed',
+            actual_end__isnull=False,
+            actual_start__isnull=False
+        )
+        
+        if completed_orders.exists():
+            total_repair_time = 0
+            count = 0
+            for wo in completed_orders:
+                repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                total_repair_time += repair_time
+                count += 1
+            mttr = total_repair_time / count if count > 0 else 0
+        else:
+            mttr = 0
+        
+        # حساب نسبة التوفر (تقدير بناءً على أوامر الشغل)
+        # نسبة التوفر = 100 - (نسبة الأعطال * متوسط وقت الإصلاح / 24)
+        failure_rate = (total_wo / 30) if total_wo > 0 else 0  # معدل الأعطال في اليوم
+        availability = max(0, 100 - (failure_rate * mttr / 24 * 100))
+        
+        # حساب الالتزام بالصيانة الوقائية للشهر
+        preventive_orders = work_orders_month.filter(
+            service_request__request_type='preventive'
+        ).count()
+        pm_compliance = (preventive_orders / total_wo * 100) if total_wo > 0 else 0
+        
         month_data = {
             'month': month_start.strftime('%Y-%m'),
             'month_name': calendar.month_name[month_start.month],
-            'mtbf': calculate_mtbf(department_id=department_id, days=30),
-            'mttr': calculate_mttr(department_id=department_id, days=30),
-            'availability': calculate_availability(department_id=department_id, days=30),
-            'pm_compliance': calculate_pm_compliance(department_id=department_id, days=30),
+            'mtbf': 720 / failure_rate if failure_rate > 0 else 720,  # تقدير MTBF بالساعات
+            'mttr': round(mttr, 1),
+            'availability': round(availability, 1),
+            'pm_compliance': round(pm_compliance, 1),
+            'total_work_orders': total_wo,
+            'completion_rate': round(completion_rate, 1),
+            'overdue_rate': round(overdue_rate, 1),
         }
-        
-        # إحصائيات أوامر الشغل للشهر
-        wo_stats = calculate_work_order_stats(department_id=department_id, days=30)
-        month_data.update({
-            'total_work_orders': wo_stats['total'],
-            'completion_rate': wo_stats['completion_rate'],
-            'overdue_rate': wo_stats['overdue_rate'],
-        })
         
         trends.append(month_data)
     

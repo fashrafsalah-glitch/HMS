@@ -4,7 +4,7 @@
 
 {% block title %}{% trans "لوحة مؤشرات الأداء" %}{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <link href="{% static 'vendor/chart.js/Chart.min.css' %}" rel="stylesheet">
 <link href="{% static 'vendor/daterangepicker/daterangepicker.css' %}" rel="stylesheet">
 <style>
@@ -45,9 +45,6 @@
         color: #858796;
     }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="container-fluid">
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -487,16 +484,203 @@
                                 <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
                                 {% endif %}
                             </td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
+</div>
 
-{% block extra_js %}
+<div class="row">
+    <!-- Equipment Downtime by Category Chart -->
+    <div class="col-xl-6 col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">{% trans "توقف الأجهزة حسب الفئة" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="downtimeCategoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 5 Failing Equipment Chart -->
+    <div class="col-xl-6 col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">{% trans "أكثر 5 أجهزة تعطلاً" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="topFailingEquipmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed KPI Table -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{% trans "تفاصيل مؤشرات الأداء" %}</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered" id="kpiTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>{% trans "المؤشر" %}</th>
+                        <th>{% trans "القيمة الحالية" %}</th>
+                        <th>{% trans "القيمة السابقة" %}</th>
+                        <th>{% trans "التغيير" %}</th>
+                        <th>{% trans "الهدف" %}</th>
+                        <th>{% trans "الحالة" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{% trans "متوسط وقت الإصلاح (MTTR)" %}</td>
+                        <td>{{ kpis.mttr }} {% trans "ساعة" %}</td>
+                        <td>{{ kpis.mttr_previous }} {% trans "ساعة" %}</td>
+                        <td>
+                            {% if kpis.mttr_trend > 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-up"></i> {{ kpis.mttr_trend }}%</span>
+                            {% elif kpis.mttr_trend < 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-down"></i> {{ kpis.mttr_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.mttr_target }} {% trans "ساعة" %}</td>
+                        <td>
+                            {% if kpis.mttr <= kpis.mttr_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>{% trans "متوسط الوقت بين الأعطال (MTBF)" %}</td>
+                        <td>{{ kpis.mtbf }} {% trans "ساعة" %}</td>
+                        <td>{{ kpis.mtbf_previous }} {% trans "ساعة" %}</td>
+                        <td>
+                            {% if kpis.mtbf_trend > 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> {{ kpis.mtbf_trend }}%</span>
+                            {% elif kpis.mtbf_trend < 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-down"></i> {{ kpis.mtbf_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.mtbf_target }} {% trans "ساعة" %}</td>
+                        <td>
+                            {% if kpis.mtbf >= kpis.mtbf_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>{% trans "توافر الأجهزة" %}</td>
+                        <td>{{ kpis.availability }}%</td>
+                        <td>{{ kpis.availability_previous }}%</td>
+                        <td>
+                            {% if kpis.availability_trend > 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> {{ kpis.availability_trend }}%</span>
+                            {% elif kpis.availability_trend < 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-down"></i> {{ kpis.availability_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.availability_target }}%</td>
+                        <td>
+                            {% if kpis.availability >= kpis.availability_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>{% trans "الالتزام بالصيانة الوقائية" %}</td>
+                        <td>{{ kpis.pm_compliance }}%</td>
+                        <td>{{ kpis.pm_compliance_previous }}%</td>
+                        <td>
+                            {% if kpis.pm_compliance_trend > 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> {{ kpis.pm_compliance_trend }}%</span>
+                            {% elif kpis.pm_compliance_trend < 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-down"></i> {{ kpis.pm_compliance_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.pm_compliance_target }}%</td>
+                        <td>
+                            {% if kpis.pm_compliance >= kpis.pm_compliance_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>{% trans "معدل إنجاز أوامر العمل" %}</td>
+                        <td>{{ kpis.wo_completion_rate }}%</td>
+                        <td>{{ kpis.wo_completion_previous }}%</td>
+                        <td>
+                            {% if kpis.wo_completion_trend > 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> {{ kpis.wo_completion_trend }}%</span>
+                            {% elif kpis.wo_completion_trend < 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-down"></i> {{ kpis.wo_completion_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.wo_completion_target }}%</td>
+                        <td>
+                            {% if kpis.wo_completion_rate >= kpis.wo_completion_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>{% trans "تكلفة الصيانة" %}</td>
+                        <td>{{ kpis.maintenance_cost }}</td>
+                        <td>{{ kpis.maintenance_cost_previous }}</td>
+                        <td>
+                            {% if kpis.maintenance_cost_trend > 0 %}
+                            <span class="trend-down"><i class="fas fa-arrow-up"></i> {{ kpis.maintenance_cost_trend }}%</span>
+                            {% elif kpis.maintenance_cost_trend < 0 %}
+                            <span class="trend-up"><i class="fas fa-arrow-down"></i> {{ kpis.maintenance_cost_trend|abs }}%</span>
+                            {% else %}
+                            <span class="trend-neutral"><i class="fas fa-equals"></i> 0%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ kpis.maintenance_cost_target }}</td>
+                        <td>
+                            {% if kpis.maintenance_cost <= kpis.maintenance_cost_target %}
+                            <span class="badge badge-success">{% trans "جيد" %}</span>
+                            {% else %}
+                            <span class="badge badge-danger">{% trans "يحتاج تحسين" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- JSON Data for Charts -->
+{{ chart_data|json_script:"chart-data" }}
+
 <script src="{% static 'vendor/chart.js/Chart.min.js' %}"></script>
 <script src="{% static 'vendor/daterangepicker/moment.min.js' %}"></script>
 <script src="{% static 'vendor/daterangepicker/daterangepicker.js' %}"></script>
@@ -506,8 +690,11 @@
     Chart.defaults.global.defaultFontColor = '#858796';
     
     $(document).ready(function() {
+        // Parse JSON data safely
+        const chartData = JSON.parse(document.getElementById('chart-data').textContent) || {};
+        
         // Initialize charts with data from the server
-        initializeCharts();
+        initializeCharts(chartData);
         
         // Date Range Picker
         var start = moment().subtract(29, 'days');
@@ -580,15 +767,15 @@
         });
     });
     
-    function initializeCharts() {
+    function initializeCharts(chartData) {
         // Work Order by Type Chart
         var workOrderCtx = document.getElementById("workOrderTypeChart");
         var workOrderTypeChart = new Chart(workOrderCtx, {
             type: 'pie',
             data: {
-                labels: {{ chart_data.work_order_types_labels|safe }},
+                labels: chartData.work_order_types_labels || [],
                 datasets: [{
-                    data: {{ chart_data.work_order_types_data|safe }},
+                    data: chartData.work_order_types_data || [],
                     backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'],
                     hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf', '#dda20a', '#be2617', '#60616f'],
                     hoverBorderColor: "rgba(234, 236, 244, 1)",
@@ -619,7 +806,7 @@
         var maintenanceCostChart = new Chart(costCtx, {
             type: 'line',
             data: {
-                labels: {{ chart_data.maintenance_cost_labels|safe }},
+                labels: chartData.maintenance_cost_labels || [],
                 datasets: [{
                     label: "تكلفة الصيانة",
                     lineTension: 0.3,
@@ -633,7 +820,7 @@
                     pointHoverBorderColor: "rgba(78, 115, 223, 1)",
                     pointHitRadius: 10,
                     pointBorderWidth: 2,
-                    data: {{ chart_data.maintenance_cost_data|safe }},
+                    data: chartData.maintenance_cost_data || [],
                 }],
             },
             options: {
@@ -707,13 +894,13 @@
         var downtimeCategoryChart = new Chart(downtimeCtx, {
             type: 'bar',
             data: {
-                labels: {{ chart_data.downtime_category_labels|safe }},
+                labels: chartData.downtime_category_labels || [],
                 datasets: [{
                     label: "ساعات التوقف",
-                    backgroundColor: "#e74a3b",
-                    hoverBackgroundColor: "#be2617",
-                    borderColor: "#e74a3b",
-                    data: {{ chart_data.downtime_category_data|safe }},
+                    backgroundColor: "#4e73df",
+                    hoverBackgroundColor: "#2e59d9",
+                    borderColor: "#4e73df",
+                    data: chartData.downtime_category_data || [],
                 }],
             },
             options: {
@@ -781,13 +968,13 @@
         var topFailingEquipmentChart = new Chart(failingEquipmentCtx, {
             type: 'horizontalBar',
             data: {
-                labels: {{ chart_data.top_failing_equipment_labels|safe }},
+                labels: chartData.top_failing_equipment_labels || [],
                 datasets: [{
                     label: "عدد الأعطال",
                     backgroundColor: "#4e73df",
                     hoverBackgroundColor: "#2e59d9",
                     borderColor: "#4e73df",
-                    data: {{ chart_data.top_failing_equipment_data|safe }},
+                    data: chartData.top_failing_equipment_data || [],
                 }],
             },
             options: {

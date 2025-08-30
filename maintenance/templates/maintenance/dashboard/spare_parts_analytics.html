@@ -3,6 +3,50 @@
 
 {% block title %}تحليلات قطع الغيار | لوحة التحكم{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Color fixes for better contrast in both light and dark modes */
+[data-bs-theme="light"] .card-header h5,
+[data-bs-theme="light"] .card-header .text-white {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .card-header h5,
+[data-bs-theme="dark"] .card-header .text-white {
+    color: #ffffff !important;
+}
+
+/* Ensure proper contrast for gradient backgrounds */
+[data-bs-theme="light"] .dashboard-card .text-white,
+[data-bs-theme="light"] .dashboard-section .text-white {
+    color: #2c3e50 !important;
+}
+
+[data-bs-theme="dark"] .dashboard-card .text-white,
+[data-bs-theme="dark"] .dashboard-section .text-white {
+    color: #f7fafc !important;
+}
+
+/* Chart container styling */
+.chart-container {
+    position: relative;
+    height: 300px;
+    padding: 10px;
+}
+
+/* Improve table readability */
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Badge improvements */
+.badge {
+    font-size: 0.75em;
+    padding: 0.25em 0.5em;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row mb-4">
@@ -226,9 +270,6 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // توزيع قطع الغيار حسب الفئة
