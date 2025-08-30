@@ -85,14 +85,15 @@
                 <div class="card-footer">
                     <div class="row">
                         <div class="col-6">
-                            <a href="{% url 'maintenance:spare_parts:spare_part_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">block">
+                            <a href="{% url 'maintenance:spare_parts:spare_part_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">
                                 <i class="fas fa-plus"></i> إضافة قطعة غيار
                             </a>
                         </div>
                         <div class="col-6">
-                            <a href="{% url 'maintenance:spare_parts:purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-success btn-sm">block">
+                            <!-- Purchase Order functionality temporarily disabled -->
+                            <button class="btn btn-success btn-sm" disabled title="أوامر الشراء غير متاحة حالياً">
                                 <i class="fas fa-shopping-cart"></i> أمر شراء جديد
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -210,9 +211,10 @@
                 <div class="card-header">
                     <h3 class="card-title">أوامر الشراء</h3>
                     <div class="card-tools">
-                        <a href="{% url 'maintenance:spare_parts:purchase_order_create' %}?supplier={{ supplier.id }}" class="btn btn-primary btn-sm">
+                        <!-- Purchase Order functionality temporarily disabled -->
+                        <button class="btn btn-primary btn-sm" disabled title="أوامر الشراء غير متاحة حالياً">
                             <i class="fas fa-plus"></i> أمر شراء جديد
-                        </a>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">

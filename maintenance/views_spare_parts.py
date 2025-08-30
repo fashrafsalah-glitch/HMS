@@ -497,7 +497,9 @@ def supplier_create(request):
     if request.method == 'POST':
         form = SupplierForm(request.POST)
         if form.is_valid():
-            supplier = form.save()
+            supplier = form.save(commit=False)
+            supplier.created_by = request.user
+            supplier.save()
             messages.success(request, f'تم إنشاء المورد {supplier.name} بنجاح')
             return redirect('maintenance:spare_parts:supplier_detail', pk=supplier.pk)
     else:
