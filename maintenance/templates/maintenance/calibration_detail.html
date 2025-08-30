@@ -11,10 +11,10 @@
                 <div class="card-header">
                     <h3 class="card-title">تفاصيل المعايرة - {{ calibration.device.name }}</h3>
                     <div class="card-tools">
-                        <a href="{% url 'calibration_update' calibration.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:calibration_update' calibration.id %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-edit"></i> تعديل
                         </a>
-                        <a href="{% url 'calibration_list' %}" class="btn btn-secondary btn-sm">
+                        <a href="{% url 'maintenance:spare_parts:calibration_list' %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-list"></i> العودة للقائمة
                         </a>
                     </div>
@@ -27,7 +27,7 @@
                                 <div class="info-box-content">
                                     <span class="info-box-text">الجهاز</span>
                                     <span class="info-box-number">
-                                        <a href="{% url 'device_detail' calibration.device.id %}">
+                                        <a href="{% url 'maintenance:device_detail' calibration.device.id %}">
                                             {{ calibration.device.name }}
                                         </a>
                                     </span>
@@ -138,12 +138,12 @@
                 <div class="card-footer">
                     <div class="row">
                         <div class="col-md-6">
-                            <a href="{% url 'calibration_create' %}?device={{ calibration.device.id }}" class="btn btn-success btn-block">
+                            <a href="{% url 'maintenance:spare_parts:calibration_create' %}?device={{ calibration.device.id }}" class="btn btn-success btn-block">
                                 <i class="fas fa-plus"></i> إنشاء معايرة جديدة لنفس الجهاز
                             </a>
                         </div>
                         <div class="col-md-6">
-                            <a href="{% url 'device_detail' calibration.device.id %}" class="btn btn-info btn-block">
+                            <a href="{% url 'maintenance:device_detail' calibration.device.id %}" class="btn btn-info btn-block">
                                 <i class="fas fa-microscope"></i> عرض تفاصيل الجهاز
                             </a>
                         </div>
@@ -185,7 +185,7 @@
                                     <td>{{ prev_cal.performed_by }}</td>
                                     <td>{{ prev_cal.certificate_number|default:"-" }}</td>
                                     <td>
-                                        <a href="{% url 'calibration_detail' prev_cal.id %}" class="btn btn-info btn-sm">
+                                        <a href="{% url 'maintenance:spare_parts:calibration_detail' prev_cal.id %}" class="btn btn-info btn-sm">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         {% if prev_cal.certificate_file %}

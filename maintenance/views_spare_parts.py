@@ -11,7 +11,7 @@ import csv
 from .models import (
     Supplier, SparePart, SparePartRequest, SparePartTransaction, 
     Calibration, CalibrationRecord, DowntimeEvent,
-    Device, WorkOrder, DeviceDowntime
+    Device, WorkOrder, DeviceDowntime, CALIBRATION_STATUS_CHOICES
 )
 from .forms import (
     SupplierForm, SparePartForm, SparePartTransactionForm,
@@ -782,13 +782,28 @@ def calibration_create(request, device_id=None):
         device = get_object_or_404(Device, pk=device_id)
     
     if request.method == 'POST':
-        # form = CalibrationForm(request.POST, request.FILES)
-        # Placeholder - CalibrationForm not available yet
-        messages.error(request, 'وظيفة إنشاء المعايرة غير متاحة حالياً')
-        return redirect('maintenance:spare_parts:calibration_list')
+        form = CalibrationForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Create CalibrationRecord instance
+            calibration = CalibrationRecord.objects.create(
+                device=form.cleaned_data['device'],
+                calibration_date=form.cleaned_data['calibration_date'],
+                next_calibration_date=form.cleaned_data['next_calibration_date'],
+                certificate_number=form.cleaned_data.get('certificate_number', ''),
+                calibration_agency=form.cleaned_data.get('calibration_agency', ''),
+                notes=form.cleaned_data.get('notes', ''),
+                cost=form.cleaned_data.get('cost'),
+                status='completed'
+            )
+            messages.success(request, 'تم إنشاء المعايرة بنجاح')
+            return redirect('maintenance:spare_parts:calibration_detail', pk=calibration.pk)
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
     else:
-        # Placeholder form
-        form = None
+        initial_data = {}
+        if device:
+            initial_data['device'] = device
+        form = CalibrationForm(initial=initial_data)
     
     context = {
         'form': form,

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load crispy_forms_tags %}
+{% load widget_tweaks %}
 
 {% block title %}
     {% if form.instance.id %}
@@ -30,22 +30,76 @@
                         
                         <div class="row">
                             <div class="col-md-6">
-                                {{ form.device|crispy }}
-                                {{ form.calibration_date|crispy }}
-                                {{ form.next_due_date|crispy }}
+                                <div class="form-group">
+                                    <label for="{{ form.device.id_for_label }}">{{ form.device.label }}</label>
+                                    {{ form.device|add_class:"form-control" }}
+                                    {% if form.device.errors %}
+                                        <div class="text-danger">{{ form.device.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.calibration_date.id_for_label }}">{{ form.calibration_date.label }}</label>
+                                    {{ form.calibration_date|add_class:"form-control" }}
+                                    {% if form.calibration_date.errors %}
+                                        <div class="text-danger">{{ form.calibration_date.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.next_calibration_date.id_for_label }}">{{ form.next_calibration_date.label }}</label>
+                                    {{ form.next_calibration_date|add_class:"form-control" }}
+                                    {% if form.next_calibration_date.errors %}
+                                        <div class="text-danger">{{ form.next_calibration_date.errors }}</div>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                {{ form.performed_by|crispy }}
-                                {{ form.status|crispy }}
-                                {{ form.certificate_number|crispy }}
+                                <div class="form-group">
+                                    <label for="{{ form.performed_by.id_for_label }}">{{ form.performed_by.label }}</label>
+                                    {{ form.performed_by|add_class:"form-control" }}
+                                    {% if form.performed_by.errors %}
+                                        <div class="text-danger">{{ form.performed_by.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                                    {{ form.status|add_class:"form-control" }}
+                                    {% if form.status.errors %}
+                                        <div class="text-danger">{{ form.status.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.certificate_number.id_for_label }}">{{ form.certificate_number.label }}</label>
+                                    {{ form.certificate_number|add_class:"form-control" }}
+                                    {% if form.certificate_number.errors %}
+                                        <div class="text-danger">{{ form.certificate_number.errors }}</div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-12">
-                                {{ form.results|crispy }}
-                                {{ form.notes|crispy }}
-                                {{ form.certificate_file|crispy }}
+                                <div class="form-group">
+                                    <label for="{{ form.results.id_for_label }}">{{ form.results.label }}</label>
+                                    {{ form.results|add_class:"form-control" }}
+                                    {% if form.results.errors %}
+                                        <div class="text-danger">{{ form.results.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                                    {{ form.notes|add_class:"form-control" }}
+                                    {% if form.notes.errors %}
+                                        <div class="text-danger">{{ form.notes.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="form-group">
+                                    <label for="{{ form.certificate_file.id_for_label }}">{{ form.certificate_file.label }}</label>
+                                    {{ form.certificate_file|add_class:"form-control-file" }}
+                                    {% if form.certificate_file.errors %}
+                                        <div class="text-danger">{{ form.certificate_file.errors }}</div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                         
@@ -53,7 +107,7 @@
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> حفظ
                             </button>
-                            <a href="{% url 'calibration_list' %}" class="btn btn-secondary">
+                            <a href="{% url 'maintenance:spare_parts:calibration_list' %}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> إلغاء
                             </a>
                         </div>

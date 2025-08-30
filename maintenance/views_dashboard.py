@@ -987,19 +987,25 @@ def device_detail_kpis(request, device_id):
 @login_required
 def export_dashboard_report(request):
     """
-    تصدير تقرير الداشبورد
-    هنا بنصدر كل البيانات في ملف PDF أو Excel
+    تصدير تقرير الداشبورد الشامل بصيغة PDF
     """
     from django.http import HttpResponse
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from datetime import datetime
     import json
     
     department_id = request.GET.get('department')
-    export_format = request.GET.get('format', 'json')
-    
-    # جلب البيانات الشاملة
-    dashboard_data = get_dashboard_summary(department_id=department_id)
+    export_format = request.GET.get('format', 'pdf')
     
     if export_format == 'json':
+        # جلب البيانات الشاملة
+        dashboard_data = get_dashboard_summary(department_id=department_id)
         response = HttpResponse(
             json.dumps(dashboard_data, indent=2, ensure_ascii=False, default=str),
             content_type='application/json; charset=utf-8'
@@ -1007,5 +1013,186 @@ def export_dashboard_report(request):
         response['Content-Disposition'] = 'attachment; filename="cmms_dashboard_report.json"'
         return response
     
-    # يمكن إضافة تصدير PDF أو Excel هنا لاحقاً
-    return JsonResponse({'error': 'صيغة التصدير غير مدعومة حالياً'})
+    # إنشاء تقرير PDF شامل
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="maintenance_comprehensive_report.pdf"'
+    
+    # إعداد المستند
+    doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # إعداد الأنماط
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=1,  # Center alignment
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        textColor=colors.darkblue,
+    )
+    
+    # محتوى التقرير
+    story = []
+    
+    # Main Title
+    story.append(Paragraph("Comprehensive Maintenance Management System Report", title_style))
+    story.append(Paragraph(f"Report Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles['Normal']))
+    story.append(Spacer(1, 20))
+    
+    # Data Collection
+    try:
+        from .models import Device, WorkOrder, SparePart, SparePartTransaction, CalibrationRecord
+        
+        # Device Statistics
+        story.append(Paragraph("Device Statistics", heading_style))
+        total_devices = Device.objects.count()
+        active_devices = Device.objects.filter(availability=True).count()
+        inactive_devices = total_devices - active_devices
+        
+        devices_data = [
+            ['Description', 'Count'],
+            ['Total Devices', str(total_devices)],
+            ['Available Devices', str(active_devices)],
+            ['Unavailable Devices', str(inactive_devices)],
+        ]
+        
+        devices_table = Table(devices_data)
+        devices_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(devices_table)
+        story.append(Spacer(1, 20))
+        
+        # Work Order Statistics
+        story.append(Paragraph("Work Order Statistics", heading_style))
+        total_work_orders = WorkOrder.objects.count()
+        pending_orders = WorkOrder.objects.filter(status='pending').count()
+        in_progress_orders = WorkOrder.objects.filter(status='in_progress').count()
+        completed_orders = WorkOrder.objects.filter(status='completed').count()
+        
+        work_orders_data = [
+            ['Status', 'Count'],
+            ['Total Work Orders', str(total_work_orders)],
+            ['Pending', str(pending_orders)],
+            ['In Progress', str(in_progress_orders)],
+            ['Completed', str(completed_orders)],
+        ]
+        
+        work_orders_table = Table(work_orders_data)
+        work_orders_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(work_orders_table)
+        story.append(Spacer(1, 20))
+        
+        # Spare Parts Statistics
+        story.append(Paragraph("Spare Parts Statistics", heading_style))
+        total_spare_parts = SparePart.objects.count()
+        low_stock_parts = SparePart.objects.filter(quantity__lte=models.F('minimum_stock_level')).count()
+        out_of_stock_parts = SparePart.objects.filter(quantity=0).count()
+        
+        spare_parts_data = [
+            ['Description', 'Count'],
+            ['Total Spare Parts', str(total_spare_parts)],
+            ['Low Stock', str(low_stock_parts)],
+            ['Out of Stock', str(out_of_stock_parts)],
+        ]
+        
+        spare_parts_table = Table(spare_parts_data)
+        spare_parts_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(spare_parts_table)
+        story.append(Spacer(1, 20))
+        
+        # Calibration Statistics
+        story.append(Paragraph("Calibration Statistics", heading_style))
+        total_calibrations = CalibrationRecord.objects.count()
+        overdue_calibrations = CalibrationRecord.objects.filter(
+            next_calibration_date__lt=datetime.now().date()
+        ).count()
+        
+        calibration_data = [
+            ['Description', 'Count'],
+            ['Total Calibrations', str(total_calibrations)],
+            ['Overdue Calibrations', str(overdue_calibrations)],
+        ]
+        
+        calibration_table = Table(calibration_data)
+        calibration_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(calibration_table)
+        story.append(Spacer(1, 20))
+        
+        # Device List
+        story.append(PageBreak())
+        story.append(Paragraph("Device List", heading_style))
+        
+        devices = Device.objects.all()[:20]  # First 20 devices
+        devices_list_data = [['Device Name', 'Department', 'Status', 'Installation Date']]
+        
+        for device in devices:
+            status = 'Available' if device.availability else 'Unavailable'
+            install_date = device.installation_date.strftime('%Y-%m-%d') if device.installation_date else '-'
+            devices_list_data.append([
+                device.name,
+                device.department.name if device.department else '-',
+                status,
+                install_date
+            ])
+        
+        devices_list_table = Table(devices_list_data)
+        devices_list_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(devices_list_table)
+        
+    except Exception as e:
+        story.append(Paragraph(f"Error retrieving data: {str(e)}", styles['Normal']))
+    
+    # إنشاء المستند
+    doc.build(story)
+    return response
