@@ -2,20 +2,19 @@
 from django.db.models import Count, Avg, Sum, Q, F
 from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import Device
+from .models import Device, SLADefinition
 from .models import ServiceRequest, WorkOrder, PreventiveMaintenanceSchedule, SparePart
 import calendar
 
 def calculate_mtbf(device_id=None, department_id=None, days=30):
     """
-    حساب متوسط الوقت بين الأعطال (Mean Time Between Failures)
-    هنا بنشوف قد إيه الجهاز بيشتغل من غير ما يعطل
+    حساب متوسط الوقت بين الأعطال (MTBF) بناءً على SLA والبيانات الفعلية
     """
     # تحديد الفترة الزمنية
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
-    # فلترة الأجهزة
+    # جلب الأجهزة
     devices = Device.objects.all()
     if device_id:
         devices = devices.filter(id=device_id)
@@ -26,45 +25,81 @@ def calculate_mtbf(device_id=None, department_id=None, days=30):
     device_count = 0
     
     for device in devices:
-        # جلب أوامر الشغل المكتملة للجهاز في الفترة المحددة
+        # البحث عن SLA مناسب للجهاز
+        applicable_sla = None
+        sla_definitions = SLADefinition.objects.filter(is_active=True)
+        
+        for sla in sla_definitions:
+            if sla.device_category and device.category == sla.device_category:
+                applicable_sla = sla
+                break
+        
+        # جلب أوامر الشغل المكتملة للأعطال التصحيحية
         completed_work_orders = WorkOrder.objects.filter(
             service_request__device=device,
             status__in=['closed', 'qa_verified'],
             created_at__range=[start_date, end_date],
-            service_request__request_type='breakdown'  # بس الأعطال، مش الصيانة الوقائية
+            service_request__request_type='corrective'
         ).order_by('created_at')
         
-        if completed_work_orders.count() > 1:
-            # حساب الوقت بين كل عطل والتاني
-            failure_intervals = []
-            for i in range(1, len(completed_work_orders)):
+        failure_count = completed_work_orders.count()
+        
+        if failure_count >= 2:
+            # حساب الفترات بين الأعطال
+            intervals = []
+            for i in range(1, failure_count):
                 prev_failure = completed_work_orders[i-1].created_at
-                current_failure = completed_work_orders[i].created_at
-                interval = (current_failure - prev_failure).total_seconds() / 3600  # بالساعات
-                failure_intervals.append(interval)
+                curr_failure = completed_work_orders[i].created_at
+                interval_hours = (curr_failure - prev_failure).total_seconds() / 3600
+                intervals.append(interval_hours)
             
-            if failure_intervals:
-                device_mtbf = sum(failure_intervals) / len(failure_intervals)
+            if intervals:
+                device_mtbf = sum(intervals) / len(intervals)
                 total_mtbf += device_mtbf
                 device_count += 1
+        elif failure_count == 1:
+            # إذا كان هناك عطل واحد فقط، نحسب من بداية الفترة
+            first_failure = completed_work_orders.first().created_at
+            hours_to_failure = (first_failure - start_date).total_seconds() / 3600
+            if hours_to_failure > 0:
+                total_mtbf += hours_to_failure
+                device_count += 1
+        else:
+            # لا توجد أعطال - نستخدم SLA أو قيمة افتراضية بناءً على حالة الجهاز
+            if applicable_sla:
+                # نقدر MTBF بناءً على SLA (كلما قل وقت الحل، زاد MTBF المتوقع)
+                estimated_mtbf = applicable_sla.resolution_time_hours * 10  # تقدير: 10 أضعاف وقت الحل
+            else:
+                # تقدير بناءً على حالة الجهاز
+                if device.status == 'working':
+                    estimated_mtbf = days * 24  # كامل الفترة
+                elif device.status == 'needs_check':
+                    estimated_mtbf = days * 20  # 80% من الفترة
+                elif device.status == 'needs_maintenance':
+                    estimated_mtbf = days * 12  # 50% من الفترة
+                else:  # out_of_order
+                    estimated_mtbf = days * 4   # 20% من الفترة
+            
+            total_mtbf += estimated_mtbf
+            device_count += 1
     
-    return total_mtbf / device_count if device_count > 0 else 0
+    return total_mtbf / device_count if device_count > 0 else 720  # متوسط شهر إذا لم توجد بيانات
 
 def calculate_mttr(device_id=None, department_id=None, days=30):
     """
-    حساب متوسط وقت الإصلاح (Mean Time To Repair)
-    هنا بنشوف قد إيه بياخد وقت عشان نصلح العطل
+    حساب متوسط وقت الإصلاح (MTTR) بناءً على SLA وخطط العمل والبيانات الفعلية
     """
+    from .models import SLADefinition, JobPlan
+    
     # تحديد الفترة الزمنية
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
-    # جلب أوامر الشغل المكتملة
+    # جلب أوامر الشغل المكتملة للأعطال التصحيحية
     work_orders = WorkOrder.objects.filter(
         status__in=['closed', 'qa_verified'],
-        actual_start__isnull=False,
-        actual_end__isnull=False,
-        created_at__range=[start_date, end_date]
+        created_at__range=[start_date, end_date],
+        service_request__request_type='corrective'
     )
     
     if device_id:
@@ -72,61 +107,237 @@ def calculate_mttr(device_id=None, department_id=None, days=30):
     if department_id:
         work_orders = work_orders.filter(service_request__device__department_id=department_id)
     
-    if not work_orders.exists():
-        return 0
-    
     total_repair_time = 0
-    for wo in work_orders:
-        repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600  # بالساعات
-        total_repair_time += repair_time
+    valid_orders = 0
     
-    return total_repair_time / work_orders.count()
+    for wo in work_orders:
+        repair_time = 0
+        
+        # أولاً نحاول نستخدم الأوقات الفعلية
+        if wo.actual_start and wo.actual_end:
+            repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+        # إذا مفيش أوقات فعلية، نقدر من تواريخ الإنشاء والتحديث
+        elif wo.updated_at and wo.created_at:
+            estimated_time = (wo.updated_at - wo.created_at).total_seconds() / 3600
+            repair_time = min(estimated_time, 72) if estimated_time > 0 else 4
+        else:
+            # استخدام SLA إذا متوفر
+            applicable_sla = None
+            if wo.service_request.device.category:
+                sla_definitions = SLADefinition.objects.filter(
+                    is_active=True,
+                    device_category=wo.service_request.device.category
+                )
+                if sla_definitions.exists():
+                    applicable_sla = sla_definitions.first()
+            
+            if applicable_sla:
+                repair_time = applicable_sla.resolution_time_hours
+            else:
+                # تقدير بناءً على الأولوية
+                if wo.service_request.priority == 'critical':
+                    repair_time = 2
+                elif wo.service_request.priority == 'high':
+                    repair_time = 4
+                elif wo.service_request.priority == 'medium':
+                    repair_time = 8
+                else:
+                    repair_time = 24
+        
+        if repair_time > 0:
+            total_repair_time += repair_time
+            valid_orders += 1
+    
+    # إذا لم توجد أوامر شغل، نستخدم SLA وخطط العمل
+    if valid_orders == 0:
+        devices = Device.objects.all()
+        if device_id:
+            devices = devices.filter(id=device_id)
+        if department_id:
+            devices = devices.filter(department_id=department_id)
+        
+        total_estimated_mttr = 0
+        device_count = 0
+        
+        for device in devices:
+            # البحث عن SLA مناسب
+            applicable_sla = None
+            if device.category:
+                sla_definitions = SLADefinition.objects.filter(
+                    is_active=True,
+                    device_category=device.category
+                )
+                if sla_definitions.exists():
+                    applicable_sla = sla_definitions.first()
+            
+            # البحث عن خطة عمل مناسبة
+            job_plan_duration = None
+            if device.category:
+                job_plans = JobPlan.objects.filter(device_category=device.category, is_active=True)
+                if job_plans.exists():
+                    job_plan = job_plans.first()
+                    if hasattr(job_plan, 'estimated_hours') and job_plan.estimated_hours:
+                        job_plan_duration = float(job_plan.estimated_hours)
+            
+            # تحديد MTTR بناءً على المصادر المتاحة
+            if applicable_sla:
+                estimated_mttr = applicable_sla.resolution_time_hours
+            elif job_plan_duration:
+                estimated_mttr = job_plan_duration
+            else:
+                # تقدير بناءً على حالة الجهاز
+                if device.status == 'working':
+                    estimated_mttr = 2
+                elif device.status == 'needs_check':
+                    estimated_mttr = 4
+                elif device.status == 'needs_maintenance':
+                    estimated_mttr = 8
+                elif device.status == 'out_of_order':
+                    estimated_mttr = 24
+                else:
+                    estimated_mttr = 6
+            
+            total_estimated_mttr += estimated_mttr
+            device_count += 1
+        
+        return total_estimated_mttr / device_count if device_count > 0 else 4
+    
+    return total_repair_time / valid_orders
 
 def calculate_availability(device_id=None, department_id=None, days=30):
     """
-    حساب نسبة التوفر (Availability)
-    هنا بنشوف قد إيه الجهاز متاح للاستخدام من إجمالي الوقت
+    حساب نسبة التوفر (Availability) بناءً على SLA وخطط العمل والبيانات الفعلية
     """
+    from .models import SLADefinition, JobPlan
+    
     # تحديد الفترة الزمنية
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
-    total_hours = days * 24
     
-    # جلب أوقات التوقف
-    from .models import DowntimeEvent
-    downtimes = DowntimeEvent.objects.filter(
-        start_time__range=[start_date, end_date]
-    )
-    
+    # جلب الأجهزة
+    devices = Device.objects.all()
     if device_id:
-        downtimes = downtimes.filter(device_id=device_id)
+        devices = devices.filter(id=device_id)
     if department_id:
-        downtimes = downtimes.filter(device__department_id=department_id)
+        devices = devices.filter(department_id=department_id)
     
-    total_downtime_hours = 0
-    for downtime in downtimes:
-        if downtime.end_time:
-            downtime_duration = (downtime.end_time - downtime.start_time).total_seconds() / 3600
-        else:
-            # إذا لم ينته التوقف بعد، نحسب من البداية حتى الآن
-            downtime_duration = (timezone.now() - downtime.start_time).total_seconds() / 3600
+    total_availability = 0
+    device_count = 0
+    
+    for device in devices:
+        # البحث عن SLA مناسب للجهاز
+        applicable_sla = None
+        if device.category:
+            sla_definitions = SLADefinition.objects.filter(
+                is_active=True,
+                device_category=device.category
+            )
+            if sla_definitions.exists():
+                applicable_sla = sla_definitions.first()
         
-        total_downtime_hours += downtime_duration
-    
-    # حساب نسبة التوفر
-    if device_id:
-        # للجهاز الواحد
-        availability = ((total_hours - total_downtime_hours) / total_hours) * 100
-    else:
-        # لعدة أجهزة، نحسب المتوسط
-        device_count = Device.objects.filter(
-            department_id=department_id if department_id else None
-        ).count() or 1
+        # حساب التوفر بناءً على أوامر الشغل الفعلية
+        corrective_work_orders = WorkOrder.objects.filter(
+            service_request__device=device,
+            service_request__request_type='corrective',
+            created_at__range=[start_date, end_date]
+        )
         
-        total_possible_hours = total_hours * device_count
-        availability = ((total_possible_hours - total_downtime_hours) / total_possible_hours) * 100
+        total_downtime_hours = 0
+        
+        # حساب الـ downtime من أوامر الشغل المكتملة
+        completed_orders = corrective_work_orders.filter(status__in=['closed', 'qa_verified'])
+        for wo in completed_orders:
+            if wo.actual_start and wo.actual_end:
+                downtime = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+            elif applicable_sla:
+                downtime = applicable_sla.resolution_time_hours
+            else:
+                # تقدير بناءً على الأولوية
+                if wo.service_request.priority == 'critical':
+                    downtime = 2
+                elif wo.service_request.priority == 'high':
+                    downtime = 4
+                elif wo.service_request.priority == 'medium':
+                    downtime = 8
+                else:
+                    downtime = 24
+            
+            total_downtime_hours += downtime
+        
+        # حساب الـ downtime من أوامر الشغل المفتوحة
+        open_orders = corrective_work_orders.filter(
+            status__in=['new', 'assigned', 'in_progress', 'wait_parts']
+        )
+        
+        for wo in open_orders:
+            # حساب الوقت المنقضي منذ بداية العطل
+            elapsed_time = (timezone.now() - wo.created_at).total_seconds() / 3600
+            
+            if applicable_sla:
+                # إذا تجاوز الوقت المحدد في SLA، نحسب كامل الوقت
+                expected_resolution = applicable_sla.resolution_time_hours
+                downtime = max(elapsed_time, expected_resolution)
+            else:
+                downtime = elapsed_time
+            
+            total_downtime_hours += downtime
+        
+        # حساب نسبة التوفر الأساسية
+        total_period_hours = days * 24
+        uptime_hours = max(0, total_period_hours - total_downtime_hours)
+        device_availability = (uptime_hours / total_period_hours) * 100
+        
+        # تطبيق تأثير حالة الجهاز على التوفر
+        if device.status == 'out_of_order':
+            device_availability = 0
+        elif device.status == 'needs_maintenance':
+            # إذا كان هناك SLA، نستخدم نسبة مبنية على مدى تجاوز SLA
+            if applicable_sla:
+                device_availability = min(device_availability, 40)
+            else:
+                device_availability = min(device_availability, 30)
+        elif device.status == 'needs_check':
+            if applicable_sla:
+                device_availability = min(device_availability, 80)
+            else:
+                device_availability = min(device_availability, 70)
+        elif device.status == 'working':
+            if applicable_sla:
+                device_availability = min(device_availability, 98)  # SLA عادة يستهدف 98%+
+            else:
+                device_availability = min(device_availability, 95)
+        
+        # تطبيق تأثير الصيانة الوقائية المجدولة
+        try:
+            pm_schedules = PreventiveMaintenanceSchedule.objects.filter(
+                device=device,
+                next_due_date__range=[start_date.date(), end_date.date()]
+            )
+            
+            for pm in pm_schedules:
+                if pm.job_plan:
+                    # محاولة الحصول على الوقت المقدر من خطة العمل
+                    pm_downtime = 0
+                    if hasattr(pm.job_plan, 'estimated_hours') and pm.job_plan.estimated_hours:
+                        pm_downtime = float(pm.job_plan.estimated_hours)
+                    elif hasattr(pm.job_plan, 'estimated_duration') and pm.job_plan.estimated_duration:
+                        pm_downtime = pm.job_plan.estimated_duration.total_seconds() / 3600
+                    else:
+                        # تقدير افتراضي للصيانة الوقائية (ساعتان)
+                        pm_downtime = 2
+                    
+                    total_downtime_hours += pm_downtime
+                    # إعادة حساب التوفر
+                    uptime_hours = max(0, total_period_hours - total_downtime_hours)
+                    device_availability = (uptime_hours / total_period_hours) * 100
+        except Exception as e:
+            # في حالة وجود خطأ، نتجاهل تأثير الصيانة الوقائية
+            pass
+        
+        total_availability += max(0, device_availability)
+        device_count += 1
     
-    return max(0, min(100, availability))  # نتأكد إن النسبة بين 0 و 100
+    return total_availability / device_count if device_count > 0 else 0
 
 def calculate_pm_compliance(department_id=None, days=30):
     """
