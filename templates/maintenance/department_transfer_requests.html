@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}طلبات النقل - {{ department.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-exchange-alt"></i> طلبات النقل - {{ department.name }}</h3>
+        <div>
+            <a href="{% url 'maintenance:all_devices_transfer' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> طلب نقل جديد
+            </a>
+            <a href="{% url 'manager:department_devices' department.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> العودة لأجهزة القسم
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.total }}</h4>
+                    <p class="mb-0">إجمالي الطلبات</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.pending }}</h4>
+                    <p class="mb-0">معلق</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.approved }}</h4>
+                    <p class="mb-0">موافق عليه</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.accepted }}</h4>
+                    <p class="mb-0">مقبول</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h4>{{ stats.rejected }}</h4>
+                    <p class="mb-0">مرفوض</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                <div class="form-group mr-3">
+                    <label for="status" class="mr-2">الحالة:</label>
+                    <select name="status" id="status" class="form-control">
+                        <option value="">جميع الحالات</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>معلق</option>
+                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>موافق عليه</option>
+                        <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>مقبول</option>
+                        <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>مرفوض</option>
+                        <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>ملغي</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> تطبيق
+                </button>
+                <a href="{% url 'maintenance:department_transfer_requests' department.id %}" class="btn btn-secondary ml-2">
+                    <i class="fas fa-redo"></i> إعادة تعيين
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transfer Requests Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>الجهاز</th>
+                            <th>من القسم</th>
+                            <th>إلى القسم</th>
+                            <th>السبب</th>
+                            <th>الأولوية</th>
+                            <th>الحالة</th>
+                            <th>مقدم الطلب</th>
+                            <th>التاريخ</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in transfer_requests %}
+                        <tr>
+                            <td>{{ request.id }}</td>
+                            <td>
+                                <strong>{{ request.device.name }}</strong><br>
+                                <small class="text-muted">{{ request.device.serial_number|default:"لا يوجد رقم تسلسلي" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if request.from_department == department %}primary{% else %}secondary{% endif %}">
+                                    {{ request.from_department.name }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if request.to_department == department %}primary{% else %}secondary{% endif %}">
+                                    {{ request.to_department.name }}
+                                </span>
+                            </td>
+                            <td>{{ request.get_reason_display }}</td>
+                            <td>
+                                <span class="badge badge-{% if request.priority == 'urgent' %}danger{% elif request.priority == 'high' %}warning{% else %}info{% endif %}">
+                                    {{ request.get_priority_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if request.status == 'pending' %}warning{% elif request.status == 'approved' %}info{% elif request.status == 'accepted' %}success{% elif request.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                    {{ request.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ request.requested_by.get_full_name|default:request.requested_by.username }}</td>
+                            <td>{{ request.requested_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'maintenance:transfer_request_detail' request.id %}" 
+                                       class="btn btn-sm btn-info" title="عرض التفاصيل">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    <!-- Action buttons based on status and department role -->
+                                    {% if request.status == 'pending' and request.to_department == department %}
+                                        <a href="{% url 'maintenance:approve_transfer_request' request.id %}" 
+                                           class="btn btn-sm btn-success" title="الموافقة">
+                                            <i class="fas fa-check"></i>
+                                        </a>
+                                        <a href="{% url 'maintenance:reject_transfer_request' request.id %}" 
+                                           class="btn btn-sm btn-danger" title="الرفض">
+                                            <i class="fas fa-times"></i>
+                                        </a>
+                                    {% elif request.status == 'approved' and request.to_department == department %}
+                                        <a href="{% url 'maintenance:accept_transfer_request' request.id %}" 
+                                           class="btn btn-sm btn-primary" title="قبول وتنفيذ النقل">
+                                            <i class="fas fa-check-double"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center">
+                                <div class="py-4">
+                                    <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                                    <h5>لا توجد طلبات نقل</h5>
+                                    <p class="text-muted">لم يتم العثور على طلبات نقل مرتبطة بهذا القسم</p>
+                                    <a href="{% url 'maintenance:all_devices_transfer' %}" class="btn btn-primary">
+                                        <i class="fas fa-plus"></i> إنشاء طلب نقل جديد
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if transfer_requests.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if transfer_requests.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ transfer_requests.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                            السابق
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in transfer_requests.paginator.page_range %}
+                    {% if transfer_requests.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > transfer_requests.number|add:'-3' and num < transfer_requests.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if transfer_requests.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ transfer_requests.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                            التالي
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh the page every 30 seconds to show real-time updates
+setInterval(function() {
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}صفحة اختبار روابط النقل{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-test-tube"></i> صفحة اختبار روابط النقل - جهاز ID: 72
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Device Transfer Links -->
+                        <div class="col-md-6">
+                            <h5 class="text-success">
+                                <i class="fas fa-exchange-alt"></i> روابط نقل الأجهزة
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'maintenance:device_transfer' 72 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-arrow-right"></i> نقل جهاز (device_transfer)
+                                </a>
+                                <a href="{% url 'maintenance:device_transfer_history' 72 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-history"></i> تاريخ نقل الجهاز (device_transfer_history)
+                                </a>
+                                <a href="{% url 'maintenance:device_transfer' 72 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-plus"></i> إنشاء طلب نقل (device_transfer)
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- General Transfer Links -->
+                        <div class="col-md-6">
+                            <h5 class="text-info">
+                                <i class="fas fa-list"></i> روابط النقل العامة
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'maintenance:device_transfer_list' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-list"></i> قائمة نقل الأجهزة (device_transfer_list)
+                                </a>
+                                <a href="{% url 'maintenance:transfer_requests_list' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-clipboard-list"></i> قائمة طلبات النقل (transfer_requests_list)
+                                </a>
+                                <a href="{% url 'maintenance:all_devices_transfer' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-devices"></i> جميع الأجهزة للنقل (all_devices_transfer)
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Department Transfer Links -->
+                        <div class="col-md-6">
+                            <h5 class="text-warning">
+                                <i class="fas fa-building"></i> روابط نقل الأقسام
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'maintenance:department_transfer_requests' 5 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-building"></i> طلبات نقل القسم 5 (department_transfer_requests)
+                                </a>
+                                <a href="{% url 'manager:department_devices' 5 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-devices"></i> أجهزة القسم 5 (department_devices)
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Device Detail Links -->
+                        <div class="col-md-6">
+                            <h5 class="text-secondary">
+                                <i class="fas fa-info-circle"></i> روابط تفاصيل الجهاز
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'maintenance:device_detail' 72 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-eye"></i> تفاصيل الجهاز (device_detail)
+                                </a>
+                                <a href="{% url 'maintenance:device_edit' 72 %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-edit"></i> تعديل الجهاز (device_edit)
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AJAX Links -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h5 class="text-danger">
+                                <i class="fas fa-code"></i> روابط AJAX
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'maintenance:get_department_rooms' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-door-open"></i> الحصول على غرف القسم (get_department_rooms)
+                                </a>
+                                <a href="{% url 'maintenance:get_room_beds' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-bed"></i> الحصول على أسرة الغرفة (get_room_beds)
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Info -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> معلومات الاختبار:</h6>
+                        <ul class="mb-0">
+                            <li><strong>Device ID المستخدم:</strong> 72</li>
+                            <li><strong>Department ID المستخدم:</strong> 5</li>
+                            <li><strong>الغرض:</strong> اختبار جميع روابط النقل</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

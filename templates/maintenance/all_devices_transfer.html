@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}جميع الأجهزة - طلب نقل{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-medical"></i> جميع الأجهزة - طلب نقل</h3>
+        <div>
+            <a href="{% url 'maintenance:transfer_requests_list' %}" class="btn btn-info">
+                <i class="fas fa-list"></i> طلبات النقل
+            </a>
+            <a href="{% url 'maintenance:maintenance_dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> العودة للوحة التحكم
+            </a>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                <div class="form-group mr-3">
+                    <label for="search" class="mr-2">البحث:</label>
+                    <input type="text" name="search" id="search" class="form-control" 
+                           value="{{ search_query }}" placeholder="اسم الجهاز أو الرقم التسلسلي">
+                </div>
+                
+                <div class="form-group mr-3">
+                    <label for="department" class="mr-2">القسم:</label>
+                    <select name="department" id="department" class="form-control">
+                        <option value="">جميع الأقسام</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if department_filter == dept.id|stringformat:"s" %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group mr-3">
+                    <label for="status" class="mr-2">الحالة:</label>
+                    <select name="status" id="status" class="form-control">
+                        <option value="">جميع الحالات</option>
+                        <option value="working" {% if status_filter == 'working' %}selected{% endif %}>يعمل</option>
+                        <option value="needs_maintenance" {% if status_filter == 'needs_maintenance' %}selected{% endif %}>يحتاج صيانة</option>
+                        <option value="out_of_order" {% if status_filter == 'out_of_order' %}selected{% endif %}>خارج الخدمة</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> بحث
+                </button>
+                <a href="{% url 'maintenance:all_devices_transfer' %}" class="btn btn-secondary ml-2">
+                    <i class="fas fa-redo"></i> إعادة تعيين
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Devices Grid -->
+    <div class="row">
+        {% for device in devices %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 {% if device.status == 'out_of_order' %}border-danger{% elif device.status == 'needs_maintenance' %}border-warning{% else %}border-success{% endif %}">
+                <div class="card-header bg-light">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-medical"></i> {{ device.name }}
+                        <span class="badge badge-{% if device.status == 'working' %}success{% elif device.status == 'needs_maintenance' %}warning{% else %}danger{% endif %} float-right">
+                            {{ device.get_status_display }}
+                        </span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        <strong>الرقم التسلسلي:</strong> {{ device.serial_number|default:"غير محدد" }}<br>
+                        <strong>الموديل:</strong> {{ device.model|default:"غير محدد" }}<br>
+                        <strong>القسم الحالي:</strong> {{ device.department.name }}<br>
+                        <strong>الغرفة:</strong> {{ device.room.name|default:"غير محددة" }}<br>
+                        {% if device.current_patient %}
+                        <strong>المريض الحالي:</strong> {{ device.current_patient }}<br>
+                        {% endif %}
+                    </p>
+                    
+                    <!-- Device Status Badges -->
+                    <div class="mb-2">
+                        <span class="badge badge-{% if device.clean_status == 'clean' %}success{% else %}warning{% endif %}">
+                            {{ device.get_clean_status_display }}
+                        </span>
+                        <span class="badge badge-{% if device.sterilization_status == 'sterilized' %}success{% else %}warning{% endif %}">
+                            {{ device.get_sterilization_status_display }}
+                        </span>
+                        {% if device.in_use %}
+                        <span class="badge badge-primary">قيد الاستخدام</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-exchange-alt"></i> طلب نقل
+                        </a>
+                        <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-info btn-sm">
+                            <i class="fas fa-eye"></i> تفاصيل
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-medical fa-3x text-muted mb-3"></i>
+                    <h5>لا توجد أجهزة</h5>
+                    <p class="text-muted">لم يتم العثور على أجهزة تطابق معايير البحث</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if devices.has_other_pages %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if devices.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ devices.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                    السابق
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in devices.paginator.page_range %}
+            {% if devices.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                    {{ num }}
+                </a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            
+            {% if devices.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ devices.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                    التالي
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Transfer Request Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">طلب نقل جهاز</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="transferForm" method="post" action="{% url 'maintenance:device_transfer' 1 %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" id="deviceId" name="device_id">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>الجهاز:</label>
+                                <p id="deviceName" class="font-weight-bold text-primary"></p>
+                            </div>
+                            <div class="form-group">
+                                <label>من القسم:</label>
+                                <p id="fromDepartment" class="font-weight-bold"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="toDepartment">إلى القسم: <span class="text-danger">*</span></label>
+                                <select class="form-control" id="toDepartment" name="to_department" required>
+                                    <option value="">اختر القسم المستهدف</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="priority">الأولوية: <span class="text-danger">*</span></label>
+                                <select class="form-control" id="priority" name="priority" required>
+                                    <option value="normal">عادي</option>
+                                    <option value="high">عالي</option>
+                                    <option value="urgent">عاجل</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reason">سبب النقل: <span class="text-danger">*</span></label>
+                        <select class="form-control" id="reason" name="reason" required>
+                            <option value="">اختر السبب</option>
+                            <option value="patient_need">احتياج المريض</option>
+                            <option value="maintenance">صيانة</option>
+                            <option value="upgrade">ترقية</option>
+                            <option value="redistribution">إعادة توزيع</option>
+                            <option value="emergency">طوارئ</option>
+                            <option value="other">أخرى</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reasonDetails">تفاصيل السبب:</label>
+                        <textarea class="form-control" id="reasonDetails" name="reason_details" rows="3" 
+                                  placeholder="أضف تفاصيل إضافية عن سبب النقل (اختياري)"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>ملاحظة:</strong> سيتم إرسال طلب النقل للموافقة من مدير القسم المستهدف.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> إرسال طلب النقل
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function requestTransfer(deviceId, deviceName, fromDepartment) {
+    document.getElementById('deviceId').value = deviceId;
+    document.getElementById('deviceName').textContent = deviceName;
+    document.getElementById('fromDepartment').textContent = fromDepartment;
+    
+    // Update form action URL with device ID
+    const form = document.getElementById('transferForm');
+    form.action = form.action.replace('/0/', '/' + deviceId + '/');
+    
+    // Reset form
+    document.getElementById('toDepartment').value = '';
+    document.getElementById('reason').value = '';
+    document.getElementById('reasonDetails').value = '';
+    document.getElementById('priority').value = 'normal';
+    
+    $('#transferModal').modal('show');
+}
+
+// Show success message if redirected after successful transfer request
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'transfer_requested') {
+        showAlert('تم إرسال طلب النقل بنجاح! سيتم مراجعته من قبل مدير القسم المستهدف.', 'success');
+    }
+});
+
+function showAlert(message, type) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const alert = '<div class="alert ' + alertClass + ' alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">' +
+                  '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + '"></i> ' +
+                  message +
+                  '<button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>' +
+                  '</div>';
+    document.body.insertAdjacentHTML('afterbegin', alert);
+    
+    setTimeout(function() {
+        const alertElement = document.querySelector('.alert');
+        if (alertElement) {
+            alertElement.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

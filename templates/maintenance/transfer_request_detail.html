@@ -28,17 +28,17 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>الحالة:</strong> 
-                                <span class="badge badge-{{ transfer_request.device.status|default:'working' == 'working'|yesno:'success,danger' }}">
+                                <span class="badge badge-{% if transfer_request.device.status|default:'working' == 'working' %}success{% else %}danger{% endif %}">
                                     {{ transfer_request.device.get_status_display|default:"يعمل" }}
                                 </span>
                             </p>
                             <p><strong>النظافة:</strong> 
-                                <span class="badge badge-{{ transfer_request.device.clean_status == 'clean'|yesno:'success,warning' }}">
+                                <span class="badge badge-{% if transfer_request.device.clean_status == 'clean' %}success{% else %}warning{% endif %}">
                                     {{ transfer_request.device.get_clean_status_display }}
                                 </span>
                             </p>
                             <p><strong>التعقيم:</strong> 
-                                <span class="badge badge-{{ transfer_request.device.sterilization_status == 'sterilized'|yesno:'success,warning' }}">
+                                <span class="badge badge-{% if transfer_request.device.sterilization_status == 'sterilized' %}success{% else %}warning{% endif %}">
                                     {{ transfer_request.device.get_sterilization_status_display }}
                                 </span>
                             </p>
@@ -71,7 +71,7 @@
                             <p><strong>تفاصيل السبب:</strong> {{ transfer_request.reason_details }}</p>
                             {% endif %}
                             <p><strong>الأولوية:</strong> 
-                                <span class="badge badge-{{ transfer_request.priority == 'urgent'|yesno:'danger,warning' }}">
+                                <span class="badge badge-{% if transfer_request.priority == 'urgent' %}danger{% else %}warning{% endif %}">
                                     {{ transfer_request.get_priority_display }}
                                 </span>
                             </p>
@@ -164,11 +164,13 @@
                     {% endif %}
 
                     <!-- Reject Button -->
-                    {% if transfer_request.status in 'pending,approved' and (can_approve or can_accept) %}
-                    <a href="{% url 'maintenance:reject_transfer_request' transfer_request.id %}" 
-                       class="btn btn-danger btn-block mb-2">
-                        <i class="fas fa-times"></i> رفض الطلب
-                    </a>
+                    {% if transfer_request.status == 'pending' or transfer_request.status == 'approved' %}
+                        {% if can_approve or can_accept %}
+                        <a href="{% url 'maintenance:reject_transfer_request' transfer_request.id %}" 
+                           class="btn btn-danger btn-block mb-2">
+                            <i class="fas fa-times"></i> رفض الطلب
+                        </a>
+                        {% endif %}
                     {% endif %}
 
                     <!-- View Device -->

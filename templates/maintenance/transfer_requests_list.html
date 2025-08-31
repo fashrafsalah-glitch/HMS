@@ -122,7 +122,7 @@
                                     <td>{{ request.to_department.name }}</td>
                                     <td>{{ request.get_reason_display }}</td>
                                     <td>
-                                        <span class="badge badge-{{ request.priority == 'urgent'|yesno:'danger,warning' }}">
+                                        <span class="badge badge-{% if request.priority == 'urgent' %}danger{% else %}warning{% endif %}">
                                             {{ request.get_priority_display }}
                                         </span>
                                     </td>

@@ -10,7 +10,6 @@
     <div class="d-flex flex-wrap gap-2">
       <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-primary"> التفاصيل</a>
       <a href="{% url 'maintenance:device_transfer_history' device.id %}" class="btn btn-outline-primary"> سجل الحركات</a>
-      <a href="{% url 'maintenance:device_transfer_list' %}" class="btn btn-outline-info"> طلبات النقل</a>
       <a href="{% url 'maintenance:add_accessory' device.id %}" class="btn btn-secondary"> إضافة ملحق</a>
       <a href="{% url 'maintenance:maintenance_schedule' device.id %}" class="btn btn-success"> مواعيد الصيانة</a>
       <a href="{% url 'maintenance:add_emergency_request' device.id %}" class="btn btn-danger"> صيانة مستعجلة</a>
@@ -83,14 +82,10 @@
             <span class="spinner-border spinner-border-sm d-none" role="status"></span>
           </button>
           
-          <button type="button" class="btn btn-success ajax-action-btn" 
-                  data-action="maintenance" 
-                  data-url="{% url 'maintenance:ajax_perform_maintenance' device.id %}"
-                  data-device-id="{{ device.id }}">
+          <a href="{% url 'maintenance:device_maintain' device.id %}" class="btn btn-success">
             <i class="bi bi-tools me-1"></i>
-            <span class="btn-text">تم فحص الجهاز</span>
-            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-          </button>
+            فحص الجهاز
+          </a>
         </div>
       </div>
 

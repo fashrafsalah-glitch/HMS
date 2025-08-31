@@ -494,17 +494,6 @@ def release_device(request, device_id):
 
 
 
-@login_required
-def device_transfer_list(request):
-    """
-    عرض قائمة طلبات نقل الأجهزة للموافقة عليها
-    """
-    transfer_requests = DeviceTransferRequest.objects.all().order_by('-requested_at')
-    
-    context = {
-        'transfer_requests': transfer_requests,
-    }
-    return render(request, 'maintenance/device_transfer_list.html', context)
 
 
 @login_required
@@ -631,6 +620,7 @@ def add_device_subcategory(request):
     else:
         form = DeviceSubCategoryForm()
     return render(request, 'maintenance/device_subcategory_form.html', {'form': form})
+
 def device_detail(request, pk):
     device = get_object_or_404(Device, pk=pk)
     # Keep device detail page focused on device info only
@@ -662,55 +652,6 @@ def device_delete(request, pk):
         return redirect('maintenance:device_list')
     return render(request, 'maintenance/device_confirm_delete.html', {'device': device})
 
-def transfer_device(request, device_id):
-    device = get_object_or_404(Device, id=device_id)
-    
-    # Check device transfer eligibility
-    transfer_errors = []
-    if hasattr(device, 'status') and device.status != 'working':
-        transfer_errors.append(f"الجهاز في حالة: {device.get_status_display()} - يجب أن يكون يعمل")
-    if hasattr(device, 'clean_status') and device.clean_status != 'clean':
-        transfer_errors.append("الجهاز يحتاج تنظيف قبل النقل")
-    if hasattr(device, 'sterilization_status') and device.sterilization_status != 'sterilized':
-        transfer_errors.append("الجهاز يحتاج تعقيم قبل النقل")
-    if hasattr(device, 'availability') and not device.availability:
-        transfer_errors.append("الجهاز غير متاح حالياً - لا يمكن نقله")
-
-    if request.method == 'POST':
-        form = DeviceTransferForm(request.POST)
-        if form.is_valid():
-            if transfer_errors:
-                for error in transfer_errors:
-                    messages.error(request, error)
-                return render(request, 'maintenance/device_transfer.html', {
-                    'form': form, 
-                    'device': device, 
-                    'transfer_errors': transfer_errors
-                })
-            
-            transfer = DeviceTransferRequest.objects.create(
-                device=device,
-                from_department=device.department,
-                to_department=form.cleaned_data['to_department'],
-                from_room=device.room,
-                to_room=form.cleaned_data['to_room'],
-                requested_by=request.user,
-            )
-            messages.success(request, "تم إرسال طلب نقل الجهاز بنجاح")
-            return redirect('maintenance:device_detail', pk=device.id)
-    else:
-        form = DeviceTransferForm(initial={
-            'to_department': device.department,
-            'to_room': device.room
-        })
-
-    return render(request, 'maintenance/device_transfer.html', {
-        'form': form, 
-        'device': device, 
-        'transfer_errors': transfer_errors
-    })
-
-
 
 # ============= Enhanced Device Transfer Views (3-Stage Workflow) =============
 
@@ -721,15 +662,9 @@ def transfer_request_create(request, device_id):
     
     device = get_object_or_404(Device, id=device_id)
     
-    # Check if there's already a pending/approved request
-    existing_request = DeviceTransferRequest.objects.filter(
-        device=device,
-        status__in=['pending', 'approved']
-    ).first()
-    
-    if existing_request:
-        messages.warning(request, f"يوجد طلب نقل {existing_request.get_status_display()} لهذا الجهاز")
-        return redirect('maintenance:transfer_requests_list')
+    # Check device eligibility automatically
+    temp_request = DeviceTransferRequest(device=device)
+    eligibility_errors = temp_request.check_device_eligibility()
     
     if request.method == 'POST':
         form = DeviceTransferRequestForm(request.POST, device=device, user=request.user)
@@ -738,14 +673,38 @@ def transfer_request_create(request, device_id):
             transfer_request.device = device
             transfer_request.from_department = device.department
             transfer_request.from_room = device.room
-            transfer_request.from_bed = getattr(device, 'bed', None)
             transfer_request.requested_by = request.user
-            transfer_request.status = 'pending'
             transfer_request.save()
             
-            messages.success(request, "تم إنشاء طلب النقل بنجاح وفي انتظار الموافقة")
-            return redirect('maintenance:transfer_request_detail', pk=transfer_request.id)
+            messages.success(request, 'تم إرسال طلب النقل بنجاح - رقم الطلب: ' + str(transfer_request.pk))
+            return redirect('maintenance:transfer_success', pk=transfer_request.pk)
+        else:
+            # Display specific form errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{form.fields[field].label}: {error}')
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
+    else:
+        form = DeviceTransferRequestForm(device=device, user=request.user)
+    
+    context = {
+        'form': form, 
+        'device': device,
+        'eligibility_errors': eligibility_errors,
+        'device_ready': len(eligibility_errors) == 0
+    }
+    return render(request, 'maintenance/transfer_request_form.html', context)
 
+
+@login_required
+def transfer_success(request, pk):
+    """Show transfer request success page with monitoring info"""
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
+    
+    context = {
+        'transfer_request': transfer_request,
+    }
+    return render(request, 'maintenance/transfer_success.html', context)
 
 # AJAX endpoints for dynamic form loading
 @login_required
@@ -755,8 +714,15 @@ def get_department_rooms(request):
     if department_id:
         try:
             from manager.models import Room
-            rooms = Room.objects.filter(department_id=department_id).values('id', 'name')
-            return JsonResponse({'rooms': list(rooms)})
+            rooms = Room.objects.filter(department_id=department_id)
+            
+            # Format room names for display
+            room_list = []
+            for room in rooms:
+                room_name = f"غرفة {room.number} - {room.get_room_type_display()}"
+                room_list.append({'id': room.id, 'name': room_name})
+            
+            return JsonResponse({'rooms': room_list})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
     return JsonResponse({'rooms': []})
@@ -769,11 +735,42 @@ def get_room_beds(request):
     if room_id:
         try:
             from manager.models import Bed
-            beds = Bed.objects.filter(room_id=room_id).values('id', 'name')
-            return JsonResponse({'beds': list(beds)})
+            beds = Bed.objects.filter(room_id=room_id, status='available')
+            
+            # Format bed names for display
+            bed_list = []
+            for bed in beds:
+                bed_name = f"سرير {bed.bed_number} - {bed.get_bed_type_display()}"
+                bed_list.append({'id': bed.id, 'name': bed_name})
+            
+            return JsonResponse({'beds': bed_list})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
     return JsonResponse({'beds': []})
+
+
+@login_required
+def get_department_patients(request):
+    """Get patients for a specific department"""
+    department_id = request.GET.get('department_id')
+    if department_id:
+        try:
+            from manager.models import Patient
+            patients = Patient.objects.filter(
+                admission__department_id=department_id,
+                admission__discharge_date__isnull=True
+            ).values('id', 'first_name', 'last_name')
+            
+            # Format patient names for display
+            patient_list = []
+            for patient in patients:
+                full_name = f"{patient['first_name']} {patient['last_name']}"
+                patient_list.append({'id': patient['id'], 'name': full_name})
+            
+            return JsonResponse({'patients': patient_list})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'patients': []})
 
 
 @login_required
@@ -1186,7 +1183,7 @@ def sterilize_device(request, device_id):
     return render(request, 'maintenance/sterilize_device.html', {'device': device})
 
 def perform_maintenance(request, device_id):
-    device = get_object_or_404(Device, pk=device_id)
+    device = get_object_or_404(Device, id=device_id)
     
     if request.method == 'POST':
         notes = request.POST.get('notes', '')
@@ -1197,8 +1194,15 @@ def perform_maintenance(request, device_id):
             description=notes,
             maintenance_type=maintenance_type
         )
-        messages.success(request, f'تم تسجيل صيانة الجهاز "{device.name}" بنجاح')
-        return redirect('maintenance:device_info', pk=device.id)
+        
+        # Update device status to working after maintenance
+        device.status = 'working'
+        device.last_maintained_by = request.user
+        device.last_maintained_at = timezone.now()
+        device.save()
+        
+        messages.success(request, f'تم تسجيل صيانة الجهاز "{device.name}" بنجاح وتم تغيير الحالة إلى "يعمل"')
+        return redirect('maintenance:device_detail', pk=device.id)
     
     return render(request, 'maintenance/perform_maintenance.html', {'device': device})
 
@@ -1274,39 +1278,71 @@ def add_spare_part(request, pk):
 
 
 
-def department_devices(request, department_id):
-    department = get_object_or_404(Department, id=department_id)
-
-    # استبعاد الأجهزة التي تم طلب نقلها لهذا القسم ولم تُقبل بعد
-    pending_transfers = DeviceTransferRequest.objects.filter(
-        to_department=department,
-        is_approved=False
-    ).select_related('device')
-
-    pending_devices_ids = [t.device.id for t in pending_transfers]
-
-    # عرض الأجهزة الفعلية فقط التي لا تنتظر موافقة النقل
-    actual_devices = Device.objects.filter(
-        department=department
-    ).exclude(id__in=pending_devices_ids)
-
-    return render(request, 'maintenance/department_device_list.html', {
-        'department': department,
-        'actual_devices': actual_devices,
-        'pending_transfers': pending_transfers
-    })
+# This function is duplicated in manager/views.py - removing to avoid conflicts
+# The manager/views.py version is more complete and is the one being used
 
 from .models import DeviceTransferRequest
 
 def device_transfer_history(request, device_id):
     device = get_object_or_404(Device, id=device_id)
-    transfers = DeviceTransferRequest.objects.filter(device=device).select_related(
-        'from_department', 'to_department', 'from_room', 'to_room', 'requested_by', 'approved_by'
+    
+    # Get all transfer requests
+    transfer_requests = DeviceTransferRequest.objects.filter(device=device).select_related(
+        'from_department', 'to_department', 'from_room', 'to_room', 'requested_by', 'approved_by', 'accepted_by'
     ).order_by('-requested_at')
+    
+    # Get all transfer logs (completed transfers)
+    from .models import DeviceTransferLog
+    transfer_logs = DeviceTransferLog.objects.filter(device=device).select_related(
+        'from_department', 'to_department', 'from_room', 'to_room', 'moved_by'
+    ).order_by('-moved_at')
+    
+    # Combine and sort all transfer activities
+    all_transfers = []
+    
+    # Add transfer requests
+    for req in transfer_requests:
+        all_transfers.append({
+            'type': 'request',
+            'id': req.id,
+            'status': req.status,
+            'from_department': req.from_department,
+            'to_department': req.to_department,
+            'from_room': req.from_room,
+            'to_room': req.to_room,
+            'date': req.requested_at,
+            'user': req.requested_by,
+            'reason': req.reason,
+            'priority': req.priority,
+            'approved_by': req.approved_by,
+            'accepted_by': req.accepted_by,
+            'approved_at': req.approved_at,
+            'accepted_at': req.accepted_at,
+        })
+    
+    # Add transfer logs
+    for log in transfer_logs:
+        all_transfers.append({
+            'type': 'log',
+            'id': log.id,
+            'status': 'completed',
+            'from_department': log.from_department,
+            'to_department': log.to_department,
+            'from_room': log.from_room,
+            'to_room': log.to_room,
+            'date': log.moved_at,
+            'user': log.moved_by,
+            'reason': getattr(log, 'reason', 'نقل مكتمل'),
+        })
+    
+    # Sort by date (newest first)
+    all_transfers.sort(key=lambda x: x['date'], reverse=True)
 
     return render(request, 'maintenance/device_transfer_history.html', {
         'device': device,
-        'transfers': transfers
+        'transfers': all_transfers,
+        'transfer_requests': transfer_requests,
+        'transfer_logs': transfer_logs
     })
 
 
@@ -2666,3 +2702,113 @@ def generate_qr_code(request):
 
 def test_links(request):
     return render(request, "maintenance/test_links.html")
+
+
+@login_required
+def all_devices_transfer(request):
+    """
+    View to show all devices with transfer request functionality
+    """
+    # Get all devices
+    devices = Device.objects.select_related('department', 'room').all()
+    
+    # Apply filters
+    search_query = request.GET.get('search', '')
+    department_filter = request.GET.get('department', '')
+    status_filter = request.GET.get('status', '')
+    
+    if search_query:
+        devices = devices.filter(
+            Q(name__icontains=search_query) | 
+            Q(serial_number__icontains=search_query)
+        )
+    
+    if department_filter:
+        devices = devices.filter(department_id=department_filter)
+    
+    if status_filter:
+        devices = devices.filter(status=status_filter)
+    
+    # Pagination
+    paginator = Paginator(devices, 12)  # 12 devices per page
+    page_number = request.GET.get('page')
+    devices = paginator.get_page(page_number)
+    
+    # Get all departments for filter dropdown
+    departments = Department.objects.all().order_by('name')
+    
+    context = {
+        'devices': devices,
+        'departments': departments,
+        'search_query': search_query,
+        'department_filter': department_filter,
+        'status_filter': status_filter,
+    }
+    
+    return render(request, 'maintenance/all_devices_transfer.html', context)
+
+
+@login_required
+def transfer_test_page(request):
+    """
+    Test page to show all transfer-related links
+    """
+    return render(request, 'maintenance/transfer_test_page.html')
+
+
+@login_required
+def department_transfer_requests(request, department_id):
+    """
+    View to show transfer requests related to a specific department
+    """
+    department = get_object_or_404(Department, id=department_id)
+    
+    # Get transfer requests where this department is involved (either as source or destination)
+    transfer_requests = DeviceTransferRequest.objects.filter(
+        Q(from_department=department) | Q(to_department=department)
+    ).select_related(
+        'device', 'from_department', 'to_department', 
+        'requested_by', 'approved_by', 'accepted_by', 'rejected_by'
+    ).order_by('-requested_at')
+    
+    # Apply status filter
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        transfer_requests = transfer_requests.filter(status=status_filter)
+    
+    # Pagination
+    paginator = Paginator(transfer_requests, 20)
+    page_number = request.GET.get('page')
+    transfer_requests = paginator.get_page(page_number)
+    
+    # Statistics
+    stats = {
+        'total': DeviceTransferRequest.objects.filter(
+            Q(from_department=department) | Q(to_department=department)
+        ).count(),
+        'pending': DeviceTransferRequest.objects.filter(
+            Q(from_department=department) | Q(to_department=department),
+            status='pending'
+        ).count(),
+        'approved': DeviceTransferRequest.objects.filter(
+            Q(from_department=department) | Q(to_department=department),
+            status='approved'
+        ).count(),
+        'accepted': DeviceTransferRequest.objects.filter(
+            Q(from_department=department) | Q(to_department=department),
+            status='accepted'
+        ).count(),
+        'rejected': DeviceTransferRequest.objects.filter(
+            Q(from_department=department) | Q(to_department=department),
+            status='rejected'
+        ).count(),
+    }
+    
+    context = {
+        'department': department,
+        'transfer_requests': transfer_requests,
+        'status_filter': status_filter,
+        'stats': stats,
+    }
+    
+    return render(request, 'maintenance/department_transfer_requests.html', context)

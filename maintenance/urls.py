@@ -33,25 +33,30 @@ urlpatterns = [
     path('devices/<int:pk>/edit/', views.device_edit, name='device_edit'),
     path('devices/<int:pk>/delete/', views.device_delete, name='device_delete'),
     
-    path('devices/<int:device_id>/transfer/', views.transfer_device, name='device_transfer'),
      
     path('device/<int:device_id>/transfer-history/', views.device_transfer_history, name='device_transfer_history'),
 
-    path('devices/department/<int:department_id>/', views.department_devices, name='department_devices'),
-    path('device-transfers/', views.device_transfer_list, name='device_transfer_list'),
     path('transfers/<int:transfer_id>/approve/', views.approve_transfer, name='approve_transfer'),
     
     # Enhanced Device Transfer Workflow URLs
     path('transfer-requests/', views.transfer_requests_list, name='transfer_requests_list'),
-    path('transfer-requests/create/<int:device_id>/', views.transfer_request_create, name='transfer_request_create'),
     path('transfer-requests/<int:pk>/', views.transfer_request_detail, name='transfer_request_detail'),
+    path('transfer-requests/create/<int:device_id>/', views.transfer_request_create, name='device_transfer'),
+    path('transfer-success/<int:pk>/', views.transfer_success, name='transfer_success'),
     path('transfer-requests/<int:pk>/approve/', views.approve_transfer_request, name='approve_transfer_request'),
     path('transfer-requests/<int:pk>/accept/', views.accept_transfer_request, name='accept_transfer_request'),
     path('transfer-requests/<int:pk>/reject/', views.reject_transfer_request, name='reject_transfer_request'),
     
+    # All Devices Transfer Page
+    path('all-devices-transfer/', views.all_devices_transfer, name='all_devices_transfer'),
+    
+    # Department Transfer Requests
+    path('department/<int:department_id>/transfer-requests/', views.department_transfer_requests, name='department_transfer_requests'),
+    
     # AJAX endpoints for transfer forms
     path('ajax/get-department-rooms/', views.get_department_rooms, name='get_department_rooms'),
     path('ajax/get-room-beds/', views.get_room_beds, name='get_room_beds'),
+    path('ajax/get-department-patients/', views.get_department_patients, name='get_department_patients'),
       # تصنيفات جديدة
     path('categories/add/', views.add_device_category, name='add_device_category'),
     path('subcategories/add/', views.add_device_subcategory, name='add_device_subcategory'),
@@ -96,7 +101,7 @@ urlpatterns = [
 
     path('device/<int:device_id>/clean/', views.clean_device, name='clean_device'),
     path('device/<int:device_id>/sterilize/', views.sterilize_device, name='sterilize_device'),
-    path('device/<int:device_id>/maintain/', views.perform_maintenance, name='perform_maintenance'),
+    path('device/<int:device_id>/maintain/', views.perform_maintenance, name='device_maintain'),
     
     # AJAX endpoints for instant device status updates
     path('ajax/device/<int:device_id>/clean/', views.ajax_clean_device, name='ajax_clean_device'),
@@ -141,8 +146,12 @@ urlpatterns = [
     path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
     path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
     path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
+    # Test Page
+    path('transfer-test/', views.transfer_test_page, name='transfer_test_page'),
+    
     # CMMS URLs
     path('cmms/', include('maintenance.urls_cmms', namespace='cmms')),
+
     # Dashboard URLs
     path('dashboard/', include('maintenance.urls_dashboard', namespace='dashboard')),
     

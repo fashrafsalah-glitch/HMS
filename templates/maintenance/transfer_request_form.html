@@ -4,6 +4,8 @@
 {% block title %}طلب نقل جهاز - {{ device.name }}{% endblock %}
 
 {% block content %}
+<!-- jQuery CDN -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <div class="container-fluid mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -25,22 +27,32 @@
                             <p><strong>القسم الحالي:</strong> {{ device.department.name }}</p>
                             <p><strong>الغرفة الحالية:</strong> {{ device.room.name|default:"غير محدد" }}</p>
                             <p><strong>الحالة:</strong> 
-                                <span class="badge badge-{{ device.status|default:'working' == 'working'|yesno:'success,danger' }}">
-                                    {{ device.get_status_display|default:"يعمل" }}
-                                </span>
+                                {% if device.status == 'working' %}
+                                    <span class="badge badge-success">{{ device.get_status_display|default:"يعمل" }}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{{ device.get_status_display|default:"يعمل" }}</span>
+                                {% endif %}
                             </p>
                         </div>
                     </div>
                     
-                    <!-- Eligibility Warnings -->
-                    {% if eligibility_errors %}
-                    <div class="alert alert-warning mt-3">
-                        <h6><i class="fas fa-exclamation-triangle"></i> تحذيرات:</h6>
+                    <!-- Device Eligibility Status -->
+                    {% if not device_ready %}
+                    <div class="alert alert-danger mt-3">
+                        <h6><i class="fas fa-exclamation-triangle"></i> الجهاز غير قابل للنقل حالياً:</h6>
                         <ul class="mb-0">
                             {% for error in eligibility_errors %}
                             <li>{{ error }}</li>
                             {% endfor %}
                         </ul>
+                        <div class="mt-2">
+                            <small class="text-muted">يرجى حل هذه المشاكل قبل المتابعة مع طلب النقل</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mt-3">
+                        <h6><i class="fas fa-check-circle"></i> الجهاز جاهز للنقل</h6>
+                        <p class="mb-0">جميع الشروط مستوفاة لنقل الجهاز</p>
                     </div>
                     {% endif %}
                 </div>
@@ -63,7 +75,12 @@
                                 <label for="{{ form.to_department.id_for_label }}" class="form-label">
                                     {{ form.to_department.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.to_department }}
+                                <select name="to_department" id="id_to_department" class="form-control" required>
+                                    <option value="">-- اختر القسم --</option>
+                                    {% for dept in form.to_department.field.queryset %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
                                 {% if form.to_department.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.to_department.errors.0 }}
@@ -76,7 +93,9 @@
                                 <label for="{{ form.to_room.id_for_label }}" class="form-label">
                                     {{ form.to_room.label }}
                                 </label>
-                                {{ form.to_room }}
+                                <select name="to_room" id="id_to_room" class="form-control">
+                                    <option value="">-- اختر الغرفة --</option>
+                                </select>
                                 {% if form.to_room.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.to_room.errors.0 }}
@@ -91,7 +110,9 @@
                                 <label for="{{ form.patient.id_for_label }}" class="form-label">
                                     {{ form.patient.label }}
                                 </label>
-                                {{ form.patient }}
+                                <select name="patient" id="id_patient" class="form-control">
+                                    <option value="">-- اختر المريض --</option>
+                                </select>
                                 <small class="form-text text-muted">اختر المريض إذا كان النقل لمريض محدد</small>
                                 {% if form.patient.errors %}
                                 <div class="invalid-feedback d-block">
@@ -105,7 +126,9 @@
                                 <label for="{{ form.to_bed.id_for_label }}" class="form-label">
                                     {{ form.to_bed.label }}
                                 </label>
-                                {{ form.to_bed }}
+                                <select name="to_bed" id="id_to_bed" class="form-control">
+                                    <option value="">-- اختر السرير --</option>
+                                </select>
                                 {% if form.to_bed.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.to_bed.errors.0 }}
@@ -155,30 +178,45 @@
                             {% endif %}
                         </div>
 
-                        <!-- Device Readiness Checkboxes -->
+                        <!-- Device Readiness Status -->
                         <div class="card mb-3">
                             <div class="card-header bg-light">
-                                <h6 class="mb-0">تأكيد جاهزية الجهاز</h6>
+                                <h6 class="mb-0">حالة جاهزية الجهاز</h6>
                             </div>
                             <div class="card-body">
-                                <div class="form-check">
-                                    {{ form.device_checked }}
-                                    <label class="form-check-label" for="{{ form.device_checked.id_for_label }}">
-                                        {{ form.device_checked.label }}
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    {{ form.device_cleaned }}
-                                    <label class="form-check-label" for="{{ form.device_cleaned.id_for_label }}">
-                                        {{ form.device_cleaned.label }}
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    {{ form.device_sterilized }}
-                                    <label class="form-check-label" for="{{ form.device_sterilized.id_for_label }}">
-                                        {{ form.device_sterilized.label }}
-                                    </label>
-                                </div>
+                                {% if device_ready %}
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="d-flex align-items-center text-success">
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                <span>تم فحص الجهاز</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="d-flex align-items-center text-success">
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                <span>تم تنظيف الجهاز</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="d-flex align-items-center text-success">
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                <span>تم تعقيم الجهاز</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-success"><i class="fas fa-info-circle"></i> الجهاز جاهز للنقل</small>
+                                    </div>
+                                {% else %}
+                                    <div class="text-danger">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <strong>الجهاز غير جاهز للنقل حالياً</strong>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">يرجى حل المشاكل المذكورة أعلاه أولاً</small>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
 
@@ -187,9 +225,14 @@
                             <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> رجوع
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" {% if not device_ready %}disabled{% endif %}>
                                 <i class="fas fa-paper-plane"></i> إرسال طلب النقل
                             </button>
+                            {% if not device_ready %}
+                            <small class="text-danger mt-1 d-block">
+                                <i class="fas fa-info-circle"></i> لا يمكن إرسال طلب النقل - الجهاز غير جاهز
+                            </small>
+                            {% endif %}
                         </div>
                     </form>
                 </div>
@@ -200,22 +243,49 @@
 
 <script>
 $(document).ready(function() {
+    console.log('Transfer form script loaded');
+    
     // Dynamic room loading based on department
     $('#id_to_department').change(function() {
+        console.log('Department changed:', $(this).val());
         var departmentId = $(this).val();
         var roomSelect = $('#id_to_room');
+        var patientSelect = $('#id_patient');
         
+        // Clear room and patient dropdowns
         roomSelect.empty();
         roomSelect.append('<option value="">-- اختر الغرفة --</option>');
+        patientSelect.empty();
+        patientSelect.append('<option value="">-- اختر المريض --</option>');
         
         if (departmentId) {
+            // Load rooms
             $.ajax({
                 url: '{% url "maintenance:get_department_rooms" %}',
                 data: { 'department_id': departmentId },
                 success: function(data) {
+                    console.log('Rooms loaded:', data);
                     $.each(data.rooms, function(index, room) {
                         roomSelect.append('<option value="' + room.id + '">' + room.name + '</option>');
                     });
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading rooms:', error);
+                }
+            });
+            
+            // Load patients
+            $.ajax({
+                url: '{% url "maintenance:get_department_patients" %}',
+                data: { 'department_id': departmentId },
+                success: function(data) {
+                    console.log('Patients loaded:', data);
+                    $.each(data.patients, function(index, patient) {
+                        patientSelect.append('<option value="' + patient.id + '">' + patient.name + '</option>');
+                    });
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading patients:', error);
                 }
             });
         }
@@ -223,6 +293,7 @@ $(document).ready(function() {
     
     // Dynamic bed loading based on room
     $('#id_to_room').change(function() {
+        console.log('Room changed:', $(this).val());
         var roomId = $(this).val();
         var bedSelect = $('#id_to_bed');
         
@@ -234,9 +305,13 @@ $(document).ready(function() {
                 url: '{% url "maintenance:get_room_beds" %}',
                 data: { 'room_id': roomId },
                 success: function(data) {
+                    console.log('Beds loaded:', data);
                     $.each(data.beds, function(index, bed) {
                         bedSelect.append('<option value="' + bed.id + '">' + bed.name + '</option>');
                     });
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading beds:', error);
                 }
             });
         }

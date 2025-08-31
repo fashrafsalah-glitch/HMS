@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.db.models import Count, Avg, Sum, Q, F
 from django.utils import timezone
 from datetime import timedelta
+import json
 from .kpi_utils import (
     get_dashboard_summary, 
     get_critical_alerts,
@@ -27,7 +28,7 @@ def cmms_dashboard(request):
     هنا بنعرض كل المؤشرات والإحصائيات المهمة للصيانة
     """
     # جلب القسم المحدد من المستخدم (إن وجد)
-    department_id = request.GET.get('department')
+    department_id = http_request.GET.get('department')
     department = None
     if department_id:
         try:
@@ -82,12 +83,17 @@ def cmms_dashboard(request):
     return render(request, 'maintenance/cmms_dashboard.html', context)
 
 @login_required
-def device_performance_dashboard(request):
+def device_performance_dashboard(http_request):
     """
     داشبورد أداء الأجهزة
     هنا بنشوف أداء كل جهاز على حدة مع النقاط والتقييمات
     """
-    department_id = request.GET.get('department')
+    from django.db.models import Count, Q
+    from datetime import datetime, timedelta
+    from .models import DeviceTransferRequest, DeviceTransferLog
+    import calendar
+    
+    department_id = http_request.GET.get('department')
     
     # جلب الأجهزة مع فلترة القسم
     devices = Device.objects.all()
@@ -97,6 +103,106 @@ def device_performance_dashboard(request):
     # حساب إحصائيات الأجهزة العامة
     total_devices = devices.count()
     down_devices = devices.filter(status='out_of_service').count()
+    
+    # جلب بيانات تنقلات الأجهزة الحقيقية من قاعدة البيانات
+    # جمع البيانات من DeviceTransferRequest و DeviceTransferLog
+    current_year = datetime.now().year
+    transfer_data_by_month = {}
+    
+    # تهيئة البيانات لكل شهر
+    for month in range(1, 13):
+        month_name = calendar.month_name[month]
+        arabic_months = {
+            'January': 'يناير', 'February': 'فبراير', 'March': 'مارس',
+            'April': 'أبريل', 'May': 'مايو', 'June': 'يونيو',
+            'July': 'يوليو', 'August': 'أغسطس', 'September': 'سبتمبر',
+            'October': 'أكتوبر', 'November': 'نوفمبر', 'December': 'ديسمبر'
+        }
+        transfer_data_by_month[month] = {
+            'name': arabic_months.get(month_name, month_name),
+            'departments': {}
+        }
+    
+    # جلب طلبات النقل المكتملة من DeviceTransferRequest
+    completed_requests = DeviceTransferRequest.objects.filter(
+        status='approved',
+        requested_at__year=current_year
+    ).select_related('to_department', 'device')
+    
+    # جلب سجلات النقل من DeviceTransferLog
+    transfer_logs = DeviceTransferLog.objects.filter(
+        moved_at__year=current_year
+    ).select_related('to_department', 'device')
+    
+    # معالجة طلبات النقل المكتملة
+    for transfer_request in completed_requests:
+        month = transfer_request.requested_at.month
+        dept_name = transfer_request.to_department.name if transfer_request.to_department else 'غير محدد'
+        
+        if dept_name not in transfer_data_by_month[month]['departments']:
+            transfer_data_by_month[month]['departments'][dept_name] = 0
+        transfer_data_by_month[month]['departments'][dept_name] += 1
+    
+    # معالجة سجلات النقل
+    for log in transfer_logs:
+        month = log.moved_at.month
+        dept_name = log.to_department.name if log.to_department else 'غير محدد'
+        
+        if dept_name not in transfer_data_by_month[month]['departments']:
+            transfer_data_by_month[month]['departments'][dept_name] = 0
+        transfer_data_by_month[month]['departments'][dept_name] += 1
+    
+    # تحضير بيانات الشارت
+    # جلب أهم 5 أقسام من حيث عدد النقلات
+    all_departments = {}
+    for month_data in transfer_data_by_month.values():
+        for dept, count in month_data['departments'].items():
+            if dept not in all_departments:
+                all_departments[dept] = 0
+            all_departments[dept] += count
+    
+    # ترتيب الأقسام حسب عدد النقلات
+    top_departments = sorted(all_departments.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # إنشاء بيانات الشارت للأقسام الأكثر نشاطاً
+    device_transfer_chart_data = {
+        'labels': [transfer_data_by_month[i]['name'] for i in range(1, 13)],
+        'datasets': []
+    }
+    
+    # ألوان مختلفة لكل قسم
+    colors = [
+        {'bg': 'rgba(255, 99, 132, 0.6)', 'border': 'rgba(255, 99, 132, 1)'},
+        {'bg': 'rgba(54, 162, 235, 0.6)', 'border': 'rgba(54, 162, 235, 1)'},
+        {'bg': 'rgba(255, 206, 86, 0.6)', 'border': 'rgba(255, 206, 86, 1)'},
+        {'bg': 'rgba(75, 192, 192, 0.6)', 'border': 'rgba(75, 192, 192, 1)'},
+        {'bg': 'rgba(153, 102, 255, 0.6)', 'border': 'rgba(153, 102, 255, 1)'}
+    ]
+    
+    for idx, (dept_name, total_count) in enumerate(top_departments):
+        if idx >= 5:  # أقصى 5 أقسام
+            break
+            
+        monthly_data = []
+        for month in range(1, 13):
+            count = transfer_data_by_month[month]['departments'].get(dept_name, 0)
+            monthly_data.append(count)
+        
+        color = colors[idx % len(colors)]
+        device_transfer_chart_data['datasets'].append({
+            'label': dept_name,
+            'data': monthly_data,
+            'backgroundColor': color['bg'],
+            'borderColor': color['border'],
+            'borderWidth': 3,
+            'fill': True,
+            'tension': 0.4,
+            'pointBackgroundColor': color['border'],
+            'pointBorderColor': '#fff',
+            'pointBorderWidth': 3,
+            'pointRadius': 6,
+            'pointHoverRadius': 8
+        })
     
     # حساب نقاط الأداء لكل جهاز
     device_scores = []
@@ -214,9 +320,10 @@ def device_performance_dashboard(request):
         'department_usage_labels': department_usage_labels,
         'department_usage_data': department_usage_data,
         'device_age_data': device_age_data,
+        'device_transfer_chart_data': json.dumps(device_transfer_chart_data),  # إضافة بيانات الشارت الحقيقية
     }
     
-    return render(request, 'maintenance/dashboard/device_performance_dashboard.html', context)
+    return render(http_request, 'maintenance/dashboard/device_performance_dashboard.html', context)
 
 @login_required
 def work_order_analytics(request):
@@ -224,7 +331,7 @@ def work_order_analytics(request):
     تحليلات أوامر الشغل
     هنا بنشوف إحصائيات مفصلة عن أوامر الشغل وحالاتها
     """
-    department_id = request.GET.get('department')
+    department_id = http_request.GET.get('department')
     days = int(request.GET.get('days', 30))
     
     # حساب إحصائيات أوامر الشغل
@@ -603,7 +710,7 @@ def maintenance_trends(request):
     import calendar
     from .models import SparePartTransaction
     
-    department_id = request.GET.get('department')
+    department_id = http_request.GET.get('department')
     date_range = request.GET.get('date_range', 'last_6_months')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
@@ -916,7 +1023,7 @@ def dashboard_api_data(request):
     API لجلب بيانات الداشبورد بصيغة JSON
     هنا بنرجع البيانات للـ JavaScript عشان نعمل الرسوم البيانية
     """
-    department_id = request.GET.get('department')
+    department_id = http_request.GET.get('department')
     data_type = request.GET.get('type', 'summary')
     
     if data_type == 'summary':
@@ -1000,7 +1107,7 @@ def export_dashboard_report(request):
     from datetime import datetime
     import json
     
-    department_id = request.GET.get('department')
+    department_id = http_request.GET.get('department')
     export_format = request.GET.get('format', 'pdf')
     
     if export_format == 'json':

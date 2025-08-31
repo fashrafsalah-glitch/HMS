@@ -4,10 +4,21 @@
 
 {% block content %}
 <div class="container">
-    <h3 class="text-center text-primary mb-4">الأجهزة الخاصة بالقسم: {{ department.name }}</h3>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="text-primary mb-0">الأجهزة الخاصة بالقسم: {{ department.name }}</h3>
+        <div>
+            <a href="{% url 'maintenance:all_devices_transfer' %}" class="btn btn-primary">
+                <i class="fas fa-exchange-alt"></i> طلب نقل جهاز
+            </a>
+            <a href="{% url 'maintenance:department_transfer_requests' department.id %}" class="btn btn-info">
+                <i class="fas fa-list"></i> طلبات النقل للقسم
+            </a>
+        </div>
+    </div>
 
+    
     {% if actual_devices %}
-        <h4 class="mt-4">🟢 الأجهزة الفعلية</h4>
+        <h4 class="mt-4">🟢 الأجهزة الفعلية ({{ actual_devices|length }})</h4>
         <table class="table table-striped table-bordered align-middle text-center">
             <thead class="table-success">
                 <tr>
@@ -104,7 +115,6 @@
     {% else %}
         <p class="text-danger text-center mt-5">لا توجد أجهزة مسجلة لهذا القسم.</p>
     {% endif %}
-
     <div class="text-center mt-4">
         <a href="{% url 'manager:department_page' department.id %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> العودة لصفحة القسم

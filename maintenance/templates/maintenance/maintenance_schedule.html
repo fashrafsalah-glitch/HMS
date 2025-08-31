@@ -76,7 +76,7 @@
                                             <span class="badge badge-success">نشط</span>
                                         </td>
                                         <td>
-                                            <a href="{% url 'maintenance:perform_maintenance' device.id %}?schedule_id={{ schedule.id }}" class="btn btn-sm btn-success">
+                                            <a href="{% url 'maintenance:device_maintain' device.id %}?schedule_id={{ schedule.id }}" class="btn btn-sm btn-success">
                                                 <i class="fas fa-wrench"></i> تسجيل صيانة
                                             </a>
                                             <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editScheduleModal" data-schedule-id="{{ schedule.id }}" data-schedule-type="{{ schedule.frequency }}" data-next-date="{{ schedule.next_due_date|date:'Y-m-d' }}">تعديل</button>

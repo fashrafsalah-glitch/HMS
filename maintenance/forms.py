@@ -106,7 +106,7 @@ class DeviceTransferRequestForm(forms.ModelForm):
                 # Filter beds based on room
                 if 'to_room' in self.data:
                     room_id = int(self.data.get('to_room'))
-                    self.fields['to_bed'].queryset = Bed.objects.filter(room_id=room_id, is_occupied=False)
+                    self.fields['to_bed'].queryset = Bed.objects.filter(room_id=room_id, status='available')
             except (ValueError, TypeError):
                 self.fields['to_room'].queryset = Room.objects.none()
                 self.fields['to_bed'].queryset = Bed.objects.none()
@@ -116,9 +116,7 @@ class DeviceTransferRequestForm(forms.ModelForm):
         
         # Filter active patients only
         from manager.models import Patient
-        self.fields['patient'].queryset = Patient.objects.filter(
-            admission_status='admitted'
-        ).order_by('first_name', 'last_name')
+        self.fields['patient'].queryset = Patient.objects.all().order_by('first_name', 'last_name')
         self.fields['patient'].required = False
         
         # Make bed optional
@@ -146,7 +144,8 @@ class DeviceTransferRequestForm(forms.ModelForm):
         # Check if device is provided
         if self.device:
             # Check device eligibility
-            errors = self.device.transfer_requests.model().check_device_eligibility(self.device)
+            temp_request = DeviceTransferRequest(device=self.device)
+            errors = temp_request.check_device_eligibility()
             if errors and not self.cleaned_data.get('device_checked'):
                 raise forms.ValidationError(
                     'يجب معالجة المشاكل التالية قبل النقل: ' + ', '.join(errors)

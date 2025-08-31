@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}تم إرسال طلب النقل{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Success Message -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i> تم إرسال طلب النقل بنجاح
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-paper-plane fa-3x text-success mb-3"></i>
+                        <h4>طلب النقل رقم: {{ transfer_request.id }}</h4>
+                        <p class="text-muted">تم إرسال طلب نقل الجهاز بنجاح وهو الآن في انتظار الموافقة</p>
+                    </div>
+                    
+                    <!-- Request Details -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">تفاصيل الطلب</h6>
+                                    <p><strong>الجهاز:</strong> {{ transfer_request.device.name }}</p>
+                                    <p><strong>من القسم:</strong> {{ transfer_request.from_department.name }}</p>
+                                    <p><strong>إلى القسم:</strong> {{ transfer_request.to_department.name }}</p>
+                                    <p><strong>الأولوية:</strong> 
+                                        <span class="badge badge-{% if transfer_request.priority == 'high' %}danger{% elif transfer_request.priority == 'medium' %}warning{% else %}secondary{% endif %}">
+                                            {{ transfer_request.get_priority_display }}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">الحالة الحالية</h6>
+                                    <p><strong>الحالة:</strong> 
+                                        <span class="badge badge-warning">{{ transfer_request.get_status_display }}</span>
+                                    </p>
+                                    <p><strong>تاريخ الطلب:</strong> {{ transfer_request.created_at|date:"Y/m/d H:i" }}</p>
+                                    <p><strong>طلب بواسطة:</strong> {{ transfer_request.requested_by.get_full_name }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Next Steps -->
+                    <div class="alert alert-info mt-4">
+                        <h6><i class="fas fa-info-circle"></i> الخطوات التالية:</h6>
+                        <ol class="text-start mb-0">
+                            <li>سيتم إشعار مدير القسم المستهدف بالطلب</li>
+                            <li>مراجعة وموافقة مدير القسم على الطلب</li>
+                            <li>قبول الطلب من قبل القسم المستهدف</li>
+                            <li>تنفيذ عملية النقل</li>
+                        </ol>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        <a href="{% url 'maintenance:device_detail' transfer_request.device.id %}" class="btn btn-primary me-2">
+                            <i class="fas fa-eye"></i> عرض تفاصيل الجهاز
+                        </a>
+                        <a href="{% url 'maintenance:transfer_requests_list' %}" class="btn btn-secondary me-2">
+                            <i class="fas fa-list"></i> جميع طلبات النقل
+                        </a>
+                        <a href="{% url 'maintenance:device_transfer' transfer_request.device.id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-plus"></i> طلب نقل جديد
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

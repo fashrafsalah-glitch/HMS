@@ -24,7 +24,7 @@
                         <div class="col-md-6">
                             <p><strong>السبب:</strong> {{ transfer_request.get_reason_display }}</p>
                             <p><strong>الأولوية:</strong> 
-                                <span class="badge badge-{{ transfer_request.priority == 'urgent'|yesno:'danger,warning' }}">
+                                <span class="badge badge-{% if transfer_request.priority == 'urgent' %}danger{% else %}warning{% endif %}">
                                     {{ transfer_request.get_priority_display }}
                                 </span>
                             </p>

@@ -1,48 +1,121 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}سجل حركة الجهاز: {{ device.name }}{% endblock %}
 
 {% block content %}
-<div class="container my-4">
-    <h3 class="text-center mb-4">سجل حركة الجهاز: {{ device.name }}</h3>
+<div class="container-fluid my-4">
+    <!-- Device Info Header -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-history"></i> سجل حركة الجهاز: {{ device.name }}
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>الرقم التسلسلي:</strong> {{ device.serial_number }}
+                </div>
+                <div class="col-md-3">
+                    <strong>القسم الحالي:</strong> {{ device.department.name }}
+                </div>
+                <div class="col-md-3">
+                    <strong>الغرفة الحالية:</strong> {{ device.room.name|default:"غير محدد" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>إجمالي العمليات:</strong> {{ transfers|length }}
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Transfer History -->
     {% if transfers %}
-    <table class="table table-bordered table-striped">
-        <thead>
-            <tr>
-                 <th>تسلسل</th>
-                <th>من قسم</th>
-                <th>من غرفة</th>
-                <th>إلى قسم</th>
-                <th>إلى غرفة</th>
-                <th>طالب النقل</th>
-                <th>وقت الطلب</th>
-                <th>الموافقة</th>
-                <th>الوقت</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for t in transfers %}
-            <tr>
-                <td>{{ forloop.counter }}</td> <!-- ✅ هذا هو عمود التسلسل -->
-                <td>{{ t.from_department.name }}</td>
-                <td>{{ t.from_room }}</td>
-                <td>{{ t.to_department.name }}</td>
-                <td>{{ t.to_room }}</td>
-                <td>{{ t.requested_by.username }}</td>
-                <td>{{ t.requested_at|date:"Y-m-d H:i" }}</td>
-                <td>{% if t.is_approved %}{{ t.approved_by.username }}{% else %}<span class="text-warning">لم يُقبل بعد{% endif %}</span></td>
-                <td>{% if t.is_approved %}{{ t.approved_at|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-exchange-alt"></i> سجل جميع عمليات النقل
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>النوع</th>
+                            <th>الحالة</th>
+                            <th>من قسم</th>
+                            <th>إلى قسم</th>
+                            <th>من غرفة</th>
+                            <th>إلى غرفة</th>
+                            <th>السبب</th>
+                            <th>المستخدم</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in transfers %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                {% if transfer.type == 'request' %}
+                                    <span class="badge badge-primary">طلب نقل</span>
+                                {% else %}
+                                    <span class="badge badge-success">نقل مكتمل</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transfer.status == 'pending' %}
+                                    <span class="badge badge-warning">في انتظار الموافقة</span>
+                                {% elif transfer.status == 'approved' %}
+                                    <span class="badge badge-info">تمت الموافقة</span>
+                                {% elif transfer.status == 'accepted' %}
+                                    <span class="badge badge-primary">تم القبول</span>
+                                {% elif transfer.status == 'completed' %}
+                                    <span class="badge badge-success">مكتمل</span>
+                                {% elif transfer.status == 'rejected' %}
+                                    <span class="badge badge-danger">مرفوض</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ transfer.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ transfer.from_department.name }}</td>
+                            <td>{{ transfer.to_department.name }}</td>
+                            <td>{{ transfer.from_room.name|default:"—" }}</td>
+                            <td>{{ transfer.to_room.name|default:"—" }}</td>
+                            <td>{{ transfer.reason|default:"—" }}</td>
+                            <td>{{ transfer.user.get_full_name|default:transfer.user.username }}</td>
+                            <td>{{ transfer.date|date:"Y/m/d H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
     {% else %}
-    <p class="text-danger text-center">لا توجد حركات مسجلة لهذا الجهاز.</p>
+    <div class="card">
+        <div class="card-body text-center">
+            <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+            <h5>لا توجد عمليات نقل مسجلة</h5>
+            <p class="text-muted">لم يتم تسجيل أي عمليات نقل لهذا الجهاز حتى الآن</p>
+            <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> إنشاء طلب نقل جديد
+            </a>
+        </div>
+    </div>
     {% endif %}
 
+    <!-- Action Buttons -->
     <div class="text-center mt-4">
-        <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">رجوع لتفاصيل الجهاز</a>
+        <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left"></i> رجوع لتفاصيل الجهاز
+        </a>
+        <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> طلب نقل جديد
+        </a>
     </div>
 </div>
 {% endblock %}

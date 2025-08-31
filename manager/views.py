@@ -1177,18 +1177,14 @@ def department_beds(request, department_id):
 def department_devices(request, department_id):
     department = get_object_or_404(Department, id=department_id)
 
-    # استبعاد الأجهزة التي تم طلب نقلها لهذا القسم ولم تُقبل بعد
+    # عرض جميع الأجهزة في القسم حتى لو كان لها طلبات نقل معلقة
+    actual_devices = Device.objects.filter(department=department)
+    
+    # حساب طلبات النقل للإحصائيات فقط
     pending_transfers = DeviceTransferRequest.objects.filter(
-        to_department=department,
-        status__in=['pending', 'approved']  # Include both pending and approved but not yet accepted
+        device__department=department,
+        status__in=['pending', 'approved']
     ).select_related('device')
-
-    pending_devices_ids = [t.device.id for t in pending_transfers]
-
-    # عرض الأجهزة الفعلية فقط التي لا تنتظر موافقة النقل
-    actual_devices = Device.objects.filter(
-        department=department
-    ).exclude(id__in=pending_devices_ids)
 
     # تجميع الأجهزة حسب الغرف
     devices_by_room = {}
@@ -1223,6 +1219,7 @@ def department_devices(request, department_id):
         'total_devices': actual_devices.count(),
         'active_devices': actual_devices.filter(status='working').count(),
     })
+
 def add_department(request):
     if request.method == 'POST':
         form = DepartmentForm(request.POST)
