@@ -40,6 +40,8 @@ class CustomLoginView(LoginView):
                 return reverse_lazy('hr:shift_patient_list')
             elif user.role == 'technician':
                 return reverse_lazy('maintenance:cmms:technician_dashboard')
+            elif user.role == 'inventory_manager':
+                return reverse_lazy('maintenance:spare_parts:inventory_dashboard')
             else:
                 # أي دور آخر - صفحة عامة آمنة
                 return reverse_lazy('core:home')

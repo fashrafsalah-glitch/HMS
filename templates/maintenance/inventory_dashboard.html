@@ -4,7 +4,7 @@
 
 {% block title %}لوحة تحكم إدارة المخزون{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
 <style>
     .stats-card {
@@ -56,9 +56,6 @@
         margin-bottom: 8px;
     }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="container-fluid">
     <!-- Header -->
     <div class="row mb-4">
@@ -128,7 +125,9 @@
                     <i class="fas fa-chart-pie text-primary"></i>
                     توزيع حالة المخزون
                 </h5>
-                <canvas id="stockStatusChart" height="300"></canvas>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="stockStatusChart"></canvas>
+                </div>
             </div>
 
             <!-- Monthly Transactions Chart -->
@@ -137,7 +136,9 @@
                     <i class="fas fa-chart-line text-primary"></i>
                     معاملات المخزون الشهرية
                 </h5>
-                <canvas id="monthlyTransactionsChart" height="300"></canvas>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="monthlyTransactionsChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -272,9 +273,6 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {

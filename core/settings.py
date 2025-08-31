@@ -28,6 +28,12 @@ ICD11_CLIENT_SECRET = os.getenv(
 SECRET_KEY = "django-insecure-x$=eei$)z%*eglnvkc07h)t33g($7f(p44-)6p=74cj-j$y5oz"
 DEBUG      = True
 
+# CSRF Settings
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
@@ -38,6 +44,8 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://8a8d-156-195-60-98.ngrok-free.app",
     "https://hms-3wr2.onrender.com",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
 ]
 
 SITE_URL = "http://localhost:8000"
@@ -110,7 +118,7 @@ TEMPLATES = [
 LOGIN_URL            = reverse_lazy("superadmin:login")
 LOGOUT_REDIRECT_URL  = reverse_lazy("superadmin:login")
 # بعد تسجيل الدخول، وجّه المستخدمين إلى قائمة المرضى بدل المسار الافتراضي /accounts/profile/
-LOGIN_REDIRECT_URL   = reverse_lazy("superadmin:dashboard")  # تم تغيير من manager إلى superadmin
+LOGIN_REDIRECT_URL   = reverse_lazy("superadmin:hospital_list")  # تم تغيير إلى hospital_list لأن dashboard غير موجود
 
 WSGI_APPLICATION = "core.wsgi.application"
 

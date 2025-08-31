@@ -221,7 +221,7 @@ def role_required(*roles):
             
             if not has_any_role(request.user, roles):
                 messages.error(request, 'ليس لديك صلاحية للوصول لهذه الصفحة')
-                return redirect('dashboard')
+                return redirect('maintenance:dashboard:cmms_dashboard')
             
             return view_func(request, *args, **kwargs)
         return wrapper
@@ -240,7 +240,7 @@ def permission_required(permission):
             
             if not has_permission(request.user, permission):
                 messages.error(request, 'ليس لديك صلاحية لتنفيذ هذا الإجراء')
-                return redirect('dashboard')
+                return redirect('maintenance:dashboard:cmms_dashboard')
             
             return view_func(request, *args, **kwargs)
         return wrapper
@@ -260,7 +260,7 @@ def object_permission_required(permission_func):
             # تمرير المعاملات لدالة التحقق من الصلاحية
             if not permission_func(request.user, *args, **kwargs):
                 messages.error(request, 'ليس لديك صلاحية لتنفيذ هذا الإجراء')
-                return redirect('dashboard')
+                return redirect('maintenance:dashboard:cmms_dashboard')
             
             return view_func(request, *args, **kwargs)
         return wrapper

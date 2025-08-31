@@ -144,33 +144,66 @@ def inventory_dashboard(request):
                 'count': count
             })
     
+    # بيانات الشارتس الحقيقية
+    available_parts = SparePart.objects.filter(current_stock__gt=F('minimum_stock')).count()
+    low_stock_count = low_stock_parts
+    out_of_stock_count = out_of_stock_parts
+    unavailable_parts = SparePart.objects.filter(status='discontinued').count()
+    
+    # بيانات الشارت الشهرية (آخر 6 أشهر)
+    monthly_labels = []
+    monthly_in = []
+    monthly_out = []
+    
+    for i in range(6):
+        month_date = today - timedelta(days=30*i)
+        month_start = month_date.replace(day=1)
+        if i == 0:
+            month_end = today
+        else:
+            next_month = month_start.replace(month=month_start.month + 1) if month_start.month < 12 else month_start.replace(year=month_start.year + 1, month=1)
+            month_end = next_month - timedelta(days=1)
+        
+        monthly_labels.insert(0, month_date.strftime('%m/%Y'))
+        
+        in_transactions = SparePartTransaction.objects.filter(
+            transaction_date__date__gte=month_start,
+            transaction_date__date__lte=month_end,
+            transaction_type='in'
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        out_transactions = SparePartTransaction.objects.filter(
+            transaction_date__date__gte=month_start,
+            transaction_date__date__lte=month_end,
+            transaction_type='out'
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        monthly_in.insert(0, in_transactions)
+        monthly_out.insert(0, out_transactions)
+
     context = {
         # إحصائيات أساسية
         'total_spare_parts': total_spare_parts,
         'total_stock_value': total_stock_value,
-        'low_stock_parts': low_stock_parts,
-        'out_of_stock_parts': out_of_stock_parts,
-        
-        # إحصائيات الطلبات
-        'today_requests': today_requests,
-        'pending_requests': pending_requests,
-        'urgent_requests': urgent_requests,
-        'week_requests': week_requests,
-        
-        # إحصائيات المعاملات
-        'today_transactions': today_transactions,
-        'week_transactions': week_transactions,
-        'month_out_value': month_out_value,
+        'low_stock_count': low_stock_count,
+        'pending_requests_count': pending_requests,
         
         # قوائم البيانات
-        'recent_requests': recent_requests,
+        'requests': recent_requests,
         'low_stock_items': low_stock_items,
         'recent_transactions': recent_transactions,
         'most_used_parts': most_used_parts,
         
-        # بيانات الرسوم البيانية
-        'chart_data': chart_data,
-        'request_status_data': request_status_data,
+        # بيانات الشارتس الحقيقية
+        'stock_status': {
+            'available': available_parts,
+            'low_stock': low_stock_count,
+            'out_of_stock': out_of_stock_count,
+            'unavailable': unavailable_parts
+        },
+        'monthly_labels': monthly_labels,
+        'monthly_in': monthly_in,
+        'monthly_out': monthly_out,
         
         # معلومات إضافية
         'current_date': today,

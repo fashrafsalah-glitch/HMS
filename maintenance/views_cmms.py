@@ -1204,7 +1204,7 @@ def job_plan_list(request):
     # التحقق من صلاحيات المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Technician']).exists():
         messages.error(request, 'ليس لديك صلاحية لعرض خطط العمل')
-        return redirect('dashboard')
+        return redirect('maintenance:dashboard:cmms_dashboard')
     
     job_plans = JobPlan.objects.all().order_by('name')
     
