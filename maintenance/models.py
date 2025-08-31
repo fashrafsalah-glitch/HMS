@@ -354,34 +354,288 @@ class DeviceUsage(models.Model):
 
 
 class DeviceTransferRequest(models.Model):
-    device = models.ForeignKey('Device', on_delete=models.CASCADE) 
+    """Enhanced Device Transfer Request with 3-stage workflow"""
+    
+    # Status choices for transfer workflow
+    STATUS_CHOICES = [
+        ('pending', 'معلق - في انتظار الموافقة'),
+        ('approved', 'موافق عليه - في انتظار القبول'),
+        ('accepted', 'مقبول - تم النقل'),
+        ('rejected', 'مرفوض'),
+        ('cancelled', 'ملغي'),
+    ]
+    
+    # Transfer reason choices
+    REASON_CHOICES = [
+        ('patient_need', 'احتياج المريض'),
+        ('maintenance', 'للصيانة'),
+        ('emergency', 'حالة طارئة'),
+        ('routine_transfer', 'نقل روتيني'),
+        ('department_request', 'طلب القسم'),
+        ('other', 'أخرى'),
+    ]
+    
+    # Device information
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='transfer_requests')
+    
+    # From location
     from_department = models.ForeignKey(
-    Department,
-    related_name='device_transfer_requests_from',
-    on_delete=models.SET_NULL,
-    null=True
-)
-
+        Department,
+        related_name='device_transfer_requests_from',
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="من القسم"
+    )
+    from_room = models.ForeignKey(
+        'manager.Room', 
+        related_name='transfers_from', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
+        verbose_name="من الغرفة"
+    )
+    from_bed = models.ForeignKey(
+        'manager.Bed',
+        related_name='device_transfer_requests_from',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="من السرير"
+    )
+    
+    # To location
     to_department = models.ForeignKey(
-    Department,
-    related_name='device_transfer_requests_to',
-    on_delete=models.SET_NULL,
-    null=True
-)
-    from_room = models.ForeignKey('manager.Room', related_name='transfers_from', on_delete=models.CASCADE, null=True, blank=True)
-    to_room = models.ForeignKey('manager.Room', on_delete=models.SET_NULL, null=True)
-    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='transfer_requested_by', on_delete=models.SET_NULL, null=True)
-    requested_at = models.DateTimeField(auto_now_add=True)
-
-    is_approved = models.BooleanField(default=False)
-    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='transfer_approved_by', on_delete=models.SET_NULL, null=True, blank=True)
-    approved_at = models.DateTimeField(null=True, blank=True)
-
+        Department,
+        related_name='device_transfer_requests_to',
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="إلى القسم"
+    )
+    to_room = models.ForeignKey(
+        Room, 
+        related_name='transfers_to',
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
+        verbose_name="إلى الغرفة"
+    )
+    to_bed = models.ForeignKey(
+        'manager.Bed',
+        related_name='device_transfer_requests_to',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="إلى السرير"
+    )
+    
+    # Patient information (if transfer is for specific patient)
+    patient = models.ForeignKey(
+        'manager.Patient',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='device_transfer_requests',
+        verbose_name="المريض"
+    )
+    
+    # Transfer details
+    reason = models.CharField(
+        max_length=50,
+        choices=REASON_CHOICES,
+        default='routine_transfer',
+        verbose_name="سبب النقل"
+    )
+    reason_details = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="تفاصيل السبب"
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=[('low', 'منخفض'), ('normal', 'عادي'), ('high', 'عالي'), ('urgent', 'عاجل')],
+        default='normal',
+        verbose_name="الأولوية"
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="الحالة"
+    )
+    
+    # Stage 1: Request
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='transfer_requested_by', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        verbose_name="مقدم الطلب"
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الطلب")
+    
+    # Stage 2: Approval (by current department)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='transfer_approved_by', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name="الموافق"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الموافقة")
+    approval_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات الموافقة")
+    
+    # Stage 3: Acceptance (by receiving department)
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='transfer_accepted_by',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="القابل"
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ القبول")
+    acceptance_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات القبول")
+    
+    # Rejection tracking
+    rejected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='transfer_rejected_by',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="الرافض"
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الرفض")
+    rejection_reason = models.TextField(blank=True, null=True, verbose_name="سبب الرفض")
+    
+    # Validation flags
+    device_checked = models.BooleanField(default=False, verbose_name="تم فحص الجهاز")
+    device_cleaned = models.BooleanField(default=False, verbose_name="تم تنظيف الجهاز")
+    device_sterilized = models.BooleanField(default=False, verbose_name="تم تعقيم الجهاز")
+    
+    class Meta:
+        verbose_name = "طلب نقل جهاز"
+        verbose_name_plural = "طلبات نقل الأجهزة"
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status', 'requested_at']),
+            models.Index(fields=['device', 'status']),
+            models.Index(fields=['from_department', 'status']),
+            models.Index(fields=['to_department', 'status']),
+        ]
+    
     def __str__(self):
-        return f"{self.device.name} to {self.to_department.name} (approved: {self.is_approved})"
-
-
-
+        return f"{self.device.name} - {self.get_status_display()}"
+    
+    def can_approve(self, user):
+        """Check if user can approve this transfer request"""
+        # Must be pending and user must be from current department
+        if self.status != 'pending':
+            return False
+        # Check if user is department manager or has permission
+        return user.groups.filter(name='Department Managers').exists() or user.is_superuser
+    
+    def can_accept(self, user):
+        """Check if user can accept this transfer request"""
+        # Must be approved and user must be from receiving department
+        if self.status != 'approved':
+            return False
+        # Check if user is from receiving department
+        return user.groups.filter(name='Department Managers').exists() or user.is_superuser
+    
+    def approve(self, user, notes=''):
+        """Approve the transfer request"""
+        self.status = 'approved'
+        self.approved_by = user
+        self.approved_at = timezone.now()
+        self.approval_notes = notes
+        self.save()
+        # Send notification placeholder
+        self.send_notification('approved')
+    
+    def accept(self, user, notes=''):
+        """Accept the transfer and execute it"""
+        self.status = 'accepted'
+        self.accepted_by = user
+        self.accepted_at = timezone.now()
+        self.acceptance_notes = notes
+        self.save()
+        
+        # Execute the actual transfer
+        self.execute_transfer()
+        
+        # Send notification placeholder
+        self.send_notification('accepted')
+    
+    def reject(self, user, reason):
+        """Reject the transfer request"""
+        self.status = 'rejected'
+        self.rejected_by = user
+        self.rejected_at = timezone.now()
+        self.rejection_reason = reason
+        self.save()
+        # Send notification placeholder
+        self.send_notification('rejected')
+    
+    def execute_transfer(self):
+        """Execute the actual device transfer"""
+        # Update device location
+        self.device.department = self.to_department
+        self.device.room = self.to_room
+        if self.to_bed:
+            self.device.bed = self.to_bed
+        if self.patient:
+            self.device.current_patient = self.patient
+        self.device.save()
+        
+        # Create transfer log
+        DeviceTransferLog.objects.create(
+            device=self.device,
+            from_department=self.from_department,
+            from_room=self.from_room,
+            from_bed=self.from_bed,
+            to_department=self.to_department,
+            to_room=self.to_room,
+            to_bed=self.to_bed,
+            moved_by=self.accepted_by,
+            note=f"Transfer Request #{self.id} - {self.get_reason_display()}"
+        )
+    
+    def send_notification(self, action):
+        """Placeholder for sending notifications"""
+        # TODO: Implement actual notification system
+        pass
+    
+    def check_device_eligibility(self):
+        """Check if device is eligible for transfer"""
+        errors = []
+        device = self.device
+        
+        # Check device status
+        if hasattr(device, 'status') and device.status != 'working':
+            errors.append(f"الجهاز في حالة: {device.get_status_display()} - يجب أن يكون يعمل")
+        
+        # Check cleanliness
+        if hasattr(device, 'clean_status') and device.clean_status != 'clean':
+            errors.append("الجهاز يحتاج تنظيف قبل النقل")
+        
+        # Check sterilization
+        if hasattr(device, 'sterilization_status') and device.sterilization_status != 'sterilized':
+            errors.append("الجهاز يحتاج تعقيم قبل النقل")
+        
+        # Check availability
+        if hasattr(device, 'availability') and not device.availability:
+            errors.append("الجهاز غير متاح حالياً")
+        
+        # Check if device is in use by a patient
+        if hasattr(device, 'current_patient') and device.current_patient:
+            if not self.patient or self.patient.id != device.current_patient.id:
+                errors.append(f"الجهاز مستخدم حالياً من قبل المريض: {device.current_patient}")
+        
+        return errors
 class DeviceCategory(models.Model):
     name = models.CharField(max_length=100, default='')
 
@@ -875,7 +1129,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_from',
+        related_name='device_transfer_logs_from',
         verbose_name="من القسم"
     )
     from_room = models.ForeignKey(
@@ -883,7 +1137,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_from',
+        related_name='device_transfer_logs_from',
         verbose_name="من الغرفة"
     )
     from_bed = models.ForeignKey(
@@ -891,7 +1145,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_from',
+        related_name='device_transfer_logs_from',
         verbose_name="من السرير"
     )
     
@@ -901,7 +1155,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_to',
+        related_name='device_transfer_logs_to',
         verbose_name="إلى القسم"
     )
     to_room = models.ForeignKey(
@@ -909,7 +1163,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_to',
+        related_name='device_transfer_logs_to',
         verbose_name="إلى الغرفة"
     )
     to_bed = models.ForeignKey(
@@ -917,7 +1171,7 @@ class DeviceTransferLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='device_transfers_to',
+        related_name='device_transfer_logs_to',
         verbose_name="إلى السرير"
     )
     

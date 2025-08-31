@@ -225,7 +225,7 @@
 <script>
 function endSession() {
     if (confirm('{% trans "Are you sure you want to end this session?" %}')) {
-        fetch("{% url 'maintenance:api_session_status' session.session_id %}", {
+        fetch("{% url 'maintenance:get_session_status' session.session_id %}", {
             method: 'POST',
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}',

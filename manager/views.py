@@ -1180,7 +1180,7 @@ def department_devices(request, department_id):
     # استبعاد الأجهزة التي تم طلب نقلها لهذا القسم ولم تُقبل بعد
     pending_transfers = DeviceTransferRequest.objects.filter(
         to_department=department,
-        is_approved=False
+        status__in=['pending', 'approved']  # Include both pending and approved but not yet accepted
     ).select_related('device')
 
     pending_devices_ids = [t.device.id for t in pending_transfers]

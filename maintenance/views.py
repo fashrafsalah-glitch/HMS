@@ -1,15 +1,19 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.timezone import now
+from django.db.models import Q, Count, Sum, Avg, F, Value, CharField
+from django.db.models.functions import Concat
 from django.utils import timezone
-from django.db.models import Q, Count, Sum
-from django.contrib.auth.decorators import login_required
+from django.utils.translation import gettext as _
 from django.core.paginator import Paginator
+from django.urls import reverse
 from datetime import datetime, timedelta
+import json
+import uuid
+from decimal import Decimal
 from .forms import OperationDefinitionForm
 import json
 from .forms import CompanyForm, DeviceFormBasic, DeviceTransferForm, DeviceTypeForm, DeviceUsageForm, DeviceAccessoryForm, DeviceCategoryForm, DeviceSubCategoryForm
@@ -246,7 +250,7 @@ def session_detail(request, pk):
     View session details including all scans and executions
     """
     session = get_object_or_404(ScanSession, pk=pk)
-    executions = session.executions.all().order_by('created_at')
+    executions = session.operation_executions.all().order_by('started_at')
     
     context = {
         'session': session,
@@ -708,53 +712,246 @@ def transfer_device(request, device_id):
 
 
 
-def approve_transfer(request, transfer_id):
-    transfer = get_object_or_404(DeviceTransferRequest, id=transfer_id)
-    device = transfer.device
-    
-    # Re-check device eligibility before approval
-    transfer_errors = []
-    if hasattr(device, 'status') and device.status != 'working':
-        transfer_errors.append(f"الجهاز في حالة: {device.get_status_display()} - يجب أن يكون يعمل")
-    if hasattr(device, 'clean_status') and device.clean_status != 'clean':
-        transfer_errors.append("الجهاز يحتاج تنظيف قبل النقل")
-    if hasattr(device, 'sterilization_status') and device.sterilization_status != 'sterilized':
-        transfer_errors.append("الجهاز يحتاج تعقيم قبل النقل")
-    if hasattr(device, 'availability') and not device.availability:
-        transfer_errors.append("الجهاز غير متاح حالياً - لا يمكن نقله")
+# ============= Enhanced Device Transfer Views (3-Stage Workflow) =============
 
+@login_required
+def transfer_request_create(request, device_id):
+    """Create a new device transfer request"""
+    from .forms import DeviceTransferRequestForm
+    
+    device = get_object_or_404(Device, id=device_id)
+    
+    # Check if there's already a pending/approved request
+    existing_request = DeviceTransferRequest.objects.filter(
+        device=device,
+        status__in=['pending', 'approved']
+    ).first()
+    
+    if existing_request:
+        messages.warning(request, f"يوجد طلب نقل {existing_request.get_status_display()} لهذا الجهاز")
+        return redirect('maintenance:transfer_requests_list')
+    
     if request.method == 'POST':
-        if transfer_errors:
-            for error in transfer_errors:
-                messages.error(request, f"لا يمكن الموافقة على النقل: {error}")
-            return redirect('maintenance:device_detail', pk=device.id)
-        
-        # Approve transfer
-        transfer.is_approved = True
-        transfer.approved_by = request.user
-        transfer.approved_at = timezone.now()
-        transfer.save()
+        form = DeviceTransferRequestForm(request.POST, device=device, user=request.user)
+        if form.is_valid():
+            transfer_request = form.save(commit=False)
+            transfer_request.device = device
+            transfer_request.from_department = device.department
+            transfer_request.from_room = device.room
+            transfer_request.from_bed = getattr(device, 'bed', None)
+            transfer_request.requested_by = request.user
+            transfer_request.status = 'pending'
+            transfer_request.save()
+            
+            messages.success(request, "تم إنشاء طلب النقل بنجاح وفي انتظار الموافقة")
+            return redirect('maintenance:transfer_request_detail', pk=transfer_request.id)
 
-        # Create transfer log
-        DeviceTransferLog.objects.create(
-            device=device,
-            from_department=transfer.from_department,
-            from_room=transfer.from_room,
-            to_department=transfer.to_department,
-            to_room=transfer.to_room,
-            moved_by=request.user,
-            note=f"نقل معتمد - طلب رقم {transfer.id}"
-        )
 
-        # Update device location
-        device.department = transfer.to_department
-        device.room = transfer.to_room
-        device.save()
+# AJAX endpoints for dynamic form loading
+@login_required
+def get_department_rooms(request):
+    """Get rooms for a specific department"""
+    department_id = request.GET.get('department_id')
+    if department_id:
+        try:
+            from manager.models import Room
+            rooms = Room.objects.filter(department_id=department_id).values('id', 'name')
+            return JsonResponse({'rooms': list(rooms)})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'rooms': []})
 
-        messages.success(request, "تم قبول نقل الجهاز بنجاح.")
-        return redirect('maintenance:device_detail', pk=device.id)
+
+@login_required
+def get_room_beds(request):
+    """Get beds for a specific room"""
+    room_id = request.GET.get('room_id')
+    if room_id:
+        try:
+            from manager.models import Bed
+            beds = Bed.objects.filter(room_id=room_id).values('id', 'name')
+            return JsonResponse({'beds': list(beds)})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'beds': []})
+
+
+@login_required
+def transfer_request_detail(request, pk):
+    """View transfer request details"""
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
     
-    return redirect('maintenance:device_detail', pk=device.id)
+    context = {
+        'transfer_request': transfer_request,
+        'can_approve': transfer_request.can_approve(request.user),
+        'can_accept': transfer_request.can_accept(request.user),
+    }
+    
+    return render(request, 'maintenance/transfer_request_detail.html', context)
+
+
+@login_required
+def transfer_requests_list(request):
+    """List all transfer requests with filters"""
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    department_filter = request.GET.get('department', '')
+    priority_filter = request.GET.get('priority', '')
+    
+    # Base queryset
+    queryset = DeviceTransferRequest.objects.select_related(
+        'device', 'from_department', 'to_department', 
+        'requested_by', 'approved_by', 'accepted_by'
+    ).order_by('-requested_at')
+    
+    # Apply filters
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+    if department_filter:
+        queryset = queryset.filter(
+            Q(from_department_id=department_filter) | 
+            Q(to_department_id=department_filter)
+        )
+    if priority_filter:
+        queryset = queryset.filter(priority=priority_filter)
+    
+    # Separate by status for tabs
+    pending_requests = queryset.filter(status='pending')
+    approved_requests = queryset.filter(status='approved')
+    completed_requests = queryset.filter(status='accepted')
+    rejected_requests = queryset.filter(status='rejected')
+    
+    # Pagination
+    paginator = Paginator(queryset, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'pending_requests': pending_requests[:10],
+        'approved_requests': approved_requests[:10],
+        'completed_requests': completed_requests[:10],
+        'rejected_requests': rejected_requests[:10],
+        'departments': Department.objects.all(),
+        'status_filter': status_filter,
+        'department_filter': department_filter,
+        'priority_filter': priority_filter,
+    }
+    
+    return render(request, 'maintenance/transfer_requests_list.html', context)
+
+
+@login_required
+def approve_transfer_request(request, pk):
+    """Approve a transfer request (Stage 2)"""
+    from .forms import TransferApprovalForm
+    
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
+    
+    if not transfer_request.can_approve(request.user):
+        messages.error(request, "ليس لديك صلاحية الموافقة على هذا الطلب")
+        return redirect('maintenance:transfer_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = TransferApprovalForm(request.POST)
+        if form.is_valid():
+            # Check device eligibility
+            eligibility_errors = transfer_request.check_device_eligibility()
+            if eligibility_errors:
+                for error in eligibility_errors:
+                    messages.error(request, error)
+                return redirect('maintenance:transfer_request_detail', pk=pk)
+            
+            # Approve the request
+            transfer_request.approve(
+                user=request.user,
+                notes=form.cleaned_data.get('approval_notes', '')
+            )
+            
+            messages.success(request, "تمت الموافقة على طلب النقل بنجاح")
+            return redirect('maintenance:transfer_request_detail', pk=pk)
+    else:
+        form = TransferApprovalForm()
+    
+    return render(request, 'maintenance/transfer_approval_form.html', {
+        'form': form,
+        'transfer_request': transfer_request
+    })
+
+
+@login_required
+def accept_transfer_request(request, pk):
+    """Accept a transfer request and execute it (Stage 3)"""
+    from .forms import TransferAcceptanceForm
+    
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
+    
+    if not transfer_request.can_accept(request.user):
+        messages.error(request, "ليس لديك صلاحية قبول هذا الطلب")
+        return redirect('maintenance:transfer_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = TransferAcceptanceForm(request.POST)
+        if form.is_valid():
+            # Final eligibility check
+            eligibility_errors = transfer_request.check_device_eligibility()
+            if eligibility_errors:
+                for error in eligibility_errors:
+                    messages.error(request, error)
+                return redirect('maintenance:transfer_request_detail', pk=pk)
+            
+            # Accept and execute transfer
+            transfer_request.accept(
+                user=request.user,
+                notes=form.cleaned_data.get('acceptance_notes', '')
+            )
+            
+            messages.success(request, "تم قبول النقل وتحديث موقع الجهاز بنجاح")
+            return redirect('maintenance:device_detail', pk=transfer_request.device.id)
+    else:
+        form = TransferAcceptanceForm()
+    
+    return render(request, 'maintenance/transfer_acceptance_form.html', {
+        'form': form,
+        'transfer_request': transfer_request
+    })
+
+
+@login_required
+def reject_transfer_request(request, pk):
+    """Reject a transfer request"""
+    from .forms import TransferRejectionForm
+    
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
+    
+    # Check permissions (can reject if can approve or accept)
+    if not (transfer_request.can_approve(request.user) or transfer_request.can_accept(request.user)):
+        messages.error(request, "ليس لديك صلاحية رفض هذا الطلب")
+        return redirect('maintenance:transfer_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = TransferRejectionForm(request.POST)
+        if form.is_valid():
+            transfer_request.reject(
+                user=request.user,
+                reason=form.cleaned_data['rejection_reason']
+            )
+            
+            messages.success(request, "تم رفض طلب النقل")
+            return redirect('maintenance:transfer_requests_list')
+    else:
+        form = TransferRejectionForm()
+    
+    return render(request, 'maintenance/transfer_rejection_form.html', {
+        'form': form,
+        'transfer_request': transfer_request
+    })
+
+
+# Keep the old approve_transfer for backward compatibility
+def approve_transfer(request, transfer_id):
+    """Legacy approve transfer - redirect to new system"""
+    return redirect('maintenance:approve_transfer_request', pk=transfer_id)
 
 def index(request):
     # إحصائيات صيانة الأجهزة

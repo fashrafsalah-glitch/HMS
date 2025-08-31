@@ -40,6 +40,18 @@ urlpatterns = [
     path('devices/department/<int:department_id>/', views.department_devices, name='department_devices'),
     path('device-transfers/', views.device_transfer_list, name='device_transfer_list'),
     path('transfers/<int:transfer_id>/approve/', views.approve_transfer, name='approve_transfer'),
+    
+    # Enhanced Device Transfer Workflow URLs
+    path('transfer-requests/', views.transfer_requests_list, name='transfer_requests_list'),
+    path('transfer-requests/create/<int:device_id>/', views.transfer_request_create, name='transfer_request_create'),
+    path('transfer-requests/<int:pk>/', views.transfer_request_detail, name='transfer_request_detail'),
+    path('transfer-requests/<int:pk>/approve/', views.approve_transfer_request, name='approve_transfer_request'),
+    path('transfer-requests/<int:pk>/accept/', views.accept_transfer_request, name='accept_transfer_request'),
+    path('transfer-requests/<int:pk>/reject/', views.reject_transfer_request, name='reject_transfer_request'),
+    
+    # AJAX endpoints for transfer forms
+    path('ajax/get-department-rooms/', views.get_department_rooms, name='get_department_rooms'),
+    path('ajax/get-room-beds/', views.get_room_beds, name='get_room_beds'),
       # تصنيفات جديدة
     path('categories/add/', views.add_device_category, name='add_device_category'),
     path('subcategories/add/', views.add_device_subcategory, name='add_device_subcategory'),

@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}طلب نقل جهاز - {{ device.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Device Info Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-medical"></i> معلومات الجهاز
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>اسم الجهاز:</strong> {{ device.name }}</p>
+                            <p><strong>الرقم التسلسلي:</strong> {{ device.serial_number }}</p>
+                            <p><strong>الموديل:</strong> {{ device.model }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>القسم الحالي:</strong> {{ device.department.name }}</p>
+                            <p><strong>الغرفة الحالية:</strong> {{ device.room.name|default:"غير محدد" }}</p>
+                            <p><strong>الحالة:</strong> 
+                                <span class="badge badge-{{ device.status|default:'working' == 'working'|yesno:'success,danger' }}">
+                                    {{ device.get_status_display|default:"يعمل" }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Eligibility Warnings -->
+                    {% if eligibility_errors %}
+                    <div class="alert alert-warning mt-3">
+                        <h6><i class="fas fa-exclamation-triangle"></i> تحذيرات:</h6>
+                        <ul class="mb-0">
+                            {% for error in eligibility_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Transfer Request Form -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exchange-alt"></i> طلب نقل الجهاز
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="transferRequestForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Destination Department -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.to_department.id_for_label }}" class="form-label">
+                                    {{ form.to_department.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.to_department }}
+                                {% if form.to_department.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.to_department.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Destination Room -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.to_room.id_for_label }}" class="form-label">
+                                    {{ form.to_room.label }}
+                                </label>
+                                {{ form.to_room }}
+                                {% if form.to_room.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.to_room.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Patient -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.patient.id_for_label }}" class="form-label">
+                                    {{ form.patient.label }}
+                                </label>
+                                {{ form.patient }}
+                                <small class="form-text text-muted">اختر المريض إذا كان النقل لمريض محدد</small>
+                                {% if form.patient.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.patient.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Bed -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.to_bed.id_for_label }}" class="form-label">
+                                    {{ form.to_bed.label }}
+                                </label>
+                                {{ form.to_bed }}
+                                {% if form.to_bed.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.to_bed.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Reason -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.reason.id_for_label }}" class="form-label">
+                                    {{ form.reason.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.reason }}
+                                {% if form.reason.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.reason.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Priority -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.priority.id_for_label }}" class="form-label">
+                                    {{ form.priority.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.priority }}
+                                {% if form.priority.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.priority.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Reason Details -->
+                        <div class="mb-3">
+                            <label for="{{ form.reason_details.id_for_label }}" class="form-label">
+                                {{ form.reason_details.label }}
+                            </label>
+                            {{ form.reason_details }}
+                            {% if form.reason_details.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.reason_details.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Device Readiness Checkboxes -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">تأكيد جاهزية الجهاز</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check">
+                                    {{ form.device_checked }}
+                                    <label class="form-check-label" for="{{ form.device_checked.id_for_label }}">
+                                        {{ form.device_checked.label }}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.device_cleaned }}
+                                    <label class="form-check-label" for="{{ form.device_cleaned.id_for_label }}">
+                                        {{ form.device_cleaned.label }}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.device_sterilized }}
+                                    <label class="form-check-label" for="{{ form.device_sterilized.id_for_label }}">
+                                        {{ form.device_sterilized.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> رجوع
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> إرسال طلب النقل
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Dynamic room loading based on department
+    $('#id_to_department').change(function() {
+        var departmentId = $(this).val();
+        var roomSelect = $('#id_to_room');
+        
+        roomSelect.empty();
+        roomSelect.append('<option value="">-- اختر الغرفة --</option>');
+        
+        if (departmentId) {
+            $.ajax({
+                url: '{% url "maintenance:get_department_rooms" %}',
+                data: { 'department_id': departmentId },
+                success: function(data) {
+                    $.each(data.rooms, function(index, room) {
+                        roomSelect.append('<option value="' + room.id + '">' + room.name + '</option>');
+                    });
+                }
+            });
+        }
+    });
+    
+    // Dynamic bed loading based on room
+    $('#id_to_room').change(function() {
+        var roomId = $(this).val();
+        var bedSelect = $('#id_to_bed');
+        
+        bedSelect.empty();
+        bedSelect.append('<option value="">-- اختر السرير --</option>');
+        
+        if (roomId) {
+            $.ajax({
+                url: '{% url "maintenance:get_room_beds" %}',
+                data: { 'room_id': roomId },
+                success: function(data) {
+                    $.each(data.beds, function(index, bed) {
+                        bedSelect.append('<option value="' + bed.id + '">' + bed.name + '</option>');
+                    });
+                }
+            });
+        }
+    });
+    
+    // Show/hide reason details based on reason selection
+    $('#id_reason').change(function() {
+        if ($(this).val() === 'other') {
+            $('#id_reason_details').closest('.mb-3').show();
+            $('#id_reason_details').attr('required', true);
+        } else {
+            $('#id_reason_details').closest('.mb-3').hide();
+            $('#id_reason_details').attr('required', false);
+        }
+    }).trigger('change');
+});
+</script>
+{% endblock %}

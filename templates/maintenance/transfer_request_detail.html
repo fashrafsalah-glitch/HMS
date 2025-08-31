@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}تفاصيل طلب النقل #{{ transfer_request.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Transfer Request Details -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exchange-alt"></i> طلب نقل جهاز #{{ transfer_request.id }}
+                    </h5>
+                    <span class="badge badge-light badge-pill">
+                        {{ transfer_request.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <!-- Device Information -->
+                    <h6 class="border-bottom pb-2 mb-3">معلومات الجهاز</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>الجهاز:</strong> {{ transfer_request.device.name }}</p>
+                            <p><strong>الرقم التسلسلي:</strong> {{ transfer_request.device.serial_number }}</p>
+                            <p><strong>الموديل:</strong> {{ transfer_request.device.model }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>الحالة:</strong> 
+                                <span class="badge badge-{{ transfer_request.device.status|default:'working' == 'working'|yesno:'success,danger' }}">
+                                    {{ transfer_request.device.get_status_display|default:"يعمل" }}
+                                </span>
+                            </p>
+                            <p><strong>النظافة:</strong> 
+                                <span class="badge badge-{{ transfer_request.device.clean_status == 'clean'|yesno:'success,warning' }}">
+                                    {{ transfer_request.device.get_clean_status_display }}
+                                </span>
+                            </p>
+                            <p><strong>التعقيم:</strong> 
+                                <span class="badge badge-{{ transfer_request.device.sterilization_status == 'sterilized'|yesno:'success,warning' }}">
+                                    {{ transfer_request.device.get_sterilization_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Transfer Details -->
+                    <h6 class="border-bottom pb-2 mb-3">تفاصيل النقل</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">من:</h6>
+                            <p><strong>القسم:</strong> {{ transfer_request.from_department.name }}</p>
+                            <p><strong>الغرفة:</strong> {{ transfer_request.from_room.name|default:"غير محدد" }}</p>
+                            <p><strong>السرير:</strong> {{ transfer_request.from_bed.name|default:"غير محدد" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">إلى:</h6>
+                            <p><strong>القسم:</strong> {{ transfer_request.to_department.name }}</p>
+                            <p><strong>الغرفة:</strong> {{ transfer_request.to_room.name|default:"غير محدد" }}</p>
+                            <p><strong>السرير:</strong> {{ transfer_request.to_bed.name|default:"غير محدد" }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Request Information -->
+                    <h6 class="border-bottom pb-2 mb-3">معلومات الطلب</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>السبب:</strong> {{ transfer_request.get_reason_display }}</p>
+                            {% if transfer_request.reason_details %}
+                            <p><strong>تفاصيل السبب:</strong> {{ transfer_request.reason_details }}</p>
+                            {% endif %}
+                            <p><strong>الأولوية:</strong> 
+                                <span class="badge badge-{{ transfer_request.priority == 'urgent'|yesno:'danger,warning' }}">
+                                    {{ transfer_request.get_priority_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            {% if transfer_request.patient %}
+                            <p><strong>المريض:</strong> {{ transfer_request.patient.get_full_name }}</p>
+                            <p><strong>رقم الملف:</strong> {{ transfer_request.patient.medical_record_number }}</p>
+                            {% endif %}
+                            <p><strong>مقدم الطلب:</strong> {{ transfer_request.requested_by.get_full_name|default:transfer_request.requested_by.username }}</p>
+                            <p><strong>تاريخ الطلب:</strong> {{ transfer_request.requested_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Device Readiness -->
+                    <h6 class="border-bottom pb-2 mb-3">جاهزية الجهاز</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" {% if transfer_request.device_checked %}checked{% endif %} disabled>
+                                <label class="form-check-label">تم فحص الجهاز</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" {% if transfer_request.device_cleaned %}checked{% endif %} disabled>
+                                <label class="form-check-label">تم تنظيف الجهاز</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" {% if transfer_request.device_sterilized %}checked{% endif %} disabled>
+                                <label class="form-check-label">تم تعقيم الجهاز</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approval Information -->
+                    {% if transfer_request.status != 'pending' %}
+                    <h6 class="border-bottom pb-2 mb-3">معلومات الموافقة</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            {% if transfer_request.approved_by %}
+                            <p><strong>الموافق:</strong> {{ transfer_request.approved_by.get_full_name|default:transfer_request.approved_by.username }}</p>
+                            <p><strong>تاريخ الموافقة:</strong> {{ transfer_request.approved_at|date:"Y-m-d H:i" }}</p>
+                            {% if transfer_request.approval_notes %}
+                            <p><strong>ملاحظات الموافقة:</strong> {{ transfer_request.approval_notes }}</p>
+                            {% endif %}
+                            {% endif %}
+
+                            {% if transfer_request.accepted_by %}
+                            <p><strong>القابل:</strong> {{ transfer_request.accepted_by.get_full_name|default:transfer_request.accepted_by.username }}</p>
+                            <p><strong>تاريخ القبول:</strong> {{ transfer_request.accepted_at|date:"Y-m-d H:i" }}</p>
+                            {% if transfer_request.acceptance_notes %}
+                            <p><strong>ملاحظات القبول:</strong> {{ transfer_request.acceptance_notes }}</p>
+                            {% endif %}
+                            {% endif %}
+
+                            {% if transfer_request.rejected_by %}
+                            <p><strong>الرافض:</strong> {{ transfer_request.rejected_by.get_full_name|default:transfer_request.rejected_by.username }}</p>
+                            <p><strong>تاريخ الرفض:</strong> {{ transfer_request.rejected_at|date:"Y-m-d H:i" }}</p>
+                            {% if transfer_request.rejection_reason %}
+                            <p><strong>سبب الرفض:</strong> {{ transfer_request.rejection_reason }}</p>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Sidebar -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">الإجراءات المتاحة</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Approve Button -->
+                    {% if transfer_request.status == 'pending' and can_approve %}
+                    <a href="{% url 'maintenance:approve_transfer_request' transfer_request.id %}" 
+                       class="btn btn-success btn-block mb-2">
+                        <i class="fas fa-check"></i> الموافقة على الطلب
+                    </a>
+                    {% endif %}
+
+                    <!-- Accept Button -->
+                    {% if transfer_request.status == 'approved' and can_accept %}
+                    <a href="{% url 'maintenance:accept_transfer_request' transfer_request.id %}" 
+                       class="btn btn-primary btn-block mb-2">
+                        <i class="fas fa-check-double"></i> قبول النقل وتنفيذه
+                    </a>
+                    {% endif %}
+
+                    <!-- Reject Button -->
+                    {% if transfer_request.status in 'pending,approved' and (can_approve or can_accept) %}
+                    <a href="{% url 'maintenance:reject_transfer_request' transfer_request.id %}" 
+                       class="btn btn-danger btn-block mb-2">
+                        <i class="fas fa-times"></i> رفض الطلب
+                    </a>
+                    {% endif %}
+
+                    <!-- View Device -->
+                    <a href="{% url 'maintenance:device_detail' transfer_request.device.id %}" 
+                       class="btn btn-info btn-block mb-2">
+                        <i class="fas fa-medical"></i> عرض الجهاز
+                    </a>
+
+                    <!-- Back to List -->
+                    <a href="{% url 'maintenance:transfer_requests_list' %}" 
+                       class="btn btn-secondary btn-block">
+                        <i class="fas fa-list"></i> قائمة الطلبات
+                    </a>
+                </div>
+            </div>
+
+            <!-- Status Timeline -->
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">مراحل الطلب</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <!-- Request Stage -->
+                        <div class="timeline-item {% if transfer_request.status != 'cancelled' %}completed{% endif %}">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">تقديم الطلب</h6>
+                                <small class="text-muted">{{ transfer_request.requested_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                        </div>
+
+                        <!-- Approval Stage -->
+                        <div class="timeline-item {% if transfer_request.status in 'approved,accepted' %}completed{% elif transfer_request.status == 'rejected' %}rejected{% endif %}">
+                            <div class="timeline-marker {% if transfer_request.status in 'approved,accepted' %}bg-success{% elif transfer_request.status == 'rejected' %}bg-danger{% else %}bg-secondary{% endif %}"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">الموافقة</h6>
+                                {% if transfer_request.approved_at %}
+                                <small class="text-muted">{{ transfer_request.approved_at|date:"Y-m-d H:i" }}</small>
+                                {% elif transfer_request.rejected_at %}
+                                <small class="text-danger">مرفوض: {{ transfer_request.rejected_at|date:"Y-m-d H:i" }}</small>
+                                {% else %}
+                                <small class="text-muted">في الانتظار</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Acceptance Stage -->
+                        <div class="timeline-item {% if transfer_request.status == 'accepted' %}completed{% endif %}">
+                            <div class="timeline-marker {% if transfer_request.status == 'accepted' %}bg-primary{% else %}bg-secondary{% endif %}"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">القبول والتنفيذ</h6>
+                                {% if transfer_request.accepted_at %}
+                                <small class="text-muted">{{ transfer_request.accepted_at|date:"Y-m-d H:i" }}</small>
+                                {% else %}
+                                <small class="text-muted">في الانتظار</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -25px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+.timeline-item.completed .timeline-marker {
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+}
+
+.timeline-item.rejected .timeline-marker {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+.timeline-content {
+    padding-left: 10px;
+}
+</style>
+{% endblock %}

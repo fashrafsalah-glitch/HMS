@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}الموافقة على طلب النقل #{{ transfer_request.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <!-- Transfer Request Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> ملخص طلب النقل #{{ transfer_request.id }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>الجهاز:</strong> {{ transfer_request.device.name }}</p>
+                            <p><strong>من القسم:</strong> {{ transfer_request.from_department.name }}</p>
+                            <p><strong>إلى القسم:</strong> {{ transfer_request.to_department.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>السبب:</strong> {{ transfer_request.get_reason_display }}</p>
+                            <p><strong>الأولوية:</strong> 
+                                <span class="badge badge-{{ transfer_request.priority == 'urgent'|yesno:'danger,warning' }}">
+                                    {{ transfer_request.get_priority_display }}
+                                </span>
+                            </p>
+                            <p><strong>مقدم الطلب:</strong> {{ transfer_request.requested_by.get_full_name|default:transfer_request.requested_by.username }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approval Form -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check"></i> الموافقة على طلب النقل
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.approval_notes.id_for_label }}" class="form-label">
+                                {{ form.approval_notes.label }}
+                            </label>
+                            {{ form.approval_notes }}
+                            <small class="form-text text-muted">أضف أي ملاحظات أو شروط للموافقة</small>
+                            {% if form.approval_notes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.approval_notes.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            بالموافقة على هذا الطلب، أنت تؤكد أن:
+                            <ul class="mb-0 mt-2">
+                                <li>الجهاز جاهز للنقل من القسم الحالي</li>
+                                <li>لا يوجد مانع من نقل الجهاز</li>
+                                <li>تم التنسيق مع الأقسام المعنية</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'maintenance:transfer_request_detail' transfer_request.id %}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> رجوع
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i> الموافقة على الطلب
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

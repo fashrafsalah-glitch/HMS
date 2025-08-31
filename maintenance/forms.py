@@ -53,6 +53,159 @@ class DeviceTransferForm(forms.ModelForm):
             field.widget.attrs.update({'class': 'form-control'})
 
 
+class DeviceTransferRequestForm(forms.ModelForm):
+    """Enhanced Device Transfer Request Form with validation"""
+    
+    class Meta:
+        model = DeviceTransferRequest
+        fields = [
+            'to_department', 'to_room', 'to_bed', 'patient',
+            'reason', 'reason_details', 'priority',
+            'device_checked', 'device_cleaned', 'device_sterilized'
+        ]
+        widgets = {
+            'to_department': forms.Select(attrs={'class': 'form-control', 'required': True}),
+            'to_room': forms.Select(attrs={'class': 'form-control'}),
+            'to_bed': forms.Select(attrs={'class': 'form-control'}),
+            'patient': forms.Select(attrs={'class': 'form-control'}),
+            'reason': forms.Select(attrs={'class': 'form-control', 'required': True}),
+            'reason_details': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'تفاصيل إضافية عن سبب النقل...'
+            }),
+            'priority': forms.Select(attrs={'class': 'form-control'}),
+            'device_checked': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'device_cleaned': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'device_sterilized': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'to_department': 'القسم المستهدف',
+            'to_room': 'الغرفة المستهدفة',
+            'to_bed': 'السرير المستهدف',
+            'patient': 'المريض',
+            'reason': 'سبب النقل',
+            'reason_details': 'تفاصيل السبب',
+            'priority': 'الأولوية',
+            'device_checked': 'تم فحص الجهاز',
+            'device_cleaned': 'تم تنظيف الجهاز',
+            'device_sterilized': 'تم تعقيم الجهاز',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.device = kwargs.pop('device', None)
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Dynamic filtering for rooms based on department
+        if 'to_department' in self.data:
+            try:
+                department_id = int(self.data.get('to_department'))
+                self.fields['to_room'].queryset = Room.objects.filter(department_id=department_id)
+                
+                # Filter beds based on room
+                if 'to_room' in self.data:
+                    room_id = int(self.data.get('to_room'))
+                    self.fields['to_bed'].queryset = Bed.objects.filter(room_id=room_id, is_occupied=False)
+            except (ValueError, TypeError):
+                self.fields['to_room'].queryset = Room.objects.none()
+                self.fields['to_bed'].queryset = Bed.objects.none()
+        else:
+            self.fields['to_room'].queryset = Room.objects.none()
+            self.fields['to_bed'].queryset = Bed.objects.none()
+        
+        # Filter active patients only
+        from manager.models import Patient
+        self.fields['patient'].queryset = Patient.objects.filter(
+            admission_status='admitted'
+        ).order_by('first_name', 'last_name')
+        self.fields['patient'].required = False
+        
+        # Make bed optional
+        self.fields['to_bed'].required = False
+        
+        # Set initial values if editing
+        if self.instance.pk:
+            if self.instance.to_department:
+                self.fields['to_room'].queryset = Room.objects.filter(
+                    department=self.instance.to_department
+                )
+            if self.instance.to_room:
+                self.fields['to_bed'].queryset = Bed.objects.filter(
+                    room=self.instance.to_room
+                )
+    
+    def clean(self):
+        """Validate transfer request data"""
+        cleaned_data = super().clean()
+        to_department = cleaned_data.get('to_department')
+        reason = cleaned_data.get('reason')
+        patient = cleaned_data.get('patient')
+        to_bed = cleaned_data.get('to_bed')
+        
+        # Check if device is provided
+        if self.device:
+            # Check device eligibility
+            errors = self.device.transfer_requests.model().check_device_eligibility(self.device)
+            if errors and not self.cleaned_data.get('device_checked'):
+                raise forms.ValidationError(
+                    'يجب معالجة المشاكل التالية قبل النقل: ' + ', '.join(errors)
+                )
+            
+            # Prevent transfer to same department
+            if to_department and self.device.department == to_department:
+                raise forms.ValidationError('لا يمكن نقل الجهاز إلى نفس القسم الحالي')
+        
+        # If patient is selected, bed should also be selected
+        if patient and not to_bed:
+            raise forms.ValidationError('يجب تحديد السرير عند نقل الجهاز لمريض محدد')
+        
+        # If reason is 'other', details must be provided
+        if reason == 'other' and not cleaned_data.get('reason_details'):
+            raise forms.ValidationError('يجب توضيح السبب عند اختيار "أخرى"')
+        
+        return cleaned_data
+
+
+class TransferApprovalForm(forms.Form):
+    """Form for approving transfer request"""
+    approval_notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'ملاحظات الموافقة (اختياري)'
+        }),
+        label='ملاحظات الموافقة'
+    )
+
+
+class TransferAcceptanceForm(forms.Form):
+    """Form for accepting transfer request"""
+    acceptance_notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'ملاحظات القبول (اختياري)'
+        }),
+        label='ملاحظات القبول'
+    )
+
+
+class TransferRejectionForm(forms.Form):
+    """Form for rejecting transfer request"""
+    rejection_reason = forms.CharField(
+        required=True,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'سبب الرفض (مطلوب)'
+        }),
+        label='سبب الرفض'
+    )
+
+
 class DeviceTypeForm(forms.ModelForm):
     class Meta:
         model = DeviceType
