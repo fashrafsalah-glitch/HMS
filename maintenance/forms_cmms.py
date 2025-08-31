@@ -33,6 +33,34 @@ class ServiceRequestForm(forms.ModelForm):
             # لو المستخدم مش أدمن، هنفلتر الأجهزة حسب القسم بتاعه
             if not self.user.is_superuser and hasattr(self.user, 'department'):
                 self.fields['device'].queryset = Device.objects.filter(department=self.user.department)
+    
+    def save(self, commit=True):
+        """حفظ طلب الخدمة مع ربط Job Plan المناسب"""
+        instance = super().save(commit=False)
+        
+        # ربط Job Plan المناسب بناءً على نوع الجهاز ونوع الطلب
+        if not instance.estimated_hours:
+            try:
+                job_plan = JobPlan.objects.filter(
+                    device_category=instance.device.category,
+                    job_type=instance.request_type,
+                    is_active=True
+                ).first()
+                
+                if job_plan:
+                    instance.estimated_hours = job_plan.estimated_hours
+            except Exception:
+                # قيمة افتراضية إذا لم يوجد Job Plan
+                if instance.request_type == 'emergency':
+                    instance.estimated_hours = 2.0
+                elif instance.request_type == 'preventive':
+                    instance.estimated_hours = 4.0
+                else:
+                    instance.estimated_hours = 3.0
+        
+        if commit:
+            instance.save()
+        return instance
 
 class WorkOrderForm(forms.ModelForm):
     """نموذج إنشاء وتعديل أوامر الشغل"""

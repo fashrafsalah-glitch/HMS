@@ -1805,6 +1805,76 @@ class ServiceRequest(models.Model):
     def __str__(self):
         return f"{self.title} - {self.device.name}"
     
+    def save(self, *args, **kwargs):
+        """حفظ طلب الخدمة مع حساب SLA تلقائياً"""
+        # حساب SLA فقط للطلبات الجديدة أو عند تغيير الخطورة/التأثير
+        is_new = self.pk is None
+        
+        if is_new or not self.response_due or not self.resolution_due:
+            self.calculate_sla_times()
+        
+        super().save(*args, **kwargs)
+    
+    def calculate_sla_times(self):
+        """حساب أوقات SLA بناءً على نوع الجهاز والخطورة والتأثير"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        try:
+            # البحث عن SLA مناسب من المصفوفة
+            sla_matrix = SLAMatrix.objects.filter(
+                device_category=self.device.category,
+                severity=self.severity,
+                impact=self.impact,
+                priority=self.priority,
+                is_active=True
+            ).first()
+            
+            if sla_matrix:
+                sla_definition = sla_matrix.sla_definition
+            else:
+                # البحث عن SLA افتراضي للفئة
+                sla_definition = SLADefinition.objects.filter(
+                    device_category=self.device.category,
+                    is_active=True
+                ).first()
+                
+                # إذا لم يوجد SLA للفئة، استخدم SLA عام
+                if not sla_definition:
+                    sla_definition = SLADefinition.objects.filter(
+                        device_category__isnull=True,
+                        is_active=True
+                    ).first()
+            
+            # تطبيق أوقات SLA
+            if sla_definition:
+                now = timezone.now()
+                self.response_due = now + timedelta(hours=sla_definition.response_time_hours)
+                self.resolution_due = now + timedelta(hours=sla_definition.resolution_time_hours)
+            else:
+                # قيم افتراضية إذا لم يوجد SLA
+                now = timezone.now()
+                if self.severity == 'critical':
+                    self.response_due = now + timedelta(hours=1)
+                    self.resolution_due = now + timedelta(hours=4)
+                elif self.severity == 'high':
+                    self.response_due = now + timedelta(hours=2)
+                    self.resolution_due = now + timedelta(hours=8)
+                elif self.severity == 'medium':
+                    self.response_due = now + timedelta(hours=4)
+                    self.resolution_due = now + timedelta(hours=24)
+                else:  # low
+                    self.response_due = now + timedelta(hours=8)
+                    self.resolution_due = now + timedelta(hours=72)
+                    
+        except Exception as e:
+            # في حالة الخطأ، استخدم قيم افتراضية
+            from django.utils import timezone
+            from datetime import timedelta
+            now = timezone.now()
+            self.response_due = now + timedelta(hours=4)
+            self.resolution_due = now + timedelta(hours=24)
+    
     def is_overdue_response(self):
         """التحقق من تجاوز وقت الاستجابة"""
         if self.response_due and timezone.now() > self.response_due and self.status == 'new':
