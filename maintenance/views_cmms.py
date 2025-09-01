@@ -402,6 +402,10 @@ def work_order_detail(request, wo_id):
                 # تحديث حالة أمر الشغل
                 work_order = update_form.save()
                 
+                # تحديث التكاليف تلقائياً عند اختيار "تم الحل"
+                if work_order.status == 'completed':
+                    work_order.update_costs()
+                
                 # إضافة تعليق تلقائي عند تغيير الحالة
                 if 'status' in update_form.changed_data:
                     comment_text = f"تم تغيير حالة أمر الشغل إلى: {work_order.get_status_display()}"
@@ -426,17 +430,28 @@ def work_order_detail(request, wo_id):
     else:
         update_form = WorkOrderUpdateForm(instance=work_order, user=request.user)
     
-    # تم إزالة نموذج التعليقات مؤقتاً حتى يتم تطبيق نموذج WorkOrderComment
-    comment_form = None
+    # نموذج التعليقات
+    from .forms_cmms import WorkOrderCommentForm
+    comment_form = WorkOrderCommentForm()
     
-    # جلب قطع الغيار المطلوبة
+    # جلب قطع الغيار المطلوبة من WorkOrderPart وSparePartRequest
     parts_requested = work_order.parts_used.all().order_by('-requested_at')
+    spare_part_requests = work_order.spare_part_requests.all().order_by('-created_at')
     
     # إحصائيات قطع الغيار
+    spare_requests_stats = {
+        'total_requested': spare_part_requests.count(),
+        'pending': spare_part_requests.filter(status='pending').count(),
+        'approved': spare_part_requests.filter(status='approved').count(),
+        'fulfilled': spare_part_requests.filter(status='fulfilled').count(),
+        'rejected': spare_part_requests.filter(status='rejected').count(),
+    }
+    
     parts_stats = {
         'total_requested': parts_requested.count(),
         'total_issued': parts_requested.filter(status='issued').count(),
         'total_cost': parts_requested.aggregate(total=Sum('total_cost'))['total'] or 0,
+        'spare_requests_stats': spare_requests_stats,
     }
     
     # Check if device needs status change from inspection to working
@@ -459,6 +474,7 @@ def work_order_detail(request, wo_id):
         'is_hospital_manager': is_hospital_manager,
         'device_needs_status_change': device_needs_status_change,
         'parts_requested': parts_requested,
+        'spare_part_requests': spare_part_requests,
         'parts_stats': parts_stats,
         'can_request_parts': can_request_parts,
         'can_issue_parts': can_issue_parts,
@@ -1933,17 +1949,39 @@ def work_order_update_status(request, wo_id):
         new_status = request.POST.get('status')
         completion_notes = request.POST.get('completion_notes', '')
         
-        if new_status in ['pending', 'in_progress', 'completed', 'cancelled']:
+        # Debug logging
+        print(f"DEBUG: Received status: {new_status}")
+        print(f"DEBUG: Current actual_start: {work_order.actual_start}")
+        
+        if new_status in ['new', 'assigned', 'in_progress', 'wait_parts', 'on_hold', 'resolved', 'qa_verified', 'closed', 'cancelled']:
+            old_status = work_order.status
             work_order.status = new_status
             if completion_notes:
                 work_order.completion_notes = completion_notes
-            if new_status == 'completed':
-                work_order.completed_at = timezone.now()
-            work_order.save()
             
-            messages.success(request, 'تم تحديث حالة أمر الشغل بنجاح')
+            # تسجيل وقت البدء الفعلي عند تغيير الحالة إلى "جاري العمل"
+            if new_status == 'in_progress' and not work_order.actual_start:
+                work_order.actual_start = timezone.now()
+                print(f"DEBUG: Set actual_start to: {work_order.actual_start}")
+            
+            # تسجيل وقت الانتهاء الفعلي عند الإنجاز
+            if new_status in ['resolved', 'qa_verified', 'closed']:
+                work_order.completed_at = timezone.now()
+                if not work_order.actual_end:
+                    work_order.actual_end = timezone.now()
+                
+                # حساب الساعات الفعلية إذا كان وقت البدء متوفر
+                if work_order.actual_start and work_order.actual_end:
+                    time_diff = work_order.actual_end - work_order.actual_start
+                    work_order.actual_hours = round(time_diff.total_seconds() / 3600, 2)
+                    print(f"DEBUG: Calculated actual_hours: {work_order.actual_hours}")
+            
+            work_order.save()
+            print(f"DEBUG: After save - actual_start: {work_order.actual_start}")
+            
+            messages.success(request, f'تم تحديث حالة أمر الشغل من {old_status} إلى {new_status} بنجاح')
         else:
-            messages.error(request, 'حالة غير صحيحة')
+            messages.error(request, f'حالة غير صحيحة: {new_status}')
     
     return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
 
@@ -1953,31 +1991,50 @@ def work_order_add_comment(request, wo_id):
     إضافة تعليق لأمر الشغل
     
     الوظائف:
-    - إضافة تعليق جديد لأمر الشغل
+    - إضافة تعليق جديد لأمر الشغل باستخدام WorkOrderComment model
     - تسجيل التوقيت والمستخدم
-    - إضافة التعليق لملاحظات أمر الشغل
     - التحقق من عدم إضافة تعليق فارغ
     """
     work_order = get_object_or_404(WorkOrder, id=wo_id)
     
     if request.method == 'POST':
-        comment_text = request.POST.get('comment', '').strip()
+        from .forms_cmms import WorkOrderCommentForm
+        from .models import WorkOrderComment
         
-        if comment_text:
-            # إضافة التعليق إلى ملاحظات أمر الشغل
-            current_notes = work_order.notes or ''
-            timestamp = timezone.now().strftime('%Y-%m-%d %H:%M')
-            new_comment = f"[{timestamp}] {request.user.get_full_name() or request.user.username}: {comment_text}"
-            
-            if current_notes:
-                work_order.notes = f"{current_notes}\n\n{new_comment}"
-            else:
-                work_order.notes = new_comment
-            
-            work_order.save()
+        form = WorkOrderCommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.work_order = work_order
+            comment.user = request.user
+            comment.save()
             messages.success(request, 'تم إضافة التعليق بنجاح')
         else:
             messages.error(request, 'لا يمكن إضافة تعليق فارغ')
+    
+    return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+
+@login_required
+def work_order_update_costs(request, wo_id):
+    """تحديث تكاليف أمر الشغل تلقائياً"""
+    work_order = get_object_or_404(WorkOrder, id=wo_id)
+    
+    # التحقق من صلاحية المستخدم
+    if not request.user.is_superuser and not request.user.groups.filter(name__in=['Supervisor', 'Manager']).exists():
+        if work_order.assignee != request.user:
+            messages.error(request, 'ليس لديك صلاحية لتحديث تكاليف هذا الأمر')
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+    
+    if request.method == 'POST':
+        try:
+            # الحصول على معدل الساعة من النموذج أو استخدام القيمة الافتراضية
+            hourly_rate = float(request.POST.get('hourly_rate', 50))
+            
+            # تحديث التكاليف
+            work_order.update_costs(hourly_rate)
+            
+            messages.success(request, f'تم تحديث التكاليف بنجاح - التكلفة الإجمالية: {work_order.total_cost} ريال')
+        except Exception as e:
+            messages.error(request, f'حدث خطأ أثناء تحديث التكاليف: {str(e)}')
     
     return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
 

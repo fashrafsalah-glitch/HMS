@@ -1241,7 +1241,7 @@ def add_emergency_request(request, pk):
             service_request.device = device
             service_request.reporter = request.user
             service_request.request_type = 'emergency'
-            service_request.severity = 'high'
+            # لا نحدد severity و priority هنا، بل نتركهم للمستخدم
             # التأكد من وجود العنوان
             if not service_request.title:
                 service_request.title = f'طلب صيانة مستعجلة - {device.name}'
@@ -1257,13 +1257,19 @@ def add_emergency_request(request, pk):
             'device': device,
             'title': f'طلب صيانة مستعجلة - {device.name}',
             'request_type': 'emergency',
-            'severity': 'high',
-            'impact': 'high'
+            'severity': 'high',  # قيمة افتراضية
+            'impact': 'significant',  # قيمة افتراضية
+            'priority': 'high'  # قيمة افتراضية
         }
         form = ServiceRequestForm(initial=initial_data, user=request.user)
         # جعل حقل الجهاز للقراءة فقط
         form.fields['device'].widget.attrs['readonly'] = True
         form.fields['device'].widget.attrs['disabled'] = True
+        
+        # إضافة خصائص للحقول لحساب SLA
+        form.fields['severity'].required = True
+        form.fields['impact'].required = True
+        form.fields['priority'].required = True
     
     context = {
         'device': device,
@@ -1274,6 +1280,106 @@ def add_emergency_request(request, pk):
 
 def add_spare_part(request, pk):
     return render(request, 'maintenance/add_spare_part.html', {'device_id': pk})
+
+@require_POST
+@csrf_exempt
+def ajax_calculate_sla_times(request):
+    """حساب أوقات SLA بناءً على الخطورة والتأثير والأولوية"""
+    try:
+        data = json.loads(request.body)
+        device_id = data.get('device_id')
+        severity = data.get('severity')
+        impact = data.get('impact')
+        priority = data.get('priority')
+        
+        if not all([device_id, severity, impact, priority]):
+            return JsonResponse({
+                'success': False,
+                'error': 'جميع الحقول مطلوبة'
+            })
+        
+        # الحصول على الجهاز
+        device = get_object_or_404(Device, pk=device_id)
+        
+        # البحث عن SLA Matrix المناسب
+        try:
+            from .models import SLAMatrix
+            sla_matrix = SLAMatrix.objects.filter(
+                device_category=device.category,
+                severity=severity,
+                impact=impact,
+                priority=priority,
+                is_active=True
+            ).first()
+            
+            if sla_matrix:
+                return JsonResponse({
+                    'success': True,
+                    'response_time': sla_matrix.response_time_hours,
+                    'resolution_time': sla_matrix.resolution_time_hours,
+                    'sla_name': sla_matrix.sla_definition.name,
+                    'sla_id': sla_matrix.id
+                })
+            else:
+                # حساب أوقات افتراضية إذا لم توجد مصفوفة SLA
+                # معاملات الخطورة (كلما ارتفعت الخطورة، قل الوقت المسموح)
+                severity_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                # معاملات التأثير (كلما ارتفع التأثير، قل الوقت المسموح)
+                impact_multipliers = {
+                    'minimal': 2.0,    # طفيف - وقت أكثر
+                    'moderate': 1.0,   # متوسط - وقت عادي
+                    'significant': 0.5, # كبير - وقت أقل
+                    'extensive': 0.25  # واسع - وقت أقل بكثير
+                }
+                
+                # معاملات الأولوية (كلما ارتفعت الأولوية، قل الوقت المسموح)
+                priority_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                # حساب المعاملات
+                severity_factor = severity_multipliers.get(severity, 1.0)
+                impact_factor = impact_multipliers.get(impact, 1.0)
+                priority_factor = priority_multipliers.get(priority, 1.0)
+                
+                # أوقات افتراضية للطوارئ (قيم أساسية أعلى)
+                base_response = 12  # 12 ساعة
+                base_resolution = 36  # 36 ساعة
+                
+                # المعامل النهائي (متوسط الثلاثة عوامل)
+                final_multiplier = (severity_factor + impact_factor + priority_factor) / 3
+                
+                response_time = max(1, int(base_response * final_multiplier))
+                resolution_time = max(2, int(base_resolution * final_multiplier))
+                
+                return JsonResponse({
+                    'success': True,
+                    'response_time': response_time,
+                    'resolution_time': resolution_time,
+                    'sla_name': 'حساب افتراضي',
+                    'sla_id': None
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'خطأ في حساب أوقات SLA: {str(e)}'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'خطأ في معالجة الطلب: {str(e)}'
+        })
 
 
 

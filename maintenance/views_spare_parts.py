@@ -215,11 +215,14 @@ def inventory_dashboard(request):
 @login_required
 def pending_requests(request):
     """عرض الطلبات في الانتظار"""
-    requests_list = SparePartRequest.objects.filter(
-        status='pending'
-    ).select_related(
+    # عرض جميع الطلبات مع تبويب حسب الحالة
+    all_requests = SparePartRequest.objects.select_related(
         'spare_part', 'requester', 'work_order', 'device'
     ).order_by('-priority', '-created_at')
+    
+    # فلترة حسب الحالة المطلوبة
+    status_filter = request.GET.get('status', 'pending')
+    requests_list = all_requests.filter(status=status_filter)
     
     # فلترة حسب الأولوية
     priority_filter = request.GET.get('priority')
@@ -249,6 +252,12 @@ def pending_requests(request):
     # قائمة قطع الغيار للفلتر
     spare_parts = SparePart.objects.all().order_by('name')
     
+    # إحصائيات الطلبات حسب الحالة
+    pending_count = all_requests.filter(status='pending').count()
+    approved_count = all_requests.filter(status='approved').count()
+    fulfilled_count = all_requests.filter(status='fulfilled').count()
+    rejected_count = all_requests.filter(status='rejected').count()
+    
     context = {
         'requests': requests,
         'spare_parts': spare_parts,
@@ -256,7 +265,12 @@ def pending_requests(request):
         'current_priority': priority_filter,
         'current_part': part_filter,
         'search_query': search,
-        'page_title': 'الطلبات في الانتظار',
+        'current_status': status_filter,
+        'pending_count': pending_count,
+        'approved_count': approved_count,
+        'fulfilled_count': fulfilled_count,
+        'rejected_count': rejected_count,
+        'page_title': f'طلبات قطع الغيار - {dict(SparePartRequest.STATUS_CHOICES).get(status_filter, "جميع الطلبات")}',
     }
     
     return render(request, 'maintenance/pending_requests_manager.html', context)
@@ -283,7 +297,8 @@ def approve_request(request, request_id):
             spare_request.save()
             
             messages.success(request, f'تمت الموافقة على الطلب {spare_request.request_number} بنجاح')
-            return redirect('maintenance:spare_parts:pending_requests')
+            # إعادة التوجيه لصفحة الطلبات الموافق عليها بدلاً من المعلقة
+            return redirect('maintenance:spare_parts:inventory_dashboard')
             
         except Exception as e:
             messages.error(request, f'حدث خطأ أثناء الموافقة على الطلب: {str(e)}')
@@ -314,31 +329,26 @@ def fulfill_request(request, request_id):
                 messages.error(request, f'المخزون غير كافي. المطلوب: {spare_request.quantity_requested}, المتاح: {spare_request.spare_part.current_stock}')
                 return redirect('maintenance:spare_parts:pending_requests')
             
-            # الموافقة على الطلب أولاً
-            spare_request.status = 'approved'
-            spare_request.quantity_approved = spare_request.quantity_requested
-            spare_request.approved_by = request.user
-            spare_request.approved_at = timezone.now()
-            spare_request.approval_notes = notes
+            # تحديث حالة الطلب
+            quantity_to_deduct = spare_request.quantity_approved or spare_request.quantity_requested
+            spare_request.spare_part.current_stock -= quantity_to_deduct
+            spare_request.spare_part.update_status()
+            spare_request.spare_part.save()
             
-            # إنشاء معاملة صرف
+            # إنشاء معاملة قطع الغيار
+            stock_before = spare_request.spare_part.current_stock + quantity_to_deduct
+            stock_after = spare_request.spare_part.current_stock
+            
             transaction = SparePartTransaction.objects.create(
                 spare_part=spare_request.spare_part,
                 transaction_type='out',
-                quantity=spare_request.quantity_approved,
-                reference_number=spare_request.request_number,
-                notes=f'تنفيذ طلب {spare_request.request_number}',
-                work_order=spare_request.work_order,
-                device=spare_request.device,
-                stock_before=spare_request.spare_part.current_stock,
-                stock_after=spare_request.spare_part.current_stock - spare_request.quantity_approved,
-                created_by=request.user
+                quantity=quantity_to_deduct,
+                stock_before=stock_before,
+                stock_after=stock_after,
+                created_by=request.user,
+                notes=f'صرف لأمر الشغل: {spare_request.work_order.wo_number if spare_request.work_order else "غير محدد"}',
+                reference_number=spare_request.request_number
             )
-            
-            # تحديث المخزون
-            spare_request.spare_part.current_stock -= spare_request.quantity_approved
-            spare_request.spare_part.update_status()
-            spare_request.spare_part.save()
             
             # تحديث الطلب
             spare_request.status = 'fulfilled'
@@ -346,6 +356,10 @@ def fulfill_request(request, request_id):
             spare_request.fulfilled_at = timezone.now()
             spare_request.transaction = transaction
             spare_request.save()
+            
+            # تحديث تكاليف أمر الشغل إذا كان مرتبط بأمر شغل
+            if spare_request.work_order:
+                spare_request.work_order.update_costs()
             
             messages.success(request, f'تم تنفيذ الطلب {spare_request.request_number} بنجاح')
             return redirect('maintenance:spare_parts:pending_requests')

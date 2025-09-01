@@ -74,6 +74,7 @@ urlpatterns = [
     path('device/<int:pk>/add-spare-part/', views.add_spare_part, name='add_spare_part'),
    
     path('ajax/get-rooms/', views.get_rooms, name='get_rooms'),
+    path('ajax/calculate-sla-times/', views.ajax_calculate_sla_times, name='ajax_calculate_sla_times'),
     path('ajax/get-beds/', views.get_beds, name='get_beds'),
     path('ajax/get-patients-by-department/', views.get_patients_by_department, name='get_patients_by_department'),
 

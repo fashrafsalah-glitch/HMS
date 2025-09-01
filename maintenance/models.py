@@ -1923,12 +1923,12 @@ class ServiceRequest(models.Model):
         super().save(*args, **kwargs)
     
     def calculate_sla_times(self):
-        """حساب أوقات SLA بناءً على نوع الجهاز والخطورة والتأثير"""
+        """حساب أوقات SLA بناءً على نوع الجهاز والخطورة والتأثير والأولوية من SLA Matrix"""
         from django.utils import timezone
         from datetime import timedelta
         
         try:
-            # البحث عن SLA مناسب من المصفوفة
+            # البحث عن SLA Matrix مناسب أولاً
             sla_matrix = SLAMatrix.objects.filter(
                 device_category=self.device.category,
                 severity=self.severity,
@@ -1937,42 +1937,57 @@ class ServiceRequest(models.Model):
                 is_active=True
             ).first()
             
-            if sla_matrix:
-                sla_definition = sla_matrix.sla_definition
-            else:
-                # البحث عن SLA افتراضي للفئة
-                sla_definition = SLADefinition.objects.filter(
-                    device_category=self.device.category,
-                    is_active=True
-                ).first()
-                
-                # إذا لم يوجد SLA للفئة، استخدم SLA عام
-                if not sla_definition:
-                    sla_definition = SLADefinition.objects.filter(
-                        device_category__isnull=True,
-                        is_active=True
-                    ).first()
+            now = timezone.now()
             
-            # تطبيق أوقات SLA
-            if sla_definition:
-                now = timezone.now()
-                self.response_due = now + timedelta(hours=sla_definition.response_time_hours)
-                self.resolution_due = now + timedelta(hours=sla_definition.resolution_time_hours)
+            if sla_matrix:
+                # استخدام الأوقات المحسوبة من SLA Matrix
+                self.response_due = now + timedelta(hours=sla_matrix.response_time_hours)
+                self.resolution_due = now + timedelta(hours=sla_matrix.resolution_time_hours)
+                self.estimated_hours = sla_matrix.resolution_time_hours
             else:
-                # قيم افتراضية إذا لم يوجد SLA
-                now = timezone.now()
-                if self.severity == 'critical':
-                    self.response_due = now + timedelta(hours=1)
-                    self.resolution_due = now + timedelta(hours=4)
-                elif self.severity == 'high':
-                    self.response_due = now + timedelta(hours=2)
-                    self.resolution_due = now + timedelta(hours=8)
-                elif self.severity == 'medium':
-                    self.response_due = now + timedelta(hours=4)
-                    self.resolution_due = now + timedelta(hours=24)
-                else:  # low
-                    self.response_due = now + timedelta(hours=8)
-                    self.resolution_due = now + timedelta(hours=72)
+                # حساب أوقات افتراضية بناءً على المعاملات المُصححة
+                # معاملات الخطورة (كلما ارتفعت الخطورة، قل الوقت المسموح)
+                severity_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                # معاملات التأثير (كلما ارتفع التأثير، قل الوقت المسموح)
+                impact_multipliers = {
+                    'minimal': 2.0,    # طفيف - وقت أكثر
+                    'moderate': 1.0,   # متوسط - وقت عادي
+                    'significant': 0.5, # كبير - وقت أقل
+                    'extensive': 0.25  # واسع - وقت أقل بكثير
+                }
+                
+                # معاملات الأولوية (كلما ارتفعت الأولوية، قل الوقت المسموح)
+                priority_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                # حساب المعاملات
+                severity_factor = severity_multipliers.get(self.severity, 1.0)
+                impact_factor = impact_multipliers.get(self.impact, 1.0)
+                priority_factor = priority_multipliers.get(self.priority, 1.0)
+                
+                # أوقات افتراضية أساسية
+                base_response = 12  # 12 ساعة
+                base_resolution = 36  # 36 ساعة
+                
+                # المعامل النهائي (متوسط الثلاثة عوامل)
+                final_multiplier = (severity_factor + impact_factor + priority_factor) / 3
+                
+                response_hours = max(1, int(base_response * final_multiplier))
+                resolution_hours = max(2, int(base_resolution * final_multiplier))
+                
+                self.response_due = now + timedelta(hours=response_hours)
+                self.resolution_due = now + timedelta(hours=resolution_hours)
+                self.estimated_hours = resolution_hours
                     
         except Exception as e:
             # في حالة الخطأ، استخدم قيم افتراضية
@@ -1981,6 +1996,7 @@ class ServiceRequest(models.Model):
             now = timezone.now()
             self.response_due = now + timedelta(hours=4)
             self.resolution_due = now + timedelta(hours=24)
+            self.estimated_hours = 24
     
     def is_overdue_response(self):
         """التحقق من تجاوز وقت الاستجابة"""
@@ -2053,34 +2069,43 @@ class SLAMatrix(models.Model):
     
     def calculate_sla_times(self):
         """
-        حساب أوقات SLA بناءً على القيم الأساسية من SLA definition مع تطبيق معاملات الخطورة والتأثير
+        حساب أوقات SLA بناءً على القيم الأساسية من SLA definition مع تطبيق معاملات الخطورة والتأثير والأولوية
         """
         # استخدام القيم الأساسية من SLA definition المرتبط
         base_response = self.sla_definition.response_time_hours
         base_resolution = self.sla_definition.resolution_time_hours
         
-        # معاملات الخطورة (كلما ارتفعت الخطورة، زاد المعامل)
+        # معاملات الخطورة (كلما ارتفعت الخطورة، قل الوقت المسموح)
         severity_multipliers = {
-            'low': 0.5,      # منخفض - وقت أقل
+            'low': 2.0,      # منخفض - وقت أكثر
             'medium': 1.0,   # متوسط - وقت عادي
-            'high': 1.5,     # عالي - وقت أكثر
-            'critical': 2.0  # حرج - وقت أكثر بكثير
+            'high': 0.5,     # عالي - وقت أقل
+            'critical': 0.25 # حرج - وقت أقل بكثير
         }
         
-        # معاملات التأثير (كلما ارتفع التأثير، زاد المعامل)
+        # معاملات التأثير (كلما ارتفع التأثير، قل الوقت المسموح)
         impact_multipliers = {
-            'minimal': 0.7,    # طفيف - وقت أقل
+            'minimal': 2.0,    # طفيف - وقت أكثر
             'moderate': 1.0,   # متوسط - وقت عادي
-            'significant': 1.3, # كبير - وقت أكثر
-            'extensive': 1.8   # واسع - وقت أكثر بكثير
+            'significant': 0.5, # كبير - وقت أقل
+            'extensive': 0.25  # واسع - وقت أقل بكثير
+        }
+        
+        # معاملات الأولوية (كلما ارتفعت الأولوية، قل الوقت المسموح)
+        priority_multipliers = {
+            'low': 2.0,      # منخفض - وقت أكثر
+            'medium': 1.0,   # متوسط - وقت عادي
+            'high': 0.5,     # عالي - وقت أقل
+            'critical': 0.25 # حرج - وقت أقل بكثير
         }
         
         # حساب المعاملات
         severity_factor = severity_multipliers.get(self.severity, 1.0)
         impact_factor = impact_multipliers.get(self.impact, 1.0)
+        priority_factor = priority_multipliers.get(self.priority, 1.0)
         
-        # المعامل النهائي (متوسط الخطورة والتأثير)
-        final_multiplier = (severity_factor + impact_factor) / 2
+        # المعامل النهائي (متوسط الخطورة والتأثير والأولوية)
+        final_multiplier = (severity_factor + impact_factor + priority_factor) / 3
         
         # حساب الأوقات بناءً على القيم الأساسية من SLA
         response_time = max(1, int(base_response * final_multiplier))
@@ -2414,6 +2439,60 @@ class WorkOrder(models.Model):
     # Additional fields
     completion_notes = models.TextField(blank=True, verbose_name="ملاحظات الإنجاز")
     
+    def calculate_parts_cost(self):
+        """حساب تكلفة قطع الغيار المستخدمة"""
+        total_parts_cost = 0
+        
+        # حساب تكلفة قطع الغيار من WorkOrderPart
+        for part in self.parts_used.filter(status='issued'):
+            if part.unit_cost and part.quantity_used:
+                total_parts_cost += part.unit_cost * part.quantity_used
+        
+        # حساب تكلفة قطع الغيار من SparePartRequest المنفذة
+        for request in self.spare_part_requests.filter(status='fulfilled'):
+            if hasattr(request.spare_part, 'unit_cost') and request.spare_part.unit_cost:
+                quantity = request.quantity_approved or request.quantity_requested or 0
+                total_parts_cost += request.spare_part.unit_cost * quantity
+        
+        return total_parts_cost
+    
+    def calculate_labor_cost(self, hourly_rate=50):
+        """حساب تكلفة العمالة بناءً على الساعات الفعلية"""
+        if self.actual_hours:
+            return self.actual_hours * hourly_rate
+        return 0
+    
+    def update_costs(self, hourly_rate=50):
+        """تحديث جميع التكاليف تلقائياً"""
+        self.parts_cost = self.calculate_parts_cost()
+        # إذا لم يتم إدخال تكلفة العمالة يدوياً، احسبها من الساعات
+        if not self.labor_cost and self.actual_hours:
+            self.labor_cost = self.calculate_labor_cost(hourly_rate)
+        self.total_cost = (self.parts_cost or 0) + (self.labor_cost or 0)
+        self.save()
+    
+    def get_cost_breakdown(self):
+        """الحصول على تفصيل التكاليف"""
+        return {
+            'parts_cost': self.parts_cost or 0,
+            'labor_cost': self.labor_cost or 0,
+            'total_cost': self.total_cost or 0,
+            'calculated_parts_cost': self.calculate_parts_cost(),
+            'calculated_labor_cost': self.calculate_labor_cost(),
+        }
+
+    def calculate_duration(self):
+        """حساب مدة العمل"""
+        if self.actual_start and self.actual_end:
+            return (self.actual_end - self.actual_start).total_seconds() / 3600
+        return None
+    
+    def is_overdue(self):
+        """التحقق من تجاوز الموعد المحدد"""
+        if self.scheduled_end and timezone.now() > self.scheduled_end and self.status not in ['completed', 'closed']:
+            return True
+        return False
+
     class Meta:
         verbose_name = "أمر عمل"
         verbose_name_plural = "أوامر العمل"

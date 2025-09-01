@@ -252,7 +252,7 @@ def auto_create_work_order(sender, instance, created, **kwargs):
                     instance.resolution_due = timezone.now() + timedelta(hours=sla_definition.resolution_time_hours)
                     instance.save(update_fields=['response_due', 'resolution_due'])
                 
-                # إنشاء أمر الشغل تلقائياً
+                # إنشاء أمر الشغل تلقائياً مع المواعيد المجدولة
                 work_order = WorkOrder.objects.create(
                     service_request=instance,
                     title=f"أمر شغل - {instance.title}",
@@ -261,7 +261,10 @@ def auto_create_work_order(sender, instance, created, **kwargs):
                     priority=instance.priority,
                     created_by=instance.reporter,
                     assignee=instance.assigned_to,
-                    estimated_hours=instance.estimated_hours
+                    estimated_hours=instance.estimated_hours,
+                    # ربط المواعيد المجدولة من أوقات SLA
+                    scheduled_start=instance.response_due,  # موعد البدء = موعد الاستجابة المطلوب
+                    scheduled_end=instance.resolution_due   # موعد الانتهاء = موعد الحل المطلوب
                 )
                 
                 # تحديث حالة البلاغ

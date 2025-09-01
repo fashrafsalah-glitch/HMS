@@ -4,11 +4,127 @@
 {% block title %}تفاصيل أمر الشغل{% endblock %}
 
 {% block content %}
+<style>
+    .work-order-card {
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 6px 12px;
+    }
+    .direct-chat-messages {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+    }
+    .direct-chat-msg {
+        margin-bottom: 15px;
+    }
+    .direct-chat-text {
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    .direct-chat-msg.right .direct-chat-text {
+        background: #007bff;
+        color: white;
+    }
+    .direct-chat-text::before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: -8px;
+        width: 0;
+        height: 0;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-right: 8px solid #fff;
+    }
+    .direct-chat-msg.right .direct-chat-text::before {
+        left: auto;
+        right: -8px;
+        border-right: none;
+        border-left: 8px solid #007bff;
+    }
+    .timeline {
+        position: relative;
+        margin: 0;
+        padding: 0;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 15px;
+        height: 100%;
+        width: 2px;
+        background: #dee2e6;
+    }
+    .timeline li {
+        position: relative;
+        margin-bottom: 20px;
+        list-style: none;
+    }
+    .timeline .fas.fa-circle {
+        position: absolute;
+        left: 10px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        z-index: 2;
+    }
+    .timeline-item {
+        margin-left: 35px;
+        background: #fff;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .parts-stats {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .parts-stats .stat-item {
+        text-align: center;
+    }
+    .parts-stats .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        display: block;
+    }
+    .parts-stats .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .comment-form {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    .btn-circle {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-8">
             <!-- بطاقة تفاصيل أمر الشغل -->
-            <div class="card">
+            <div class="card work-order-card">
                 <div class="card-header">
                     <h3 class="card-title">أمر شغل #WO-{{ work_order.id }}</h3>
                     <div class="card-tools">
@@ -86,19 +202,19 @@
                                 <dt class="col-sm-4">الحالة:</dt>
                                 <dd class="col-sm-8">
                                     {% if work_order.status == 'new' %}
-                                        <span class="badge badge-primary">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-primary status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'assigned' %}
-                                        <span class="badge badge-info">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-info status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'in_progress' %}
-                                        <span class="badge badge-warning">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-warning status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'on_hold' or work_order.status == 'wait_parts' %}
-                                        <span class="badge badge-secondary">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-secondary status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'resolved' or work_order.status == 'qa_verified' %}
-                                        <span class="badge badge-success">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-success status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'closed' %}
-                                        <span class="badge badge-dark">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-dark status-badge">{{ work_order.get_status_display }}</span>
                                     {% elif work_order.status == 'cancelled' %}
-                                        <span class="badge badge-danger">{{ work_order.get_status_display }}</span>
+                                        <span class="badge badge-danger status-badge">{{ work_order.get_status_display }}</span>
                                     {% endif %}
                                 </dd>
                                 
@@ -132,9 +248,26 @@
                                 <dd class="col-sm-8">{{ work_order.end_time|date:"Y-m-d H:i" }}</dd>
                                 {% endif %}
                                 
-                                {% if work_order.work_duration %}
-                                <dt class="col-sm-4">مدة العمل:</dt>
-                                <dd class="col-sm-8">{{ work_order.work_duration }} ساعة</dd>
+                                {% if work_order.actual_hours %}
+                                <dt class="col-sm-4">الساعات الفعلية:</dt>
+                                <dd class="col-sm-8">{{ work_order.actual_hours }} ساعة</dd>
+                                {% endif %}
+                                
+                                {% if work_order.labor_cost %}
+                                <dt class="col-sm-4">تكلفة العمالة:</dt>
+                                <dd class="col-sm-8">{{ work_order.labor_cost }} ريال</dd>
+                                {% endif %}
+                                
+                                {% if work_order.parts_cost %}
+                                <dt class="col-sm-4">تكلفة القطع:</dt>
+                                <dd class="col-sm-8">{{ work_order.parts_cost }} ريال</dd>
+                                {% endif %}
+                                
+                                {% if work_order.total_cost %}
+                                <dt class="col-sm-4">التكلفة الإجمالية:</dt>
+                                <dd class="col-sm-8">
+                                    <strong class="text-success">{{ work_order.total_cost }} ريال</strong>
+                                </dd>
                                 {% endif %}
                             </dl>
                         </div>
@@ -184,34 +317,36 @@
                          </div>
                          
                          <div class="card-body">
-                             {% if parts_requested %}
-                                 <!-- إحصائيات سريعة -->
-                                 <div class="row mb-3">
-                                     <div class="col-md-3">
-                                         <div class="text-center">
-                                             <h6 class="text-primary">{{ parts_stats.total_requested }}</h6>
-                                             <small>إجمالي الطلبات</small>
-                                         </div>
-                                     </div>
-                                     <div class="col-md-3">
-                                         <div class="text-center">
-                                             <h6 class="text-success">{{ parts_stats.total_issued }}</h6>
-                                             <small>تم الصرف</small>
-                                         </div>
-                                     </div>
-                                     <div class="col-md-3">
-                                         <div class="text-center">
-                                             <h6 class="text-warning">{{ parts_stats.total_requested|add:"-"|add:parts_stats.total_issued }}</h6>
-                                             <small>قيد الانتظار</small>
-                                         </div>
-                                     </div>
-                                     <div class="col-md-3">
-                                         <div class="text-center">
-                                             <h6 class="text-info">{{ parts_stats.total_cost }} ريال</h6>
-                                             <small>التكلفة الإجمالية</small>
-                                         </div>
-                                     </div>
-                                 </div>
+                             {% if parts_requested or spare_part_requests %}
+                                <!-- إحصائيات سريعة -->
+                                <div class="parts-stats">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="stat-item">
+                                                <span class="stat-number">{{ parts_stats.spare_requests_stats.total_requested }}</span>
+                                                <span class="stat-label">إجمالي الطلبات</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="stat-item">
+                                                <span class="stat-number">{{ parts_stats.spare_requests_stats.fulfilled }}</span>
+                                                <span class="stat-label">تم الصرف</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="stat-item">
+                                                <span class="stat-number">{{ parts_stats.spare_requests_stats.pending }}</span>
+                                                <span class="stat-label">قيد الانتظار</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="stat-item">
+                                                <span class="stat-number">{{ work_order.calculate_parts_cost|floatformat:2 }}</span>
+                                                <span class="stat-label">التكلفة (ريال)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                  <!-- قائمة مختصرة لقطع الغيار -->
                                  <div class="table-responsive">
@@ -221,7 +356,6 @@
                                                  <th>القطعة</th>
                                                  <th>الكمية</th>
                                                  <th>الحالة</th>
-                                                 <th>التكلفة</th>
                                              </tr>
                                          </thead>
                                          <tbody>
@@ -253,6 +387,35 @@
                                                          {{ part.unit_cost }} ريال
                                                      {% else %}
                                                          -
+                                                     {% endif %}
+                                                 </td>
+                                             </tr>
+                                             {% endfor %}
+                                             
+                                             <!-- عرض طلبات قطع الغيار من SparePartRequest -->
+                                             {% for request in spare_part_requests|slice:":5" %}
+                                             <tr class="table-info">
+                                                 <td>
+                                                     <strong>{{ request.spare_part.name }}</strong>
+                                                     <br>
+                                                     <small class="text-muted">{{ request.spare_part.part_number }}</small>
+                                                     <br>
+                                                     <small class="text-info">طلب رقم: {{ request.request_number }}</small>
+                                                 </td>
+                                                 <td>
+                                                     {{ request.quantity_requested }}
+                                                 </td>
+                                                 <td>
+                                                     {% if request.status == 'pending' %}
+                                                         <span class="badge badge-warning">في الانتظار</span>
+                                                     {% elif request.status == 'approved' %}
+                                                         <span class="badge badge-success">موافق عليه</span>
+                                                     {% elif request.status == 'rejected' %}
+                                                         <span class="badge badge-danger">مرفوض</span>
+                                                     {% elif request.status == 'fulfilled' %}
+                                                         <span class="badge badge-success">تم التنفيذ</span>
+                                                     {% elif request.status == 'cancelled' %}
+                                                         <span class="badge badge-secondary">ملغي</span>
                                                      {% endif %}
                                                  </td>
                                              </tr>
@@ -293,18 +456,19 @@
                                     <h5 class="card-title">تحديث حالة أمر الشغل</h5>
                                 </div>
                                 <div class="card-body">
-                                    <form method="post" name="update_status">
+                                    <form method="post" action="{% url 'maintenance:cmms:work_order_update_status' work_order.id %}" name="update_status">
                                         {% csrf_token %}
                                         <div class="form-row">
                                             <div class="form-group col-md-6">
-                                                <label for="id_status">الحالة الجديدة:</label>
+                                                <label for="{{ status_form.status.id_for_label }}">الحالة الجديدة:</label>
                                                 {{ status_form.status }}
                                             </div>
                                             <div class="form-group col-md-6">
-                                                <label for="id_resolution">ملاحظات الحل:</label>
-                                                {{ status_form.resolution }}
+                                                {{ status_form.labor_cost.label_tag }}
+                                                {{ status_form.labor_cost }}
                                             </div>
                                         </div>
+
                                         <button type="submit" name="update_status" class="btn btn-primary">
                                             <i class="fas fa-save"></i> تحديث الحالة
                                         </button>
@@ -376,17 +540,22 @@
                     </div>
                     
                     <!-- نموذج إضافة تعليق -->
-                    <form method="post" action="{% url 'maintenance:cmms:work_order_add_comment' work_order.id %}" class="mt-3">
-                        {% csrf_token %}
-                        <div class="input-group">
-                            {{ comment_form.comment }}
-                            <div class="input-group-append">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-paper-plane"></i>
+                    <div class="comment-form">
+                        <form method="post" action="{% url 'maintenance:cmms:work_order_add_comment' work_order.id %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="{{ comment_form.comment.id_for_label }}" class="font-weight-bold">
+                                    <i class="fas fa-comment"></i> إضافة تعليق جديد
+                                </label>
+                                {{ comment_form.comment }}
+                            </div>
+                            <div class="text-right">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-paper-plane"></i> إرسال التعليق
                                 </button>
                             </div>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
             </div>
             

@@ -33,6 +33,14 @@ class ServiceRequestForm(forms.ModelForm):
         self.fields['impact'].widget.attrs['onchange'] = 'calculateSLATimes()'
         self.fields['priority'].widget.attrs['onchange'] = 'calculateSLATimes()'
         
+        # تحسين عرض الحقول
+        self.fields['severity'].widget.attrs['data-toggle'] = 'tooltip'
+        self.fields['severity'].widget.attrs['title'] = 'اختر درجة الخطورة لحساب SLA'
+        self.fields['impact'].widget.attrs['data-toggle'] = 'tooltip'
+        self.fields['impact'].widget.attrs['title'] = 'اختر درجة التأثير لحساب SLA'
+        self.fields['priority'].widget.attrs['data-toggle'] = 'tooltip'
+        self.fields['priority'].widget.attrs['title'] = 'اختر الأولوية لحساب SLA'
+        
         # هنا بنفلتر الأجهزة حسب صلاحيات المستخدم
         if self.user:
             # لو المستخدم مش أدمن، هنفلتر الأجهزة حسب القسم بتاعه
@@ -44,26 +52,81 @@ class ServiceRequestForm(forms.ModelForm):
         instance = super().save(commit=False)
         
         # حساب أوقات SLA بناءً على المصفوفة
+        response_time = None
+        resolution_time = None
+        sla_name = None
+        
         try:
             from .models import SLAMatrix
             sla_matrix = SLAMatrix.objects.filter(
                 device_category=instance.device.category,
                 severity=instance.severity,
                 impact=instance.impact,
-                priority=instance.priority
+                priority=instance.priority,
+                is_active=True
             ).first()
             
             if sla_matrix:
-                # حساب أوقات SLA من المصفوفة
-                response_time, resolution_time = sla_matrix.calculate_sla_times()
+                # استخدام الأوقات المحسوبة من المصفوفة
+                response_time = sla_matrix.response_time_hours
+                resolution_time = sla_matrix.resolution_time_hours
+                sla_name = sla_matrix.sla_definition.name
                 instance.estimated_hours = resolution_time
                 
                 # إضافة معلومات SLA للوصف
-                sla_info = f"\n\n[SLA المطبق: {sla_matrix.sla_definition.name} - وقت الاستجابة: {response_time}ساعة - وقت الحل: {resolution_time}ساعة]"
+                sla_info = f"\n\n[SLA المطبق: {sla_name} - وقت الاستجابة: {response_time} ساعة - وقت الحل: {resolution_time} ساعة]"
                 if instance.description:
                     instance.description += sla_info
                 else:
                     instance.description = f"طلب صيانة {instance.get_request_type_display()}{sla_info}"
+            else:
+                # حساب أوقات افتراضية بناءً على المعاملات المُصححة
+                # معاملات الخطورة (كلما ارتفعت الخطورة، قل الوقت المسموح)
+                severity_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                # معاملات التأثير (كلما ارتفع التأثير، قل الوقت المسموح)
+                impact_multipliers = {
+                    'minimal': 2.0,    # طفيف - وقت أكثر
+                    'moderate': 1.0,   # متوسط - وقت عادي
+                    'significant': 0.5, # كبير - وقت أقل
+                    'extensive': 0.25  # واسع - وقت أقل بكثير
+                }
+                
+                # معاملات الأولوية (كلما ارتفعت الأولوية، قل الوقت المسموح)
+                priority_multipliers = {
+                    'low': 2.0,      # منخفض - وقت أكثر
+                    'medium': 1.0,   # متوسط - وقت عادي
+                    'high': 0.5,     # عالي - وقت أقل
+                    'critical': 0.25 # حرج - وقت أقل بكثير
+                }
+                
+                severity_factor = severity_multipliers.get(instance.severity, 1.0)
+                impact_factor = impact_multipliers.get(instance.impact, 1.0)
+                priority_factor = priority_multipliers.get(instance.priority, 1.0)
+                
+                # أوقات افتراضية أساسية
+                base_response = 12  # 12 ساعة
+                base_resolution = 36  # 36 ساعة
+                
+                # المعامل النهائي (متوسط الثلاثة عوامل)
+                final_multiplier = (severity_factor + impact_factor + priority_factor) / 3
+                
+                response_time = max(1, int(base_response * final_multiplier))
+                resolution_time = max(2, int(base_resolution * final_multiplier))
+                instance.estimated_hours = resolution_time
+                
+                # إضافة معلومات الحساب الافتراضي
+                sla_info = f"\n\n[حساب افتراضي - وقت الاستجابة: {response_time} ساعة - وقت الحل: {resolution_time} ساعة]"
+                if instance.description:
+                    instance.description += sla_info
+                else:
+                    instance.description = f"طلب صيانة {instance.get_request_type_display()}{sla_info}"
+                    
         except Exception as e:
             # في حالة عدم وجود SLA مناسب، استخدم Job Plan
             pass
@@ -123,10 +186,17 @@ class WorkOrderUpdateForm(forms.ModelForm):
     
     class Meta:
         model = WorkOrder
-        fields = ['status', 'completion_notes', 'qa_notes']
+        fields = ['status', 'labor_cost', 'completion_notes', 'qa_notes']
         widgets = {
             'completion_notes': forms.Textarea(attrs={'rows': 4}),
             'qa_notes': forms.Textarea(attrs={'rows': 3}),
+            'labor_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+        }
+        labels = {
+            'labor_cost': 'تكلفة العمالة (ريال)',
+            'status': 'الحالة',
+            'completion_notes': 'ملاحظات الإنجاز',
+            'qa_notes': 'ملاحظات ضمان الجودة'
         }
     
     def __init__(self, *args, **kwargs):
@@ -174,16 +244,24 @@ class WorkOrderUpdateForm(forms.ModelForm):
             status_choices = [(status, dict(WorkOrder.status.field.choices)[status]) for status in available_statuses]
             self.fields['status'].choices = status_choices
 
-# Commented out forms for models not yet implemented
-# class WorkOrderCommentForm(forms.ModelForm):
-#     """نموذج إضافة تعليق على أمر الشغل"""
-#     
-#     class Meta:
-#         model = WorkOrderComment
-#         fields = ['comment']
-#         widgets = {
-#             'comment': forms.Textarea(attrs={'rows': 2, 'placeholder': 'أضف تعليقًا...'}),
-#         }
+class WorkOrderCommentForm(forms.ModelForm):
+    """نموذج إضافة تعليق على أمر الشغل"""
+    
+    class Meta:
+        from .models import WorkOrderComment
+        model = WorkOrderComment
+        fields = ['comment']
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'rows': 3, 
+                'placeholder': 'أضف تعليقًا...', 
+                'class': 'form-control',
+                'style': 'resize: vertical;'
+            }),
+        }
+        labels = {
+            'comment': 'التعليق'
+        }
 #     
 #     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)

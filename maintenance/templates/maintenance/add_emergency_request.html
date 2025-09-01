@@ -90,7 +90,7 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="{{ form.request_type.id_for_label }}">{{ form.request_type.label }}</label>
                                     {{ form.request_type }}
@@ -101,9 +101,9 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
+                                    <label for="{{ form.severity.id_for_label }}" class="required">{{ form.severity.label }}</label>
                                     {{ form.severity }}
                                     {% if form.severity.errors %}
                                     <div class="invalid-feedback d-block">
@@ -112,15 +112,43 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="{{ form.impact.id_for_label }}">{{ form.impact.label }}</label>
+                                    <label for="{{ form.impact.id_for_label }}" class="required">{{ form.impact.label }}</label>
                                     {{ form.impact }}
                                     {% if form.impact.errors %}
                                     <div class="invalid-feedback d-block">
                                         {{ form.impact.errors.0 }}
                                     </div>
                                     {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.priority.id_for_label }}" class="required">{{ form.priority.label }}</label>
+                                    {{ form.priority }}
+                                    {% if form.priority.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.priority.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SLA Time Display -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="alert alert-warning" id="sla-info" style="display: none;">
+                                    <h6><i class="fas fa-clock"></i> أوقات SLA المحسوبة:</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>وقت الاستجابة:</strong> <span id="response-time">-</span> ساعة
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>وقت الحل:</strong> <span id="resolution-time">-</span> ساعة
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -167,5 +195,84 @@
         background-color: #c82333;
         border-color: #bd2130;
     }
+    
+    #sla-info {
+        border-right: 4px solid #ffc107;
+    }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// SLA Time Calculation
+function calculateSLATimes() {
+    const severity = document.querySelector('select[name="severity"]').value;
+    const impact = document.querySelector('select[name="impact"]').value;
+    const priority = document.querySelector('select[name="priority"]').value;
+    const deviceId = parseInt('{{ device.pk }}');
+    
+    if (severity && impact && priority) {
+        // Show loading
+        const slaInfo = document.getElementById('sla-info');
+        const responseTime = document.getElementById('response-time');
+        const resolutionTime = document.getElementById('resolution-time');
+        
+        responseTime.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        resolutionTime.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        slaInfo.style.display = 'block';
+        
+        // Make AJAX request to calculate SLA times
+        fetch(`/maintenance/ajax/calculate-sla-times/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                device_id: deviceId,
+                severity: severity,
+                impact: impact,
+                priority: priority
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                responseTime.innerHTML = data.response_time;
+                resolutionTime.innerHTML = data.resolution_time;
+                
+                // Add SLA definition info if available
+                if (data.sla_name) {
+                    const slaTitle = slaInfo.querySelector('h6');
+                    slaTitle.innerHTML = `<i class="fas fa-clock"></i> أوقات SLA المحسوبة (${data.sla_name}):`;
+                }
+            } else {
+                responseTime.innerHTML = 'غير محدد';
+                resolutionTime.innerHTML = 'غير محدد';
+            }
+        })
+        .catch(error => {
+            console.error('Error calculating SLA times:', error);
+            responseTime.innerHTML = 'خطأ';
+            resolutionTime.innerHTML = 'خطأ';
+        });
+    } else {
+        document.getElementById('sla-info').style.display = 'none';
+    }
+}
+
+// Auto-calculate SLA times when form loads and when fields change
+document.addEventListener('DOMContentLoaded', function() {
+    const severityField = document.querySelector('select[name="severity"]');
+    const impactField = document.querySelector('select[name="impact"]');
+    const priorityField = document.querySelector('select[name="priority"]');
+    
+    if (severityField) severityField.addEventListener('change', calculateSLATimes);
+    if (impactField) impactField.addEventListener('change', calculateSLATimes);
+    if (priorityField) priorityField.addEventListener('change', calculateSLATimes);
+    
+    // Calculate on page load if values are already selected
+    calculateSLATimes();
+});
+</script>
 {% endblock %}

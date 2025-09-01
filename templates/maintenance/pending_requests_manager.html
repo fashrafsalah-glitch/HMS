@@ -2,9 +2,9 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}الطلبات المعلقة - مدير المخزون{% endblock %}
+{% block title %}الطلبات قطع الغيار - مدير المخزون{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
     .request-card {
         background: white;
@@ -56,9 +56,6 @@
         color: #dc3545;
     }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="container-fluid">
     <!-- Header -->
     <div class="row mb-4">
@@ -67,7 +64,7 @@
                 <div>
                     <h2 class="text-primary">
                         <i class="fas fa-clipboard-list"></i>
-                        الطلبات المعلقة
+                        {{ page_title }}
                     </h2>
                     <p class="text-muted">إدارة طلبات قطع الغيار من الفنيين</p>
                 </div>
@@ -81,11 +78,56 @@
         </div>
     </div>
 
+    <!-- Status Tabs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'pending' %}active{% endif %}" 
+                               href="?status=pending">
+                                <i class="fas fa-clock"></i>
+                                في الانتظار
+                                <span class="badge badge-warning ml-1">{{ pending_count }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'approved' %}active{% endif %}" 
+                               href="?status=approved">
+                                <i class="fas fa-check"></i>
+                                موافق عليها
+                                <span class="badge badge-success ml-1">{{ approved_count }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'fulfilled' %}active{% endif %}" 
+                               href="?status=fulfilled">
+                                <i class="fas fa-check-double"></i>
+                                تم التنفيذ
+                                <span class="badge badge-info ml-1">{{ fulfilled_count }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'rejected' %}active{% endif %}" 
+                               href="?status=rejected">
+                                <i class="fas fa-times"></i>
+                                مرفوضة
+                                <span class="badge badge-danger ml-1">{{ rejected_count }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Filters -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="filter-card">
                 <form method="get" class="row">
+                    <input type="hidden" name="status" value="{{ current_status }}">
                     <div class="col-md-3">
                         <label for="priority" class="form-label">الأولوية</label>
                         <select name="priority" id="priority" class="form-control">
@@ -121,7 +163,7 @@
                                 <i class="fas fa-search"></i>
                                 بحث
                             </button>
-                            <a href="{% url 'maintenance:spare_parts:pending_requests' %}" class="btn btn-outline-secondary">
+                            <a href="?status={{ current_status }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times"></i>
                                 مسح
                             </a>
@@ -197,44 +239,76 @@
                         </div>
                         <div class="col-md-4">
                             <div class="action-buttons">
-                                {% if request.spare_part.current_stock >= request.quantity_requested %}
-                                    <!-- موافقة وصرف مباشرة -->
-                                    <form method="post" action="{% url 'maintenance:spare_parts:fulfill_request' request.id %}" class="d-inline mb-2">
+                                {% if current_status == 'pending' %}
+                                    {% if request.spare_part.current_stock >= request.quantity_requested %}
+                                        <!-- موافقة وصرف مباشرة -->
+                                        <form method="post" action="{% url 'maintenance:spare_parts:fulfill_request' request.id %}" class="d-inline mb-2">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success" 
+                                                    onclick="return confirm('هل تريد الموافقة وصرف هذا الطلب؟ سيتم خصم {{ request.quantity_requested }} من المخزون.')">
+                                                <i class="fas fa-check-double"></i>
+                                                موافقة وصرف
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <!-- مخزون غير كافي -->
+                                        <button type="button" class="btn btn-warning mb-2" disabled>
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            مخزون غير كافي
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <!-- موافقة فقط -->
+                                    <form method="post" action="{% url 'maintenance:spare_parts:approve_request' request.id %}" class="d-inline mb-2">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-success" 
-                                                onclick="return confirm('هل تريد الموافقة وصرف هذا الطلب؟ سيتم خصم {{ request.quantity_requested }} من المخزون.')">
-                                            <i class="fas fa-check-double"></i>
-                                            موافقة وصرف
+                                        <button type="submit" class="btn btn-primary" 
+                                                onclick="return confirm('هل تريد الموافقة على هذا الطلب؟')">
+                                            <i class="fas fa-check"></i>
+                                            موافقة فقط
                                         </button>
                                     </form>
-                                {% else %}
-                                    <!-- مخزون غير كافي -->
-                                    <button type="button" class="btn btn-warning mb-2" disabled>
-                                        <i class="fas fa-exclamation-triangle"></i>
-                                        مخزون غير كافي
-                                    </button>
-                                {% endif %}
-                                
-                                <!-- موافقة فقط -->
-                                <form method="post" action="{% url 'maintenance:spare_parts:approve_request' request.id %}" class="d-inline mb-2">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-primary" 
-                                            onclick="return confirm('هل تريد الموافقة على هذا الطلب؟')">
-                                        <i class="fas fa-check"></i>
-                                        موافقة فقط
-                                    </button>
-                                </form>
-                                
-                                <!-- رفض -->
-                                <form method="post" action="{% url 'maintenance:spare_parts:reject_request' request.id %}" class="d-inline mb-2">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="reason" value="تم الرفض من قبل مدير المخزون">
-                                    <button type="submit" class="btn btn-danger" 
-                                            onclick="return confirm('هل تريد رفض هذا الطلب؟')">
+                                    
+                                    <!-- رفض -->
+                                    <form method="post" action="{% url 'maintenance:spare_parts:reject_request' request.id %}" class="d-inline mb-2">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="reason" value="تم الرفض من قبل مدير المخزون">
+                                        <button type="submit" class="btn btn-danger" 
+                                                onclick="return confirm('هل تريد رفض هذا الطلب؟')">
+                                            <i class="fas fa-times"></i>
+                                            رفض
+                                        </button>
+                                    </form>
+                                {% elif current_status == 'approved' %}
+                                    {% if request.spare_part.current_stock >= request.quantity_requested %}
+                                        <!-- صرف -->
+                                        <form method="post" action="{% url 'maintenance:spare_parts:fulfill_request' request.id %}" class="d-inline mb-2">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success" 
+                                                    onclick="return confirm('هل تريد صرف هذا الطلب؟ سيتم خصم {{ request.quantity_requested }} من المخزون.')">
+                                                <i class="fas fa-check-double"></i>
+                                                صرف
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <!-- مخزون غير كافي -->
+                                        <button type="button" class="btn btn-warning mb-2" disabled>
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            مخزون غير كافي
+                                        </button>
+                                    {% endif %}
+                                {% elif current_status == 'fulfilled' %}
+                                    <!-- تم التنفيذ -->
+                                    <span class="badge badge-success p-2">
+                                        <i class="fas fa-check-double"></i>
+                                        تم التنفيذ
+                                    </span>
+                                {% elif current_status == 'rejected' %}
+                                    <!-- مرفوض -->
+                                    <span class="badge badge-danger p-2">
                                         <i class="fas fa-times"></i>
-                                        رفض
-                                    </button>
-                                </form>
+                                        مرفوض
+                                    </span>
+                                {% endif %}
                                 
                                 <!-- إضافة معاملة -->
                                 <a href="{% url 'maintenance:spare_parts:spare_part_transaction_create_for_part' part_id=request.spare_part.id %}" 
@@ -256,7 +330,7 @@
                             <ul class="pagination justify-content-center">
                                 {% if requests.has_previous %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?page={{ requests.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                        <a class="page-link" href="?status={{ current_status }}&page={{ requests.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
                                             السابق
                                         </a>
                                     </li>
@@ -269,7 +343,7 @@
                                         </li>
                                     {% else %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                            <a class="page-link" href="?status={{ current_status }}&page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
                                                 {{ num }}
                                             </a>
                                         </li>
@@ -278,7 +352,7 @@
                                 
                                 {% if requests.has_next %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?page={{ requests.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
+                                        <a class="page-link" href="?status={{ current_status }}&page={{ requests.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_part %}&spare_part={{ current_part }}{% endif %}">
                                             التالي
                                         </a>
                                     </li>

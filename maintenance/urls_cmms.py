@@ -22,6 +22,7 @@ urlpatterns = [
     path('technician/dashboard/', views_cmms.technician_dashboard, name='technician_dashboard'),
     path('work-orders/<int:wo_id>/update-status/', views_cmms.work_order_update_status, name='work_order_update_status'),
     path('work-orders/<int:wo_id>/add-comment/', views_cmms.work_order_add_comment, name='work_order_add_comment'),
+    path('work-orders/<int:wo_id>/update-costs/', views_cmms.work_order_update_costs, name='work_order_update_costs'),
     
     # إدارة قطع الغيار في أوامر الشغل
     path('work-orders/<int:wo_id>/parts/', views_cmms.work_order_parts_list, name='work_order_parts_list'),
