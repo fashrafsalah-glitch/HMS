@@ -5,234 +5,467 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
+    <!-- Page Header -->
+    <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">اتفاقيات مستوى الخدمة (SLA)</h3>
-                    <div class="card-tools">
-                        <a href="{% url 'maintenance:cmms:sla_create' %}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-plus"></i> إضافة SLA جديد
-                        </a>
-                    </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-handshake text-primary"></i>
+                        إدارة اتفاقيات مستوى الخدمة (SLA)
+                    </h1>
+                    <p class="text-muted mt-1">إدارة وتكوين اتفاقيات مستوى الخدمة والمصفوفة الديناميكية</p>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:cmms:sla_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> إضافة SLA جديد
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLA Definitions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-cog"></i> تعريفات SLA الأساسية
+                    </h4>
+                    <small class="d-block mt-1">الأوقات الأساسية التي يتم تطبيق المعاملات عليها</small>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
-                            <thead>
-                                <tr>
-                                    <th>الاسم</th>
-                                    <th>الوصف</th>
-                                    <th>وقت الاستجابة (ساعة)</th>
-                                    <th>وقت الحل (ساعة)</th>
-                                    <th>الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for sla in slas %}
-                                <tr>
-                                    <td>{{ sla.name }}</td>
-                                    <td>{{ sla.description }}</td>
-                                    <td>{{ sla.response_time }}</td>
-                                    <td>{{ sla.resolution_time }}</td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="{% url 'maintenance:cmms:sla_edit' sla.id %}" class="btn btn-warning btn-sm">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="{% url 'maintenance:cmms:sla_delete' sla.id %}" class="btn btn-danger btn-sm" onclick="return confirm('هل أنت متأكد من حذف هذا SLA؟')">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center">لا توجد اتفاقيات مستوى خدمة</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                    {% if slas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th><i class="fas fa-tag"></i> الاسم</th>
+                                        <th><i class="fas fa-info-circle"></i> الوصف</th>
+                                        <th><i class="fas fa-flag"></i> الأولوية</th>
+                                        <th><i class="fas fa-clock"></i> وقت الاستجابة</th>
+                                        <th><i class="fas fa-tools"></i> وقت الحل</th>
+                                        <th><i class="fas fa-cogs"></i> الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for sla in slas %}
+                                    <tr>
+                                        <td>
+                                            <strong class="text-dark">{{ sla.name }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">{{ sla.description|truncatechars:50 }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if sla.priority == 'urgent' %}bg-danger
+                                                {% elif sla.priority == 'high' %}bg-warning text-dark
+                                                {% elif sla.priority == 'medium' %}bg-info
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ sla.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-stopwatch"></i> {{ sla.response_time_hours }} ساعة
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-wrench"></i> {{ sla.resolution_time_hours }} ساعة
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'maintenance:cmms:sla_edit' sla.id %}" 
+                                                   class="btn btn-outline-warning btn-sm" 
+                                                   title="تعديل">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'maintenance:cmms:sla_delete' sla.id %}" 
+                                                   class="btn btn-outline-danger btn-sm" 
+                                                   title="حذف"
+                                                   onclick="return confirm('هل أنت متأكد من حذف هذا SLA؟')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-exclamation-circle fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">لا توجد اتفاقيات مستوى خدمة</h5>
+                            <p class="text-muted">ابدأ بإنشاء أول SLA لتكوين النظام</p>
+                            <a href="{% url 'maintenance:cmms:sla_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> إنشاء SLA الأول
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- مصفوفة SLA -->
-    <div class="row mt-4">
+    <!-- SLA Matrix Section -->
+    <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">مصفوفة اتفاقيات مستوى الخدمة (SLA Matrix)</h3>
-                    <div class="card-tools">
-                        <a href="{% url 'maintenance:cmms:sla_matrix_create' %}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-plus"></i> إضافة عنصر للمصفوفة
-                        </a>
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="card-title mb-0">
+                                <i class="fas fa-table"></i> المصفوفة الديناميكية لـ SLA
+                            </h4>
+                            <small class="d-block mt-1">الأوقات المحسوبة تلقائياً حسب الخطورة والتأثير</small>
+                        </div>
+                        <div class="btn-group">
+                            <a href="{% url 'maintenance:cmms:sla_matrix_create' %}" class="btn btn-light btn-sm">
+                                <i class="fas fa-plus"></i> إضافة مدخل
+                            </a>
+                            <button type="button" class="btn btn-warning btn-sm" onclick="regenerateSLAMatrix()">
+                                <i class="fas fa-sync-alt"></i> إعادة التوليد
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dynamic System Instructions -->
+                <div class="card-body bg-gradient-light border-bottom">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="alert alert-info border-0 shadow-sm mb-0">
+                                <div class="d-flex align-items-start">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-lightbulb fa-2x text-warning"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="alert-heading mb-2">
+                                            <i class="fas fa-calculator"></i> النظام الديناميكي للحساب
+                                        </h6>
+                                        <div class="row small">
+                                            <div class="col-md-6">
+                                                <p class="mb-1"><strong>المعادلة:</strong></p>
+                                                <code class="bg-light p-1 rounded">الوقت النهائي = الوقت الأساسي × المعامل</code>
+                                                <p class="mb-1 mt-2"><strong>المعاملات:</strong></p>
+                                                <ul class="list-unstyled mb-0">
+                                                    <li>• <strong>الخطورة:</strong> 0.5× → 2.0×</li>
+                                                    <li>• <strong>التأثير:</strong> 0.7× → 1.8×</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p class="mb-1"><strong>أمثلة سريعة:</strong></p>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <span class="badge bg-danger">حرج+واسع = 1.9×</span>
+                                                    <span class="badge bg-success">منخفض+طفيف = 0.6×</span>
+                                                    <span class="badge bg-info">متوسط+متوسط = 1.0×</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                                    <h6 class="card-title">إحصائيات سريعة</h6>
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="border-end">
+                                                <h5 class="text-primary mb-0">{{ slas|length }}</h5>
+                                                <small class="text-muted">تعريفات SLA</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <h5 class="text-success mb-0">{{ total_matrix_entries|default:0 }}</h5>
+                                            <small class="text-muted">مدخلات المصفوفة</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th class="text-center bg-light">تأثير منخفض</th>
-                                    <th class="text-center bg-light">تأثير متوسط</th>
-                                    <th class="text-center bg-light">تأثير عالي</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <th class="bg-light">شدة حرجة</th>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'critical' and matrix.impact == 'low' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'critical' and matrix.impact == 'medium' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-danger text-white">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'critical' and matrix.impact == 'high' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light">شدة عالية</th>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'high' and matrix.impact == 'low' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-warning">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'high' and matrix.impact == 'medium' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-danger text-white">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'high' and matrix.impact == 'high' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light">شدة متوسطة</th>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'medium' and matrix.impact == 'low' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-warning">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'medium' and matrix.impact == 'medium' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-warning">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'medium' and matrix.impact == 'high' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light">شدة منخفضة</th>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'low' and matrix.impact == 'low' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'low' and matrix.impact == 'medium' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td class="text-center bg-warning">
-                                        {% for matrix in sla_matrix %}
-                                            {% if matrix.severity == 'low' and matrix.impact == 'high' %}
-                                                <div>
-                                                    <strong>{{ matrix.sla.name }}</strong><br>
-                                                    استجابة: {{ matrix.sla.response_time }} ساعة<br>
-                                                    حل: {{ matrix.sla.resolution_time }} ساعة
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    {% if sla_matrix %}
+                        
+                        <!-- Pagination Controls -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="entriesPerPage">عدد المدخلات لكل صفحة:</label>
+                                    <select id="entriesPerPage" class="form-control" style="width: auto; display: inline-block;">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="searchMatrix">البحث:</label>
+                                    <input type="text" id="searchMatrix" class="form-control" placeholder="ابحث في المصفوفة...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table id="slaMatrixTable" class="table table-hover align-middle">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="text-center"><i class="fas fa-laptop-medical"></i> فئة الجهاز</th>
+                                        <th class="text-center"><i class="fas fa-exclamation-triangle"></i> الخطورة</th>
+                                        <th class="text-center"><i class="fas fa-impact"></i> التأثير</th>
+                                        <th class="text-center"><i class="fas fa-flag"></i> الأولوية</th>
+                                        <th class="text-center"><i class="fas fa-handshake"></i> SLA المطبق</th>
+                                        <th class="text-center"><i class="fas fa-stopwatch"></i> الاستجابة</th>
+                                        <th class="text-center"><i class="fas fa-wrench"></i> الحل</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for matrix in sla_matrix %}
+                                    <tr class="{% cycle 'table-light' '' %}">
+                                        <td class="text-center">
+                                            <div class="d-flex align-items-center justify-content-center">
+                                                <i class="fas fa-desktop text-primary me-2"></i>
+                                                <strong class="text-dark">{{ matrix.device_category.name }}</strong>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge fs-6 px-3 py-2
+                                                {% if matrix.severity == 'critical' %}bg-danger
+                                                {% elif matrix.severity == 'high' %}bg-warning text-dark
+                                                {% elif matrix.severity == 'medium' %}bg-info
+                                                {% else %}bg-secondary{% endif %}">
+                                                <i class="fas fa-exclamation-circle me-1"></i>
+                                                {{ matrix.get_severity_display }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge fs-6 px-3 py-2
+                                                {% if matrix.impact == 'extensive' %}bg-danger
+                                                {% elif matrix.impact == 'significant' %}bg-warning text-dark
+                                                {% elif matrix.impact == 'moderate' %}bg-info
+                                                {% else %}bg-dark{% endif %}">
+                                                <i class="fas fa-bullseye me-1"></i>
+                                                {{ matrix.get_impact_display }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge fs-6 px-3 py-2
+                                                {% if matrix.priority == 'urgent' %}bg-danger
+                                                {% elif matrix.priority == 'high' %}bg-warning text-dark
+                                                {% elif matrix.priority == 'medium' %}bg-info
+                                                {% else %}bg-secondary{% endif %}">
+                                                <i class="fas fa-flag me-1"></i>
+                                                {{ matrix.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary fs-6 px-3 py-2">
+                                                <i class="fas fa-handshake me-1"></i>
+                                                {{ matrix.sla_definition.name }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="d-flex flex-column align-items-center">
+                                                <span class="badge bg-success fs-6 px-3 py-2 mb-1">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ matrix.response_time_hours }} ساعة
+                                                </span>
+                                                <small class="text-muted">محسوب ديناميكياً</small>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="d-flex flex-column align-items-center">
+                                                <span class="badge bg-info fs-6 px-3 py-2 mb-1">
+                                                    <i class="fas fa-tools me-1"></i>
+                                                    {{ matrix.resolution_time_hours }} ساعة
+                                                </span>
+                                                <small class="text-muted">محسوب ديناميكياً</small>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination Info -->
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div id="tableInfo" class="text-muted"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <nav>
+                                    <ul id="tablePagination" class="pagination justify-content-end"></ul>
+                                </nav>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-table fa-4x text-muted mb-4"></i>
+                            <h4 class="text-muted mb-3">المصفوفة فارغة</h4>
+                            <p class="text-muted mb-4">لا توجد مدخلات في مصفوفة SLA. ابدأ بإنشاء تعريفات SLA أولاً ثم قم بتوليد المصفوفة.</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{% url 'maintenance:cmms:sla_create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> إنشاء SLA
+                                </a>
+                                <button type="button" class="btn btn-success" onclick="regenerateSLAMatrix()">
+                                    <i class="fas fa-sync-alt"></i> توليد المصفوفة
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// SLA Matrix Table Pagination and Search
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('slaMatrixTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const entriesSelect = document.getElementById('entriesPerPage');
+    const searchInput = document.getElementById('searchMatrix');
+    const tableInfo = document.getElementById('tableInfo');
+    const pagination = document.getElementById('tablePagination');
+    
+    let currentPage = 1;
+    let entriesPerPage = 25;
+    let filteredRows = rows;
+    
+    function updateTable() {
+        const startIndex = (currentPage - 1) * entriesPerPage;
+        const endIndex = startIndex + entriesPerPage;
+        
+        // Hide all rows
+        rows.forEach(row => row.style.display = 'none');
+        
+        // Show filtered rows for current page
+        filteredRows.slice(startIndex, endIndex).forEach(row => {
+            row.style.display = '';
+        });
+        
+        updatePagination();
+        updateInfo();
+    }
+    
+    function updatePagination() {
+        const totalPages = Math.ceil(filteredRows.length / entriesPerPage);
+        pagination.innerHTML = '';
+        
+        if (totalPages <= 1) return;
+        
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + (currentPage - 1) + ')">السابق</a>';
+        pagination.appendChild(prevLi);
+        
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + i + ')">' + i + '</a>';
+                pagination.appendChild(li);
+            } else if (i === currentPage - 3 || i === currentPage + 3) {
+                const li = document.createElement('li');
+                li.className = 'page-item disabled';
+                li.innerHTML = '<span class="page-link">...</span>';
+                pagination.appendChild(li);
+            }
+        }
+        
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + (currentPage + 1) + ')">التالي</a>';
+        pagination.appendChild(nextLi);
+    }
+    
+    function updateInfo() {
+        const startIndex = (currentPage - 1) * entriesPerPage + 1;
+        const endIndex = Math.min(currentPage * entriesPerPage, filteredRows.length);
+        tableInfo.textContent = `عرض ${startIndex} إلى ${endIndex} من ${filteredRows.length} مدخل`;
+    }
+    
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase();
+        filteredRows = rows.filter(row => {
+            const text = row.textContent.toLowerCase();
+            return text.includes(searchTerm);
+        });
+        currentPage = 1;
+        updateTable();
+    }
+    
+    // Event listeners
+    entriesSelect.addEventListener('change', function() {
+        entriesPerPage = parseInt(this.value);
+        currentPage = 1;
+        updateTable();
+    });
+    
+    searchInput.addEventListener('input', filterTable);
+    
+    // Global function for pagination
+    window.changePage = function(page) {
+        const totalPages = Math.ceil(filteredRows.length / entriesPerPage);
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            updateTable();
+        }
+    };
+    
+    // Initial load
+    updateTable();
+});
+
+// SLA Matrix Regeneration
+function regenerateSLAMatrix() {
+    if (confirm('هل أنت متأكد من إعادة توليد مصفوفة SLA؟ سيتم حذف جميع المدخلات الحالية وإنشاء مدخلات جديدة.')) {
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التوليد...';
+        btn.disabled = true;
+        
+        fetch('{% url "maintenance:cmms:sla_matrix_regenerate" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('تم إعادة توليد مصفوفة SLA بنجاح. تم إنشاء ' + data.created_count + ' مدخل جديد.');
+                location.reload();
+            } else {
+                alert('حدث خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('حدث خطأ في الاتصال: ' + error);
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+}
+</script>
 {% endblock %}

@@ -444,37 +444,39 @@ def auto_generate_sla_matrix_for_category(sender, instance, created, **kwargs):
         try:
             from .models import SLADefinition, SLAMatrix, SEVERITY_CHOICES, IMPACT_CHOICES, PRIORITY_CHOICES
             
-            # إنشاء تعريفات SLA الأساسية إذا لم تكن موجودة
-            sla_definitions = create_default_sla_definitions()
+            # الحصول على جميع تعريفات SLA الموجودة (المنشأة يدوياً)
+            available_slas = list(SLADefinition.objects.all())
             
-            # قواعد تعيين SLA
-            sla_rules = [
-                ('critical', 'extensive', 'critical', 'حرج - استجابة فورية'),
-                ('critical', 'significant', 'critical', 'حرج - استجابة فورية'),
-                ('critical', 'moderate', 'high', 'حرج - استجابة فورية'),
-                ('high', 'extensive', 'high', 'عالي - استجابة سريعة'),
-                ('high', 'significant', 'high', 'عالي - استجابة سريعة'),
-                ('high', 'moderate', 'medium', 'عالي - استجابة سريعة'),
-                ('medium', 'moderate', 'medium', 'متوسط - استجابة عادية'),
-                ('medium', 'minor', 'medium', 'متوسط - استجابة عادية'),
-                ('low', 'minor', 'low', 'منخفض - استجابة مؤجلة'),
-            ]
+            if not available_slas:
+                # إنشاء تعريفات SLA الأساسية إذا لم تكن موجودة
+                sla_definitions = create_default_sla_definitions()
+                available_slas = list(SLADefinition.objects.all())
+            
+            # إنشاء جميع التركيبات: عدد SLA × 4 severity × 4 impact × 4 priority
+            severity_choices = [choice[0] for choice in SEVERITY_CHOICES]
+            impact_choices = [choice[0] for choice in IMPACT_CHOICES]
+            priority_choices = [choice[0] for choice in PRIORITY_CHOICES]
             
             created_count = 0
             
-            for severity, impact, priority, sla_name in sla_rules:
-                sla_def = sla_definitions.get(sla_name)
-                if sla_def:
-                    matrix_entry, created_entry = SLAMatrix.objects.get_or_create(
-                        device_category=instance,
-                        severity=severity,
-                        impact=impact,
-                        priority=priority,
-                        defaults={'sla_definition': sla_def}
-                    )
-                    
-                    if created_entry:
-                        created_count += 1
+            # إنشاء مدخل لكل SLA مع كل تركيبة severity + impact بناءً على أولوية SLA
+            for sla in available_slas:
+                # تحديد الأولوية المرتبطة بهذا SLA
+                sla_priority = sla.priority if sla.priority else 'medium'  # افتراضي متوسط
+                
+                for severity in severity_choices:
+                    for impact in impact_choices:
+                        # إنشاء مدخل فقط للأولوية المطابقة لأولوية SLA
+                        matrix_entry, created_entry = SLAMatrix.objects.get_or_create(
+                            device_category=instance,
+                            severity=severity,
+                            impact=impact,
+                            priority=sla_priority,
+                            sla_definition=sla
+                        )
+                        
+                        if created_entry:
+                            created_count += 1
             
             logger.info(f"تم إنشاء {created_count} مدخل في مصفوفة SLA للفئة الجديدة: {instance.name}")
             
@@ -524,9 +526,11 @@ def create_default_sla_definitions():
             name=config['name'],
             defaults={
                 'description': config['description'],
-                'response_time_hours': int(config['response_time_minutes'] / 60) if config['response_time_minutes'] >= 60 else 1,
+                'response_time_hours': config['response_time_minutes'] / 60,  # تحويل الدقائق إلى ساعات
                 'resolution_time_hours': config['resolution_time_hours'],
+                'escalation_time_hours': config['escalation_time_minutes'] / 60,
                 'is_active': True,
+                'device_category': None,  # SLA عام لجميع الفئات
             }
         )
         sla_definitions[config['name']] = sla_def
@@ -554,3 +558,72 @@ def auto_update_existing_matrix_entries(sender, instance, created, **kwargs):
                 
         except Exception as e:
             logger.error(f"خطأ في تحديث مدخلات المصفوفة بعد تحديث التعريف {instance.name}: {str(e)}")
+
+
+def generate_sla_matrix_for_existing_categories():
+    """
+    إنشاء مصفوفة SLA للفئات الموجودة التي لا تحتوي على مصفوفة
+    """
+    try:
+        from .models import DeviceCategory, SLADefinition, SLAMatrix, SEVERITY_CHOICES, IMPACT_CHOICES
+        
+        # الحصول على جميع تعريفات SLA الموجودة (المنشأة يدوياً)
+        available_slas = list(SLADefinition.objects.all())
+        
+        if not available_slas:
+            # إنشاء تعريفات SLA الأساسية إذا لم تكن موجودة
+            sla_definitions = create_default_sla_definitions()
+            available_slas = list(SLADefinition.objects.all())
+        
+        # الحصول على الفئات التي لا تحتوي على مصفوفة SLA
+        categories_without_matrix = DeviceCategory.objects.filter(
+            slamatrix__isnull=True
+        ).distinct()
+        
+        if not categories_without_matrix.exists():
+            logger.info("جميع فئات الأجهزة تحتوي على مصفوفة SLA")
+            return 0
+        
+        # إنشاء جميع التركيبات الممكنة: 4 severity × 4 impact × 4 priority مع SLA ثابت لكل تركيبة
+        severity_choices = [choice[0] for choice in SEVERITY_CHOICES]
+        impact_choices = [choice[0] for choice in IMPACT_CHOICES]
+        priority_choices = [choice[0] for choice in PRIORITY_CHOICES]
+        
+        sla_rules = []
+        
+        # إنشاء مدخل لكل SLA مع كل تركيبة severity + impact بناءً على أولوية SLA
+        for sla in available_slas:
+            # تحديد الأولوية المرتبطة بهذا SLA
+            sla_priority = sla.priority if sla.priority else 'medium'  # افتراضي متوسط
+            
+            for severity in severity_choices:
+                for impact in impact_choices:
+                    # إنشاء مدخل فقط للأولوية المطابقة لأولوية SLA
+                    sla_rules.append((severity, impact, sla_priority, sla))
+        
+        total_created = 0
+        
+        for category in categories_without_matrix:
+            created_count = 0
+            
+            for severity, impact, priority, sla in sla_rules:
+                matrix_entry, created_entry = SLAMatrix.objects.get_or_create(
+                    device_category=category,
+                    severity=severity,
+                    impact=impact,
+                    priority=priority,
+                    sla_definition=sla
+                )
+                
+                if created_entry:
+                    created_count += 1
+            
+            total_created += created_count
+            logger.info(f"تم إنشاء {created_count} مدخل في مصفوفة SLA للفئة: {category.name}")
+        
+        logger.info(f"تم إنشاء {total_created} مدخل إجمالي في مصفوفة SLA للفئات الموجودة")
+        return total_created
+        
+    except Exception as e:
+        logger.error(f"خطأ في إنشاء مصفوفة SLA للفئات الموجودة: {str(e)}")
+        return 0

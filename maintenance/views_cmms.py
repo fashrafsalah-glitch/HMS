@@ -715,27 +715,19 @@ def sla_list(request):
         avg_resolution_time = round(total_resolution / total_slas, 1) if total_slas > 0 else 0
     
     # جلب بيانات مصفوفة SLA
-    matrix_data = []
+    sla_matrix = []
     try:
-        import json
         from .models import SLAMatrix
-        matrix_entries = SLAMatrix.objects.select_related('device_category', 'sla_definition').all()[:50]
-        
-        for entry in matrix_entries:
-            matrix_data.append({
-                'device_category': entry.device_category.name if entry.device_category else 'عام',
-                'severity': entry.severity,
-                'severity_display': entry.get_severity_display(),
-                'impact': entry.impact,
-                'impact_display': entry.get_impact_display(),
-                'priority': entry.priority,
-                'priority_display': entry.get_priority_display(),
-                'sla_name': entry.sla_definition.name,
-                'response_time': entry.sla_definition.response_time_hours,
-                'resolution_time': entry.sla_definition.resolution_time_hours,
-            })
-    except:
-        matrix_data = []
+        sla_matrix = SLAMatrix.objects.select_related('device_category', 'sla_definition').all()
+        print(f"DEBUG: SLA Matrix count: {sla_matrix.count()}")
+        if sla_matrix.exists():
+            first_matrix = sla_matrix.first()
+            print(f"DEBUG: First matrix - Category: {first_matrix.device_category.name if first_matrix.device_category else 'None'}")
+    except Exception as e:
+        print(f"خطأ في جلب مصفوفة SLA: {e}")
+        import traceback
+        traceback.print_exc()
+        sla_matrix = []
     
     context = {
         'slas': slas,
@@ -744,8 +736,8 @@ def sla_list(request):
         'inactive_slas': total_slas - active_slas,
         'avg_response_time': avg_response_time,
         'avg_resolution_time': avg_resolution_time,
-        'matrix_data_json': json.dumps(matrix_data),
-        'total_matrix_entries': len(matrix_data),
+        'sla_matrix': sla_matrix,
+        'total_matrix_entries': len(sla_matrix),
     }
     
     return render(request, 'maintenance/cmms/sla_list.html', context)
@@ -888,44 +880,106 @@ def sla_matrix_list(request):
 def sla_matrix_create(request):
     """
     إنشاء أو تحديث عنصر في مصفوفة اتفاقيات مستوى الخدمة
-    
-    الوظائف:
-    - إنشاء عنصر جديد في مصفوفة SLA
-    - تحديث عنصر موجود في المصفوفة
-    - التحقق من صلاحيات المستخدم للتعديل
     """
-    # التحقق من صلاحية المستخدم
-    if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
-        messages.error(request, 'ليس لديك صلاحية لتعديل مصفوفة اتفاقيات مستوى الخدمة')
-        return redirect('sla_matrix_list')
+    from .models import SLAMatrix, SLADefinition, DeviceCategory
+    from django import forms
     
-    # التحقق من وجود عنصر موجود بالفعل
-    severity = request.GET.get('severity')
-    impact = request.GET.get('impact')
-    instance = None
-    
-    if severity and impact:
-        try:
-            # instance = SLAMatrix.objects.get(severity=severity, impact=impact)
-            pass  # نموذج SLAMatrix غير متاح حالياً
-        except:  # SLAMatrix.DoesNotExist:
-            pass
+    # إنشاء Form مؤقت
+    class SLAMatrixForm(forms.ModelForm):
+        class Meta:
+            model = SLAMatrix
+            fields = ['device_category', 'severity', 'impact', 'priority', 'sla_definition']
+            widgets = {
+                'device_category': forms.Select(attrs={'class': 'form-control'}),
+                'severity': forms.Select(attrs={'class': 'form-control'}),
+                'impact': forms.Select(attrs={'class': 'form-control'}),
+                'priority': forms.Select(attrs={'class': 'form-control'}),
+                'sla_definition': forms.Select(attrs={'class': 'form-control'}),
+            }
     
     if request.method == 'POST':
-        # form = SLAMatrixForm(request.POST, instance=instance)
-        # SLAMatrixForm معلق - وظيفة مؤقتة
-        messages.error(request, 'وظيفة مصفوفة SLA غير متاحة حالياً')
-        return redirect('maintenance:cmms:sla_matrix_list')
+        form = SLAMatrixForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'تم إضافة عنصر جديد لمصفوفة SLA بنجاح')
+                return redirect('maintenance:cmms:sla_list')
+            except Exception as e:
+                messages.error(request, f'خطأ في حفظ البيانات: {str(e)}')
+        else:
+            messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
     else:
-        # نموذج مؤقت
-        form = None
+        form = SLAMatrixForm()
     
     context = {
         'form': form,
-        'instance': instance,
+        'device_categories': DeviceCategory.objects.all(),
+        'sla_definitions': SLADefinition.objects.all(),
     }
     
     return render(request, 'maintenance/cmms/sla_matrix_create.html', context)
+
+@login_required
+def sla_matrix_regenerate(request):
+    """
+    إعادة توليد مصفوفة SLA يدوياً
+    """
+    if request.method == 'POST':
+        try:
+            from .models import SLAMatrix, DeviceCategory, SLADefinition, SEVERITY_CHOICES, IMPACT_CHOICES, PRIORITY_CHOICES
+            
+            # حذف جميع مدخلات المصفوفة الموجودة
+            SLAMatrix.objects.all().delete()
+            
+            # الحصول على جميع الفئات وتعريفات SLA الموجودة (المنشأة يدوياً)
+            categories = DeviceCategory.objects.all()
+            available_slas = list(SLADefinition.objects.all())
+            
+            if not available_slas:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'لا توجد تعريفات SLA. يرجى إنشاء تعريفات SLA أولاً.'
+                })
+            
+            # إنشاء جميع التركيبات: عدد الفئات × 4 severity × 4 impact × عدد SLA
+            severity_choices = [choice[0] for choice in SEVERITY_CHOICES]
+            impact_choices = [choice[0] for choice in IMPACT_CHOICES]
+            
+            created_count = 0
+            
+            # إضافة priority_choices
+            priority_choices = [choice[0] for choice in PRIORITY_CHOICES]
+            
+            for category in categories:
+                for sla in available_slas:
+                    # تحديد الأولوية المرتبطة بهذا SLA
+                    sla_priority = sla.priority if sla.priority else 'medium'  # افتراضي متوسط
+                    
+                    for severity in severity_choices:
+                        for impact in impact_choices:
+                            # إنشاء مدخل فقط للأولوية المطابقة لأولوية SLA
+                            SLAMatrix.objects.create(
+                                device_category=category,
+                                severity=severity,
+                                impact=impact,
+                                priority=sla_priority,
+                                sla_definition=sla
+                            )
+                            created_count += 1  
+            
+            return JsonResponse({
+                'success': True,
+                'created_count': created_count,
+                'message': f'تم إنشاء {created_count} مدخل جديد في مصفوفة SLA'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'error': 'طريقة غير مسموحة'})
 
 # ========================================
 # دمج مع الصفحات الموجودة

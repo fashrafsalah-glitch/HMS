@@ -13,7 +13,7 @@ class ServiceRequestForm(forms.ModelForm):
     
     class Meta:
         model = ServiceRequest
-        fields = ['device', 'title', 'description', 'request_type', 'severity', 'impact', 'is_auto_generated', 'auto_generated_reason']
+        fields = ['device', 'title', 'description', 'request_type', 'severity', 'impact', 'priority', 'is_auto_generated', 'auto_generated_reason']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
@@ -28,6 +28,11 @@ class ServiceRequestForm(forms.ModelForm):
             if field_name not in ['is_auto_generated', 'auto_generated_reason']:
                 field.widget.attrs['class'] = 'form-control'
         
+        # إضافة JavaScript للحساب التلقائي لأوقات SLA
+        self.fields['severity'].widget.attrs['onchange'] = 'calculateSLATimes()'
+        self.fields['impact'].widget.attrs['onchange'] = 'calculateSLATimes()'
+        self.fields['priority'].widget.attrs['onchange'] = 'calculateSLATimes()'
+        
         # هنا بنفلتر الأجهزة حسب صلاحيات المستخدم
         if self.user:
             # لو المستخدم مش أدمن، هنفلتر الأجهزة حسب القسم بتاعه
@@ -35,10 +40,35 @@ class ServiceRequestForm(forms.ModelForm):
                 self.fields['device'].queryset = Device.objects.filter(department=self.user.department)
     
     def save(self, commit=True):
-        """حفظ طلب الخدمة مع ربط Job Plan المناسب"""
+        """حفظ طلب الخدمة مع ربط Job Plan المناسب وحساب أوقات SLA"""
         instance = super().save(commit=False)
         
-        # ربط Job Plan المناسب بناءً على نوع الجهاز ونوع الطلب
+        # حساب أوقات SLA بناءً على المصفوفة
+        try:
+            from .models import SLAMatrix
+            sla_matrix = SLAMatrix.objects.filter(
+                device_category=instance.device.category,
+                severity=instance.severity,
+                impact=instance.impact,
+                priority=instance.priority
+            ).first()
+            
+            if sla_matrix:
+                # حساب أوقات SLA من المصفوفة
+                response_time, resolution_time = sla_matrix.calculate_sla_times()
+                instance.estimated_hours = resolution_time
+                
+                # إضافة معلومات SLA للوصف
+                sla_info = f"\n\n[SLA المطبق: {sla_matrix.sla_definition.name} - وقت الاستجابة: {response_time}ساعة - وقت الحل: {resolution_time}ساعة]"
+                if instance.description:
+                    instance.description += sla_info
+                else:
+                    instance.description = f"طلب صيانة {instance.get_request_type_display()}{sla_info}"
+        except Exception as e:
+            # في حالة عدم وجود SLA مناسب، استخدم Job Plan
+            pass
+        
+        # ربط Job Plan المناسب بناءً على نوع الجهاز ونوع الطلب (كـ backup)
         if not instance.estimated_hours:
             try:
                 job_plan = JobPlan.objects.filter(
@@ -56,7 +86,7 @@ class ServiceRequestForm(forms.ModelForm):
                 elif instance.request_type == 'preventive':
                     instance.estimated_hours = 4.0
                 else:
-                    instance.estimated_hours = 3.0
+                    instance.estimated_hours = 8.0
         
         if commit:
             instance.save()
@@ -164,9 +194,13 @@ class SLADefinitionForm(forms.ModelForm):
     
     class Meta:
         model = SLADefinition
-        fields = ['name', 'description', 'severity', 'priority', 'response_time_hours', 'resolution_time_hours', 'device_category']
+        fields = ['name', 'description', 'priority', 'response_time_hours', 'resolution_time_hours']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
+            'name': forms.TextInput(attrs={'placeholder': 'اسم اتفاقية مستوى الخدمة'}),
+            'priority': forms.Select(attrs={'class': 'form-control'}),
+            'response_time_hours': forms.NumberInput(attrs={'placeholder': 'وقت الاستجابة بالساعات', 'min': '1'}),
+            'resolution_time_hours': forms.NumberInput(attrs={'placeholder': 'وقت الحل بالساعات', 'min': '1'}),
         }
     
     def __init__(self, *args, **kwargs):

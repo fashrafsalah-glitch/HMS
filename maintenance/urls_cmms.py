@@ -37,6 +37,7 @@ urlpatterns = [
     path('sla/<int:sla_id>/delete/', views_cmms.sla_delete, name='sla_delete'),
     path('sla-matrix/', views_cmms.sla_matrix_list, name='sla_matrix_list'),
     path('sla-matrix/create/', views_cmms.sla_matrix_create, name='sla_matrix_create'),
+    path('sla-matrix/regenerate/', views_cmms.sla_matrix_regenerate, name='sla_matrix_regenerate'),
     
     # دمج مع الصفحات الموجودة
     # هنا بنعمل override للـ views الموجودة عشان نضيف عليها معلومات CMMS

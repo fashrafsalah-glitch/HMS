@@ -89,6 +89,7 @@ class Command(BaseCommand):
                 'name': 'حرج - استجابة فورية',
                 'description': 'للأجهزة الحرجة في العناية المركزة',
                 'response_time_minutes': 5,
+                'response_time_hours': 0.083,  # 5 دقائق
                 'resolution_time_hours': 1,
                 'escalation_time_minutes': 15,
             },
@@ -97,6 +98,7 @@ class Command(BaseCommand):
                 'name': 'عالي - استجابة سريعة',
                 'description': 'للأجهزة عالية الأولوية',
                 'response_time_minutes': 15,
+                'response_time_hours': 0.25,  # 15 دقيقة
                 'resolution_time_hours': 4,
                 'escalation_time_minutes': 30,
             },
@@ -105,6 +107,7 @@ class Command(BaseCommand):
                 'name': 'متوسط - استجابة عادية',
                 'description': 'للأجهزة متوسطة الأولوية',
                 'response_time_minutes': 60,
+                'response_time_hours': 1,  # ساعة واحدة
                 'resolution_time_hours': 24,
                 'escalation_time_minutes': 120,
             },
@@ -113,6 +116,7 @@ class Command(BaseCommand):
                 'name': 'منخفض - استجابة مؤجلة',
                 'description': 'للأجهزة منخفضة الأولوية',
                 'response_time_minutes': 240,
+                'response_time_hours': 4,  # 4 ساعات
                 'resolution_time_hours': 72,
                 'escalation_time_minutes': 480,
             },
@@ -126,10 +130,11 @@ class Command(BaseCommand):
                     name=config['name'],
                     defaults={
                         'description': config['description'],
-                        'response_time_minutes': config['response_time_minutes'],
+                        'response_time_hours': config['response_time_hours'],
                         'resolution_time_hours': config['resolution_time_hours'],
-                        'escalation_time_minutes': config['escalation_time_minutes'],
+                        'escalation_time_hours': config['escalation_time_minutes'] / 60,
                         'is_active': True,
+                        'device_category': None,  # SLA عام لجميع الفئات
                     }
                 )
                 sla_definitions[config['name']] = sla_def
@@ -154,26 +159,30 @@ class Command(BaseCommand):
                 devices__department__name__icontains=department_filter
             ).distinct()
         
-        # قواعد تعيين SLA
-        sla_rules = [
-            # حرج + عالي + حرج = استجابة فورية
-            ('critical', 'high', 'critical', 'حرج - استجابة فورية'),
-            ('critical', 'high', 'high', 'حرج - استجابة فورية'),
-            ('critical', 'medium', 'critical', 'حرج - استجابة فورية'),
-            
-            # عالي + عالي = استجابة سريعة
-            ('high', 'high', 'high', 'عالي - استجابة سريعة'),
-            ('high', 'high', 'medium', 'عالي - استجابة سريعة'),
-            ('high', 'medium', 'high', 'عالي - استجابة سريعة'),
-            
-            # متوسط = استجابة عادية
-            ('medium', 'medium', 'medium', 'متوسط - استجابة عادية'),
-            ('medium', 'low', 'medium', 'متوسط - استجابة عادية'),
-            ('low', 'medium', 'medium', 'متوسط - استجابة عادية'),
-            
-            # منخفض = استجابة مؤجلة
-            ('low', 'low', 'low', 'منخفض - استجابة مؤجلة'),
-        ]
+        # إنشاء جميع التركيبات الممكنة (4 severity × 4 impact = 16 combination)
+        severity_choices = [choice[0] for choice in SEVERITY_CHOICES]
+        impact_choices = [choice[0] for choice in IMPACT_CHOICES]
+        
+        sla_rules = []
+        
+        # إنشاء جميع التركيبات مع تعيين SLA مناسب
+        for severity in severity_choices:
+            for impact in impact_choices:
+                # تحديد الأولوية والSLA بناءً على الخطورة والتأثير
+                if severity == 'critical' or impact == 'extensive':
+                    priority = 'critical'
+                    sla_name = 'حرج - استجابة فورية'
+                elif severity == 'high' or impact == 'significant':
+                    priority = 'high'
+                    sla_name = 'عالي - استجابة سريعة'
+                elif severity == 'medium' or impact == 'moderate':
+                    priority = 'medium'
+                    sla_name = 'متوسط - استجابة عادية'
+                else:  # low severity and low impact
+                    priority = 'low'
+                    sla_name = 'منخفض - استجابة مؤجلة'
+                
+                sla_rules.append((severity, impact, priority, sla_name))
         
         created_count = 0
         

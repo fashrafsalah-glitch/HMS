@@ -15,21 +15,17 @@
                     </h3>
                 </div>
                 <div class="card-body">
-                    <!-- Placeholder message since SLA Matrix functionality is not fully implemented -->
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>ملاحظة:</strong> وظيفة مصفوفة SLA غير متاحة حالياً. يتم العمل على تطويرها.
-                    </div>
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                     
-                    <div class="text-center">
-                        <p class="text-muted">هذه الوظيفة ستكون متاحة قريباً لإدارة مصفوفة اتفاقيات مستوى الخدمة.</p>
-                        <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-primary">
-                            <i class="fas fa-arrow-left"></i> العودة إلى قائمة SLA
-                        </a>
-                    </div>
-                    
-                    <!-- Future form implementation -->
-                    <!--
                     <form method="post" novalidate>
                         {% csrf_token %}
                         
@@ -40,16 +36,16 @@
                         {% endif %}
                         
                         <div class="form-group">
-                            <label for="{{ form.sla.id_for_label }}">اختر SLA:</label>
-                            {{ form.sla }}
-                            {% if form.sla.errors %}
-                                <div class="invalid-feedback d-block">{{ form.sla.errors }}</div>
+                            <label for="{{ form.device_category.id_for_label }}">فئة الجهاز:</label>
+                            {{ form.device_category }}
+                            {% if form.device_category.errors %}
+                                <div class="invalid-feedback d-block">{{ form.device_category.errors }}</div>
                             {% endif %}
                         </div>
                         
                         <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="{{ form.severity.id_for_label }}">الخطورة:</label>
+                                <label for="{{ form.severity.id_for_label }}">درجة الخطورة:</label>
                                 {{ form.severity }}
                                 {% if form.severity.errors %}
                                     <div class="invalid-feedback d-block">{{ form.severity.errors }}</div>
@@ -65,16 +61,31 @@
                         </div>
                         
                         <div class="form-group">
+                            <label for="{{ form.priority.id_for_label }}">الأولوية:</label>
+                            {{ form.priority }}
+                            {% if form.priority.errors %}
+                                <div class="invalid-feedback d-block">{{ form.priority.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.sla_definition.id_for_label }}">تعريف SLA:</label>
+                            {{ form.sla_definition }}
+                            {% if form.sla_definition.errors %}
+                                <div class="invalid-feedback d-block">{{ form.sla_definition.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> 
-                                إضافة
+                                إضافة عنصر للمصفوفة
                             </button>
                             <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> إلغاء
                             </a>
                         </div>
                     </form>
-                    -->
                 </div>
             </div>
         </div>

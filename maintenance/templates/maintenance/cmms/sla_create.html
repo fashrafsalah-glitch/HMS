@@ -41,23 +41,13 @@
                             {% endif %}
                         </div>
                         
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label for="{{ form.severity.id_for_label }}">درجة الخطورة:</label>
-                                {{ form.severity }}
-                                {% if form.severity.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.severity.errors }}</div>
-                                {% endif %}
-                                <small class="form-text text-muted">مستوى خطورة المشكلة</small>
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="{{ form.priority.id_for_label }}">الأولوية:</label>
-                                {{ form.priority }}
-                                {% if form.priority.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.priority.errors }}</div>
-                                {% endif %}
-                                <small class="form-text text-muted">أولوية معالجة المشكلة</small>
-                            </div>
+                        <div class="form-group">
+                            <label for="{{ form.priority.id_for_label }}">الأولوية:</label>
+                            {{ form.priority }}
+                            {% if form.priority.errors %}
+                                <div class="invalid-feedback d-block">{{ form.priority.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">تحديد مستوى الأولوية لهذا SLA</small>
                         </div>
                         
                         <div class="form-row">
@@ -77,15 +67,6 @@
                                 {% endif %}
                                 <small class="form-text text-muted">الوقت المستهدف لحل المشكلة</small>
                             </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="{{ form.device_category.id_for_label }}">فئة الجهاز:</label>
-                            {{ form.device_category }}
-                            {% if form.device_category.errors %}
-                                <div class="invalid-feedback d-block">{{ form.device_category.errors }}</div>
-                            {% endif %}
-                            <small class="form-text text-muted">نوع الأجهزة المطبق عليها هذا SLA</small>
                         </div>
                         
                         <div class="form-group">

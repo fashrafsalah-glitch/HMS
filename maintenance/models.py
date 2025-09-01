@@ -2027,10 +2027,14 @@ class SLAMatrix(models.Model):
     هنا بنحدد SLA حسب نوع الجهاز ودرجة الخطورة والتأثير
     """
     device_category = models.ForeignKey('DeviceCategory', on_delete=models.CASCADE, verbose_name="فئة الجهاز")
-    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, verbose_name="درجة الخطورة", default='medium')
-    impact = models.CharField(max_length=20, choices=IMPACT_CHOICES, verbose_name="التأثير", default='moderate')
-    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, verbose_name="الأولوية", default='medium')
-    sla_definition = models.ForeignKey('SLADefinition', on_delete=models.CASCADE, verbose_name="تعريف SLA")
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, verbose_name="درجة الخطورة")
+    impact = models.CharField(max_length=20, choices=IMPACT_CHOICES, verbose_name="درجة التأثير")
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, verbose_name="الأولوية")
+    sla_definition = models.ForeignKey('SLADefinition', on_delete=models.CASCADE, verbose_name="تعريف SLA الأساسي")
+    
+    # أوقات الاستجابة والحل المحسوبة ذكياً
+    response_time_hours = models.IntegerField(verbose_name="وقت الاستجابة (ساعات)", default=24)
+    resolution_time_hours = models.IntegerField(verbose_name="وقت الحل (ساعات)", default=72)
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التحديث")
@@ -2039,10 +2043,53 @@ class SLAMatrix(models.Model):
     class Meta:
         verbose_name = "مصفوفة SLA"
         verbose_name_plural = "مصفوفات SLA"
-        unique_together = ['device_category', 'severity', 'impact', 'priority']
+        unique_together = ['device_category', 'severity', 'impact', 'priority', 'sla_definition']
+        
+    def save(self, *args, **kwargs):
+        """حساب أوقات SLA ذكياً بناءً على الخطورة والتأثير والأولوية"""
+        if not self.pk:  # فقط عند الإنشاء الأول
+            self.response_time_hours, self.resolution_time_hours = self.calculate_sla_times()
+        super().save(*args, **kwargs)
+    
+    def calculate_sla_times(self):
+        """
+        حساب أوقات SLA بناءً على القيم الأساسية من SLA definition مع تطبيق معاملات الخطورة والتأثير
+        """
+        # استخدام القيم الأساسية من SLA definition المرتبط
+        base_response = self.sla_definition.response_time_hours
+        base_resolution = self.sla_definition.resolution_time_hours
+        
+        # معاملات الخطورة (كلما ارتفعت الخطورة، زاد المعامل)
+        severity_multipliers = {
+            'low': 0.5,      # منخفض - وقت أقل
+            'medium': 1.0,   # متوسط - وقت عادي
+            'high': 1.5,     # عالي - وقت أكثر
+            'critical': 2.0  # حرج - وقت أكثر بكثير
+        }
+        
+        # معاملات التأثير (كلما ارتفع التأثير، زاد المعامل)
+        impact_multipliers = {
+            'minimal': 0.7,    # طفيف - وقت أقل
+            'moderate': 1.0,   # متوسط - وقت عادي
+            'significant': 1.3, # كبير - وقت أكثر
+            'extensive': 1.8   # واسع - وقت أكثر بكثير
+        }
+        
+        # حساب المعاملات
+        severity_factor = severity_multipliers.get(self.severity, 1.0)
+        impact_factor = impact_multipliers.get(self.impact, 1.0)
+        
+        # المعامل النهائي (متوسط الخطورة والتأثير)
+        final_multiplier = (severity_factor + impact_factor) / 2
+        
+        # حساب الأوقات بناءً على القيم الأساسية من SLA
+        response_time = max(1, int(base_response * final_multiplier))
+        resolution_time = max(2, int(base_resolution * final_multiplier))
+        
+        return response_time, resolution_time
         
     def __str__(self):
-        return f"{self.device_category.name} - {self.get_severity_display()} - {self.get_impact_display()}"
+        return f"{self.device_category.name} - {self.get_severity_display()} - {self.get_impact_display()} - {self.response_time_hours}h/{self.resolution_time_hours}h"
 
 
 class CalibrationRecord(models.Model):
