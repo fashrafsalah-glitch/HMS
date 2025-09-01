@@ -16,6 +16,113 @@ from core.qr_utils import QRCodeMixin
 
 
 # ════════════ ═══════════════════════════════════════════════════════════════
+# QR SCAN LOGGING MODEL
+# ═══════════════════════════════════════════════════════════════════════════
+
+class QRScanLog(models.Model):
+    """Log all QR code scans for tracking and analytics"""
+    DEVICE_TYPE_CHOICES = [
+        ('scanner', 'جهاز مسح مخصص'),
+        ('mobile', 'هاتف محمول'),
+        ('tablet', 'جهاز لوحي'),
+        ('desktop', 'حاسوب مكتبي'),
+        ('unknown', 'غير معروف'),
+    ]
+    
+    qr_code = models.CharField(max_length=500, verbose_name="كود QR")
+    entity_type = models.CharField(max_length=50, verbose_name="نوع الكيان")
+    entity_id = models.CharField(max_length=100, verbose_name="معرف الكيان")
+    entity_data = models.JSONField(default=dict, blank=True, verbose_name="بيانات الكيان")
+    
+    scanned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="تم المسح بواسطة"
+    )
+    
+    device_type = models.CharField(
+        max_length=20,
+        choices=DEVICE_TYPE_CHOICES,
+        default='unknown',
+        verbose_name="نوع الجهاز"
+    )
+    
+    scanner_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="معرف جهاز المسح"
+    )
+    
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="عنوان IP"
+    )
+    
+    user_agent = models.TextField(
+        blank=True,
+        verbose_name="معلومات المتصفح"
+    )
+    
+    # Secure token fields
+    token_signature = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name="توقيع الرمز"
+    )
+    
+    is_secure = models.BooleanField(
+        default=False,
+        verbose_name="رمز آمن"
+    )
+    
+    is_ephemeral = models.BooleanField(
+        default=False,
+        verbose_name="رمز مؤقت"
+    )
+    
+    # Context flow fields
+    session_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="معرف الجلسة"
+    )
+    
+    flow_name = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="اسم التدفق"
+    )
+    
+    flow_executed = models.BooleanField(
+        default=False,
+        verbose_name="تم تنفيذ التدفق"
+    )
+    
+    scanned_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت المسح")
+    
+    class Meta:
+        verbose_name = "سجل مسح QR"
+        verbose_name_plural = "سجلات مسح QR"
+        ordering = ['-scanned_at']
+        indexes = [
+            models.Index(fields=['entity_type', 'entity_id']),
+            models.Index(fields=['scanned_by', 'scanned_at']),
+            models.Index(fields=['device_type', 'scanned_at']),
+            models.Index(fields=['scanner_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.qr_code} - {self.scanned_at}"
+
+
+# ════════════ ═══════════════════════════════════════════════════════════════
 # EXISTING MODELS
 # ═══════════════════════════════════════════════════════════════════════════
 

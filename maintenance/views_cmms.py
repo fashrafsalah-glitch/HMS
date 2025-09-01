@@ -687,18 +687,65 @@ def sla_list(request):
     عرض قائمة اتفاقيات مستوى الخدمة
     
     الوظائف:
-    - عرض جميع اتفاقيات مستوى الخدمة
+    - عرض جميع اتفاقيات مستوى الخدمة مع البيانات الكاملة
     - التحقق من صلاحيات المستخدم للعرض
+    - حساب إحصائيات SLA
     """
     # التحقق من صلاحية المستخدم
     if not request.user.is_superuser and not request.user.groups.filter(name='Supervisor').exists():
         messages.error(request, 'ليس لديك صلاحية لعرض اتفاقيات مستوى الخدمة')
         return redirect('maintenance:cmms:service_request_list')
     
-    slas = SLADefinition.objects.all()
+    # جلب جميع SLAs مع البيانات المرتبطة
+    slas = SLADefinition.objects.select_related('device_category').all().order_by('-created_at')
+    
+    # حساب الإحصائيات
+    total_slas = slas.count()
+    active_slas = slas.filter(is_active=True).count()
+    
+    # حساب متوسط أوقات الاستجابة والحل
+    avg_response_time = 0
+    avg_resolution_time = 0
+    
+    if slas.exists():
+        total_response = sum([sla.response_time_hours for sla in slas if sla.response_time_hours])
+        total_resolution = sum([sla.resolution_time_hours for sla in slas if sla.resolution_time_hours])
+        
+        avg_response_time = round(total_response / total_slas, 1) if total_slas > 0 else 0
+        avg_resolution_time = round(total_resolution / total_slas, 1) if total_slas > 0 else 0
+    
+    # جلب بيانات مصفوفة SLA
+    matrix_data = []
+    try:
+        import json
+        from .models import SLAMatrix
+        matrix_entries = SLAMatrix.objects.select_related('device_category', 'sla_definition').all()[:50]
+        
+        for entry in matrix_entries:
+            matrix_data.append({
+                'device_category': entry.device_category.name if entry.device_category else 'عام',
+                'severity': entry.severity,
+                'severity_display': entry.get_severity_display(),
+                'impact': entry.impact,
+                'impact_display': entry.get_impact_display(),
+                'priority': entry.priority,
+                'priority_display': entry.get_priority_display(),
+                'sla_name': entry.sla_definition.name,
+                'response_time': entry.sla_definition.response_time_hours,
+                'resolution_time': entry.sla_definition.resolution_time_hours,
+            })
+    except:
+        matrix_data = []
     
     context = {
         'slas': slas,
+        'total_slas': total_slas,
+        'active_slas': active_slas,
+        'inactive_slas': total_slas - active_slas,
+        'avg_response_time': avg_response_time,
+        'avg_resolution_time': avg_resolution_time,
+        'matrix_data_json': json.dumps(matrix_data),
+        'total_matrix_entries': len(matrix_data),
     }
     
     return render(request, 'maintenance/cmms/sla_list.html', context)
@@ -794,6 +841,7 @@ def sla_delete(request, sla_id):
     }
     
     return render(request, 'maintenance/cmms/sla_delete.html', context)
+
 
 @login_required
 def sla_matrix_list(request):

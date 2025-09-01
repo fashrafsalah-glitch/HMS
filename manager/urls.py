@@ -38,7 +38,7 @@ from .views import (
     BuildingListView, BuildingCreateView,
     FloorListView, FloorCreateView,
     WardListView, WardCreateView,
-    RoomListView, RoomCreateView,
+    RoomListView, RoomCreateView, RoomDetailView,
     ajax_load_floors, ajax_load_wards, ajax_load_rooms,
 
     # departments & clinics
@@ -159,6 +159,7 @@ path(
 
     path("rooms/",           RoomListView.as_view(),     name="room_list"),
     path("rooms/add/",       RoomCreateView.as_view(),   name="room_add"),
+    path("rooms/<int:pk>/",  RoomDetailView.as_view(),   name="room_detail"),
 
     path("beds/",            BedListView.as_view(),      name="bed_list"),
     path("beds/add/",        BedCreateView.as_view(),    name="bed_add"),

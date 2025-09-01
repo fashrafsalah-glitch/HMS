@@ -148,13 +148,17 @@ def calculate_mttr(device_id=None, department_id=None, days=30):
             total_repair_time += repair_time
             valid_orders += 1
     
-    # إذا لم توجد أوامر شغل، نستخدم SLA وخطط العمل
+    # إذا لم توجد أوامر شغل، نستخدم تقديرات بناءً على الأجهزة
     if valid_orders == 0:
         devices = Device.objects.all()
         if device_id:
             devices = devices.filter(id=device_id)
         if department_id:
             devices = devices.filter(department_id=department_id)
+        
+        # إذا لم توجد أجهزة، نرجع قيمة افتراضية
+        if not devices.exists():
+            return 4.0
         
         total_estimated_mttr = 0
         device_count = 0
@@ -181,28 +185,28 @@ def calculate_mttr(device_id=None, department_id=None, days=30):
             
             # تحديد MTTR بناءً على المصادر المتاحة
             if applicable_sla:
-                estimated_mttr = applicable_sla.resolution_time_hours
+                estimated_mttr = float(applicable_sla.resolution_time_hours)
             elif job_plan_duration:
                 estimated_mttr = job_plan_duration
             else:
                 # تقدير بناءً على حالة الجهاز
                 if device.status == 'working':
-                    estimated_mttr = 2
+                    estimated_mttr = 2.0
                 elif device.status == 'needs_check':
-                    estimated_mttr = 4
+                    estimated_mttr = 4.0
                 elif device.status == 'needs_maintenance':
-                    estimated_mttr = 8
+                    estimated_mttr = 8.0
                 elif device.status == 'out_of_order':
-                    estimated_mttr = 24
+                    estimated_mttr = 24.0
                 else:
-                    estimated_mttr = 6
+                    estimated_mttr = 6.0
             
             total_estimated_mttr += estimated_mttr
             device_count += 1
         
-        return total_estimated_mttr / device_count if device_count > 0 else 4
+        return total_estimated_mttr / device_count if device_count > 0 else 4.0
     
-    return total_repair_time / valid_orders
+    return total_repair_time / valid_orders if valid_orders > 0 else 4.0
 
 def calculate_availability(device_id=None, department_id=None, days=30):
     """
@@ -339,7 +343,7 @@ def calculate_availability(device_id=None, department_id=None, days=30):
     
     return total_availability / device_count if device_count > 0 else 0
 
-def calculate_pm_compliance(department_id=None, days=30):
+def calculate_pm_compliance(department_id=None, device_id=None, days=30):
     """
     حساب نسبة الالتزام بالصيانة الوقائية
     هنا بنشوف قد إيه بنلتزم بجداول الصيانة الوقائية
@@ -354,7 +358,9 @@ def calculate_pm_compliance(department_id=None, days=30):
         next_due_date__range=[start_date.date(), end_date.date()]
     )
     
-    if department_id:
+    if device_id:
+        pm_schedules = pm_schedules.filter(device_id=device_id)
+    elif department_id:
         pm_schedules = pm_schedules.filter(device__department_id=department_id)
     
     if not pm_schedules.exists():
@@ -508,7 +514,7 @@ def calculate_calibration_compliance(department_id=None, days=30):
         # آخر معايرة للجهاز
         from .models import CalibrationRecord
         last_calibration = device.calibration_records.filter(
-            status='completed'
+            status='closed'
         ).order_by('-calibration_date').first()
         
         if last_calibration and last_calibration.next_calibration_date:
@@ -670,11 +676,24 @@ def get_device_performance_score(device_id):
     
     # نقاط MTTR (20% من النقاط)
     # كلما قل MTTR، كلما زادت النقاط
-    if mttr > 0:
+    # للأجهزة الجديدة بدون أعطال، نعطي النقاط الكاملة
+    from .models import WorkOrder
+    
+    # فحص وجود أعطال فعلية للجهاز
+    has_failures = WorkOrder.objects.filter(
+        service_request__device_id=device_id,
+        service_request__request_type='corrective',
+        status__in=['closed', 'qa_verified']
+    ).exists()
+    
+    if not has_failures:
+        # الجهاز مالوش أعطال = النقاط الكاملة
+        score += 20
+    elif mttr > 0:
         mttr_score = max(0, 20 - (mttr / 24) * 20)  # 24 ساعة = يوم
         score += mttr_score
     else:
-        score += 20  # إذا لم يكن هناك أعطال، نعطي النقاط كاملة
+        score += 20
     
     # نقاط الصيانة الوقائية (10% من النقاط)
     pm_compliance = calculate_pm_compliance(device_id=device_id)

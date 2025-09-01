@@ -12,13 +12,20 @@ from .models import (
     SLADefinition, Supplier, SparePart, SystemNotification, EmailLog,
     NotificationPreference, NotificationTemplate, NotificationQueue
 )
+from django.contrib import messages
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'model', 'status', 'availability', 'department', 'qr_token']
-    list_filter = ['status', 'availability', 'clean_status', 'sterilization_status', 'department']
+    list_display = ['name', 'model', 'serial_number', 'status', 'availability', 'department', 'room', 'in_use', 'has_qr_code']
+    list_filter = ['status', 'availability', 'clean_status', 'sterilization_status', 'department', 'room', 'in_use']
     search_fields = ['name', 'model', 'serial_number', 'qr_token']
     readonly_fields = ['qr_code', 'qr_token', 'created_at']
+    actions = ['clear_old_qr_codes', 'regenerate_qr_codes']
+    
+    def has_qr_code(self, obj):
+        return bool(obj.qr_code)
+    has_qr_code.boolean = True
+    has_qr_code.short_description = 'QR Code'
     
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -26,6 +33,48 @@ class DeviceAdmin(admin.ModelAdmin):
         if not obj.qr_code or not obj.qr_token:
             obj.generate_qr_code()
             obj.save(update_fields=['qr_code', 'qr_token'])
+    
+    @admin.action(description='مسح جميع رموز QR القديمة (Clear all old QR codes)')
+    def clear_old_qr_codes(self, request, queryset):
+        """
+        مسح جميع رموز QR القديمة من الأجهزة المحددة
+        Clear all old QR codes from selected devices
+        """
+        updated_count = 0
+        for device in queryset:
+            # Clear old QR data
+            if device.qr_code:
+                device.qr_code.delete(save=False)
+            device.qr_token = None
+            device.save(update_fields=['qr_code', 'qr_token'])
+            updated_count += 1
+        
+        self.message_user(
+            request,
+            f'تم مسح رموز QR من {updated_count} جهاز بنجاح (Cleared QR codes from {updated_count} devices)'
+        )
+    
+    @admin.action(description='إعادة توليد رموز QR آمنة (Regenerate secure QR codes)')
+    def regenerate_qr_codes(self, request, queryset):
+        """
+        إعادة توليد رموز QR آمنة للأجهزة المحددة
+        Regenerate secure QR codes for selected devices
+        """
+        updated_count = 0
+        for device in queryset:
+            # Clear old QR first
+            if device.qr_code:
+                device.qr_code.delete(save=False)
+            
+            # Generate new secure QR
+            device.generate_qr_code()
+            device.save(update_fields=['qr_code', 'qr_token'])
+            updated_count += 1
+        
+        self.message_user(
+            request,
+            f'تم إعادة توليد رموز QR آمنة لـ {updated_count} جهاز (Regenerated secure QR codes for {updated_count} devices)'
+        )
 
 @admin.register(DeviceDailyUsageLog)
 class DeviceDailyUsageLogAdmin(admin.ModelAdmin):
@@ -51,30 +100,121 @@ class ScanHistoryAdmin(admin.ModelAdmin):
     list_filter = ['entity_type', 'is_valid', 'scanned_at']
     search_fields = ['scanned_code', 'entity_type']
 
-admin.site.register(DeviceCategory)
-admin.site.register(DeviceSubCategory)
-admin.site.register(Company)
-admin.site.register(DeviceType)
-admin.site.register(DeviceUsage)
-admin.site.register(DeviceCleaningLog)
-admin.site.register(DeviceSterilizationLog)
-admin.site.register(DeviceMaintenanceLog)
-admin.site.register(DeviceTransferRequest)
+@admin.register(DeviceCategory)
+class DeviceCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+@admin.register(DeviceSubCategory)
+class DeviceSubCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'category']
+    list_filter = ['category']
+    search_fields = ['name']
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+@admin.register(DeviceType)
+class DeviceTypeAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+@admin.register(DeviceUsage)
+class DeviceUsageAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+@admin.register(DeviceTransferRequest)
+class DeviceTransferRequestAdmin(admin.ModelAdmin):
+    list_display = ['device', 'from_department', 'to_department', 'status', 'requested_at']
+    list_filter = ['status', 'requested_at', 'from_department', 'to_department']
+    search_fields = ['device__name', 'reason']
+
+@admin.register(DeviceCleaningLog)
+class DeviceCleaningLogAdmin(admin.ModelAdmin):
+    list_display = ['device', 'cleaned_by', 'cleaned_at']
+    list_filter = ['cleaned_at']
+    search_fields = ['device__name', 'cleaned_by__username']
+
+@admin.register(DeviceSterilizationLog)
+class DeviceSterilizationLogAdmin(admin.ModelAdmin):
+    list_display = ['device', 'sterilized_by', 'sterilized_at']
+    list_filter = ['sterilized_at']
+    search_fields = ['device__name', 'sterilized_by__username']
+
+@admin.register(DeviceMaintenanceLog)
+class DeviceMaintenanceLogAdmin(admin.ModelAdmin):
+    list_display = ['device']
+    search_fields = ['device__name']
 
 # CMMS Models
-admin.site.register(ServiceRequest)
-admin.site.register(WorkOrder)
-admin.site.register(JobPlan)
-admin.site.register(JobPlanStep)
-admin.site.register(PreventiveMaintenanceSchedule)
-admin.site.register(SLADefinition)
+@admin.register(ServiceRequest)
+class ServiceRequestAdmin(admin.ModelAdmin):
+    list_display = ['title', 'device', 'status', 'priority']
+    list_filter = ['status', 'priority', 'created_at']
+    search_fields = ['title', 'device__name']
+
+@admin.register(WorkOrder)
+class WorkOrderAdmin(admin.ModelAdmin):
+    list_display = ['wo_number', 'title', 'assignee', 'status', 'priority']
+    list_filter = ['status', 'priority', 'wo_type']
+    search_fields = ['wo_number', 'title', 'service_request__request_number']
+
+@admin.register(JobPlan)
+class JobPlanAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name', 'description']
+
+@admin.register(JobPlanStep)
+class JobPlanStepAdmin(admin.ModelAdmin):
+    list_display = ['job_plan', 'step_number', 'description']
+    list_filter = ['job_plan']
+    search_fields = ['description']
+
+@admin.register(PreventiveMaintenanceSchedule)
+class PreventiveMaintenanceScheduleAdmin(admin.ModelAdmin):
+    list_display = ['device', 'job_plan', 'frequency', 'next_due_date']
+    list_filter = ['frequency', 'next_due_date']
+    search_fields = ['device__name', 'job_plan__name']
+
+@admin.register(SLADefinition)
+class SLADefinitionAdmin(admin.ModelAdmin):
+    list_display = ['name', 'priority', 'response_time_hours', 'resolution_time_hours']
+    list_filter = ['priority']
+    search_fields = ['name', 'description']
 
 # Notification Models
-admin.site.register(SystemNotification)
-admin.site.register(EmailLog)
-admin.site.register(NotificationPreference)
-admin.site.register(NotificationTemplate)
-admin.site.register(NotificationQueue)
+@admin.register(SystemNotification)
+class SystemNotificationAdmin(admin.ModelAdmin):
+    list_display = ['title', 'notification_type', 'priority', 'is_read', 'created_at']
+    list_filter = ['notification_type', 'priority', 'is_read', 'created_at']
+    search_fields = ['title', 'message']
+
+@admin.register(EmailLog)
+class EmailLogAdmin(admin.ModelAdmin):
+    list_display = ['recipient_email', 'subject', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['recipient_email', 'subject']
+
+@admin.register(NotificationPreference)
+class NotificationPreferenceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'email_enabled']
+    list_filter = ['email_enabled']
+    search_fields = ['user__username']
+
+@admin.register(NotificationTemplate)
+class NotificationTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'notification_type', 'is_active']
+    list_filter = ['notification_type', 'is_active']
+    search_fields = ['name', 'subject']
+
+@admin.register(NotificationQueue)
+class NotificationQueueAdmin(admin.ModelAdmin):
+    list_display = ['notification', 'status']
+    list_filter = ['status']
+    search_fields = ['notification__title']
 
 # Spare Parts, Calibration and Downtime Models
 @admin.register(Supplier)

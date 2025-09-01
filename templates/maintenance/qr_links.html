@@ -1,0 +1,788 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% get_current_language as LANGUAGE_CODE %}
+
+{% block title %}
+    {% if LANGUAGE_CODE == 'ar' %}
+        روابط نظام QR Code - HMS
+    {% else %}
+        {% trans "QR Code System Links" %} - HMS
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qr-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .qr-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .qr-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    .api-endpoint {
+        background: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        border-left: 4px solid #007bff;
+        margin: 0.5rem 0;
+    }
+    .method-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    .method-get { background: #28a745; color: white; }
+    .method-post { background: #007bff; color: white; }
+    .section-header {
+        border-bottom: 3px solid #007bff;
+        padding-bottom: 0.5rem;
+        margin-bottom: 2rem;
+    }
+    .feature-list {
+        list-style: none;
+        padding: 0;
+    }
+    .feature-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    .feature-list li:before {
+        content: "✓";
+        color: #28a745;
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="mb-2">
+                        <i class="fas fa-qrcode text-primary"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            روابط نظام QR Code
+                        {% else %}
+                            {% trans "QR Code System Links" %}
+                        {% endif %}
+                    </h1>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            وظائف شاملة لنظام QR Code ونقاط الوصول للـ API
+                        {% else %}
+                            {% trans "Comprehensive QR code functionality and API endpoints" %}
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <span class="badge badge-success">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            نظام آمن
+                        {% else %}
+                            {% trans "Secure System" %}
+                        {% endif %}
+                    </span>
+                    <span class="badge badge-info">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            توقيعات HMAC
+                        {% else %}
+                            {% trans "HMAC Signatures" %}
+                        {% endif %}
+                    </span>
+                    <span class="badge badge-warning">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            رموز مؤقتة
+                        {% else %}
+                            {% trans "Ephemeral Tokens" %}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoints Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="section-header">
+                <i class="fas fa-code text-primary"></i>
+                {% if LANGUAGE_CODE == 'ar' %}
+                    نقاط وصول API
+                {% else %}
+                    {% trans "API Endpoints" %}
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Scan QR API -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-body text-center">
+                    <div class="qr-icon text-primary">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <h5 class="card-title">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            API مسح QR
+                        {% else %}
+                            {% trans "QR Scan API" %}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            مسح ومعالجة رموز QR مع تدفقات السياق
+                        {% else %}
+                            {% trans "Scan and process QR codes with context flows" %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="api-endpoint">
+                        <span class="method-badge method-post">POST</span>
+                        /api/scan-qr/
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="/api/scan-qr/" class="btn btn-primary btn-sm" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> 
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                اختبار النقطة
+                            {% else %}
+                                {% trans "Test Endpoint" %}
+                            {% endif %}
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="copyToClipboard('/api/scan-qr/')">
+                            <i class="fas fa-copy"></i> 
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                نسخ الرابط
+                            {% else %}
+                                {% trans "Copy URL" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate QR API -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-body text-center">
+                    <div class="qr-icon text-success">
+                        <i class="fas fa-plus-square"></i>
+                    </div>
+                    <h5 class="card-title">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            API توليد QR
+                        {% else %}
+                            {% trans "QR Generate API" %}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            توليد رموز QR آمنة مع الروابط
+                        {% else %}
+                            {% trans "Generate secure QR codes with URLs" %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="api-endpoint">
+                        <span class="method-badge method-post">POST</span>
+                        /api/generate-qr/
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="/api/generate-qr/" class="btn btn-success btn-sm" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> {% trans "Test Endpoint" %}
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="copyToClipboard('/api/generate-qr/')">
+                            <i class="fas fa-copy"></i> {% trans "Copy URL" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Management Pages Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="section-header">
+                <i class="fas fa-cogs text-primary"></i>
+                {% if LANGUAGE_CODE == 'ar' %}
+                    صفحات الإدارة
+                {% else %}
+                    {% trans "Management Pages" %}
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- QR Test Page -->
+        <div class="col-lg-4 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-body text-center">
+                    <div class="qr-icon text-warning">
+                        <i class="fas fa-flask"></i>
+                    </div>
+                    <h5 class="card-title">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            صفحة اختبار QR
+                        {% else %}
+                            {% trans "QR Test Page" %}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            اختبار وظائف مسح QR
+                        {% else %}
+                            {% trans "Test QR scanning functionality" %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>
+                        /maintenance/qr-test/
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-vial"></i> 
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                فتح صفحة الاختبار
+                            {% else %}
+                                {% trans "Open Test Page" %}
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operations Dashboard -->
+        <div class="col-lg-4 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-body text-center">
+                    <div class="qr-icon text-info">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <h5 class="card-title">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            لوحة العمليات
+                        {% else %}
+                            {% trans "Operations Dashboard" %}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            إدارة عمليات وتدفقات QR
+                        {% else %}
+                            {% trans "Manage QR operations and flows" %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>
+                        /maintenance/
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'maintenance:maintenance_dashboard' %}" class="btn btn-info btn-sm">
+                            <i class="fas fa-chart-line"></i> 
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                فتح لوحة التحكم
+                            {% else %}
+                                {% trans "Open Dashboard" %}
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Management -->
+        <div class="col-lg-4 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-body text-center">
+                    <div class="qr-icon text-secondary">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <h5 class="card-title">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            إدارة الجلسات
+                        {% else %}
+                            {% trans "Sessions Management" %}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            عرض وإدارة جلسات المسح
+                        {% else %}
+                            {% trans "View and manage scan sessions" %}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>
+                        /maintenance/sessions/
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'maintenance:sessions_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-list"></i> 
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                عرض الجلسات
+                            {% else %}
+                                {% trans "View Sessions" %}
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Features Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="section-header">
+                <i class="fas fa-shield-alt text-primary"></i>
+                {% if LANGUAGE_CODE == 'ar' %}
+                    مميزات النظام
+                {% else %}
+                    {% trans "System Features" %}
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Security Features -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lock"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            المميزات الأمنية
+                        {% else %}
+                            {% trans "Security Features" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="feature-list">
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                توقيعات HMAC-SHA256
+                            {% else %}
+                                {% trans "HMAC-SHA256 Signatures" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                رموز مبنية على UUID
+                            {% else %}
+                                {% trans "UUID-based Tokens" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                رموز مؤقتة (انتهاء صلاحية 60 ثانية)
+                            {% else %}
+                                {% trans "Ephemeral Tokens (60s expiry)" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                لا توجد بيانات حساسة في QR
+                            {% else %}
+                                {% trans "No Sensitive Data in QR" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                التحقق من التوقيع
+                            {% else %}
+                                {% trans "Signature Validation" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                منع تزوير الرموز
+                            {% else %}
+                                {% trans "Token Forgery Prevention" %}
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Context Flows -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sitemap"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            تدفقات السياق
+                        {% else %}
+                            {% trans "Context Flows" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="feature-list">
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                نقل الجهاز (مستخدم ← جهاز ← جهاز)
+                            {% else %}
+                                {% trans "Device Transfer (user → device → device)" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                نقل المريض (مستخدم ← مريض ← سرير)
+                            {% else %}
+                                {% trans "Patient Transfer (user → patient → bed)" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                تسليم الجهاز (مستخدم ← مستخدم ← جهاز)
+                            {% else %}
+                                {% trans "Device Handover (user → user → device)" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                استخدام الملحقات (مستخدم ← ملحق)
+                            {% else %}
+                                {% trans "Accessory Usage (user → accessory)" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                التنفيذ التلقائي والتأكيد
+                            {% else %}
+                                {% trans "Auto-execution & Confirmation" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                تتبع قائم على الجلسات
+                            {% else %}
+                                {% trans "Session-based Tracking" %}
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Support Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="section-header">
+                <i class="fas fa-mobile-alt text-primary"></i>
+                {% if LANGUAGE_CODE == 'ar' %}
+                    دعم الأجهزة
+                {% else %}
+                    {% trans "Device Support" %}
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Scanner Devices -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-barcode"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            أجهزة المسح
+                        {% else %}
+                            {% trans "Scanner Devices" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            ماسحات QR/Barcode مخصصة:
+                        {% else %}
+                            {% trans "Dedicated QR/Barcode scanners:" %}
+                        {% endif %}
+                    </p>
+                    <ul class="feature-list">
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                قراءة الرمز الخام مباشرة
+                            {% else %}
+                                {% trans "Read raw token directly" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                إرسال إلى /api/scan-qr/
+                            {% else %}
+                                {% trans "Send to /api/scan-qr/" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                الحصول على استجابة تسجيل أساسية
+                            {% else %}
+                                {% trans "Get basic logging response" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                لا توجد إدارة جلسات
+                            {% else %}
+                                {% trans "No session management" %}
+                            {% endif %}
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-3">
+                        <strong>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                مثال على الرمز:
+                            {% else %}
+                                {% trans "Example Token:" %}
+                            {% endif %}
+                        </strong>
+                        <div class="api-endpoint" style="font-size: 0.8rem;">
+                            device:a1b2c3d4-e5f6-7890|sig=abc123...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Devices -->
+        <div class="col-lg-6 mb-4">
+            <div class="card qr-card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-smartphone"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            الأجهزة المحمولة
+                        {% else %}
+                            {% trans "Mobile Devices" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            الهواتف الذكية والأجهزة اللوحية:
+                        {% else %}
+                            {% trans "Smartphones and tablets:" %}
+                        {% endif %}
+                    </p>
+                    <ul class="feature-list">
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                مسح QR ← فتح الرابط تلقائياً
+                            {% else %}
+                                {% trans "Scan QR → Open URL automatically" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                إدارة تدفق السياق
+                            {% else %}
+                                {% trans "Context flow management" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                مسح قائم على الجلسات
+                            {% else %}
+                                {% trans "Session-based scanning" %}
+                            {% endif %}
+                        </li>
+                        <li>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                بيانات استجابة غنية
+                            {% else %}
+                                {% trans "Rich response data" %}
+                            {% endif %}
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-3">
+                        <strong>
+                            {% if LANGUAGE_CODE == 'ar' %}
+                                مثال على الرابط:
+                            {% else %}
+                                {% trans "Example URL:" %}
+                            {% endif %}
+                        </strong>
+                        <div class="api-endpoint" style="font-size: 0.8rem;">
+                            {{ qr_domain }}/api/scan-qr/?token=device%3Aa1b2...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card qr-card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog"></i>
+                        {% if LANGUAGE_CODE == 'ar' %}
+                            إعدادات النظام
+                        {% else %}
+                            {% trans "System Configuration" %}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>
+                                {% if LANGUAGE_CODE == 'ar' %}
+                                    الإعدادات الحالية:
+                                {% else %}
+                                    {% trans "Current Settings:" %}
+                                {% endif %}
+                            </h6>
+                            <ul class="list-unstyled">
+                                <li><strong>
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        نطاق QR:
+                                    {% else %}
+                                        QR Domain:
+                                    {% endif %}
+                                </strong> <code>{{ qr_domain }}</code></li>
+                                <li><strong>
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        مدة الرموز المؤقتة:
+                                    {% else %}
+                                        Ephemeral Duration:
+                                    {% endif %}
+                                </strong> <code>60 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        ثانية
+                                    {% else %}
+                                        seconds
+                                    {% endif %}
+                                </code></li>
+                                <li><strong>
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        خوارزمية التوقيع:
+                                    {% else %}
+                                        Signature Algorithm:
+                                    {% endif %}
+                                </strong> <code>HMAC-SHA256</code></li>
+                                <li><strong>
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        تنسيق الرمز:
+                                    {% else %}
+                                        Token Format:
+                                    {% endif %}
+                                </strong> <code>entity:uuid|[eph=1|]sig=signature</code></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>
+                                {% if LANGUAGE_CODE == 'ar' %}
+                                    الكيانات المدعومة:
+                                {% else %}
+                                    {% trans "Supported Entities:" %}
+                                {% endif %}
+                            </h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-laptop-medical text-primary"></i> 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        الأجهزة
+                                    {% else %}
+                                        Devices
+                                    {% endif %}
+                                </li>
+                                <li><i class="fas fa-user-injured text-success"></i> 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        المرضى
+                                    {% else %}
+                                        Patients
+                                    {% endif %}
+                                </li>
+                                <li><i class="fas fa-bed text-info"></i> 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        الأسرة
+                                    {% else %}
+                                        Beds
+                                    {% endif %}
+                                </li>
+                                <li><i class="fas fa-users text-warning"></i> 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        المستخدمين
+                                    {% else %}
+                                        Users
+                                    {% endif %}
+                                </li>
+                                <li><i class="fas fa-tools text-secondary"></i> 
+                                    {% if LANGUAGE_CODE == 'ar' %}
+                                        الملحقات
+                                    {% else %}
+                                        Accessories
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Copy to Clipboard Function -->
+<script>
+function copyToClipboard(text) {
+    const fullUrl = window.location.origin + text;
+    navigator.clipboard.writeText(fullUrl).then(function() {
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success position-fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = '<i class="fas fa-check"></i> URL copied to clipboard!';
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }).catch(function(err) {
+        console.error('Could not copy text: ', err);
+    });
+}
+</script>
+{% endblock %}

@@ -2,7 +2,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.apps import apps
 from core.qr_utils import QRCodeMixin
-
+from manager.models import Patient, Bed
+from hr.models import CustomUser
+from maintenance.models import *
 
 @receiver(post_save)
 def generate_qr_code_on_save(sender, instance, created, **kwargs):
@@ -26,13 +28,6 @@ def generate_qr_code_on_save(sender, instance, created, **kwargs):
                     
             except Exception as e:
                 print(f"Error generating QR code for {instance}: {e}")
-
-
-# Specific signal handlers for each model
-from manager.models import Patient, Bed
-from hr.models import CustomUser
-from maintenance.models import *
-
 
 @receiver(post_save, sender=Patient)
 def generate_patient_qr_code(sender, instance, created, **kwargs):
@@ -99,7 +94,7 @@ def generate_accessory_qr_code(sender, instance, created, **kwargs):
 # CMMS SIGNALS - التحويل التلقائي للبلاغات وأوامر الشغل
 # ═══════════════════════════════════════════════════════════════
 
-from datetime import date
+from datetime import date, timedelta
 from django.utils import timezone
 import logging
 
@@ -434,3 +429,128 @@ def update_device_status_on_downtime(sender, instance, created, **kwargs):
             
     except Exception as e:
         logger.error(f"خطأ في تحديث حالة الجهاز عند التوقف: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUTOMATIC SLA MATRIX GENERATION - إنشاء مصفوفة SLA تلقائياً
+# ═══════════════════════════════════════════════════════════════
+
+@receiver(post_save, sender=DeviceCategory)
+def auto_generate_sla_matrix_for_category(sender, instance, created, **kwargs):
+    """
+    إنشاء مصفوفة SLA تلقائياً عند إضافة فئة جهاز جديدة
+    """
+    if created:
+        try:
+            from .models import SLADefinition, SLAMatrix, SEVERITY_CHOICES, IMPACT_CHOICES, PRIORITY_CHOICES
+            
+            # إنشاء تعريفات SLA الأساسية إذا لم تكن موجودة
+            sla_definitions = create_default_sla_definitions()
+            
+            # قواعد تعيين SLA
+            sla_rules = [
+                ('critical', 'extensive', 'critical', 'حرج - استجابة فورية'),
+                ('critical', 'significant', 'critical', 'حرج - استجابة فورية'),
+                ('critical', 'moderate', 'high', 'حرج - استجابة فورية'),
+                ('high', 'extensive', 'high', 'عالي - استجابة سريعة'),
+                ('high', 'significant', 'high', 'عالي - استجابة سريعة'),
+                ('high', 'moderate', 'medium', 'عالي - استجابة سريعة'),
+                ('medium', 'moderate', 'medium', 'متوسط - استجابة عادية'),
+                ('medium', 'minor', 'medium', 'متوسط - استجابة عادية'),
+                ('low', 'minor', 'low', 'منخفض - استجابة مؤجلة'),
+            ]
+            
+            created_count = 0
+            
+            for severity, impact, priority, sla_name in sla_rules:
+                sla_def = sla_definitions.get(sla_name)
+                if sla_def:
+                    matrix_entry, created_entry = SLAMatrix.objects.get_or_create(
+                        device_category=instance,
+                        severity=severity,
+                        impact=impact,
+                        priority=priority,
+                        defaults={'sla_definition': sla_def}
+                    )
+                    
+                    if created_entry:
+                        created_count += 1
+            
+            logger.info(f"تم إنشاء {created_count} مدخل في مصفوفة SLA للفئة الجديدة: {instance.name}")
+            
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء مصفوفة SLA للفئة الجديدة {instance.name}: {str(e)}")
+
+
+def create_default_sla_definitions():
+    """إنشاء تعريفات SLA الافتراضية"""
+    from .models import SLADefinition
+    
+    sla_configs = [
+        {
+            'name': 'حرج - استجابة فورية',
+            'description': 'للأجهزة الحرجة في العناية المركزة',
+            'response_time_minutes': 5,
+            'resolution_time_hours': 1,
+            'escalation_time_minutes': 15,
+        },
+        {
+            'name': 'عالي - استجابة سريعة',
+            'description': 'للأجهزة عالية الأولوية',
+            'response_time_minutes': 15,
+            'resolution_time_hours': 4,
+            'escalation_time_minutes': 30,
+        },
+        {
+            'name': 'متوسط - استجابة عادية',
+            'description': 'للأجهزة متوسطة الأولوية',
+            'response_time_minutes': 60,
+            'resolution_time_hours': 24,
+            'escalation_time_minutes': 120,
+        },
+        {
+            'name': 'منخفض - استجابة مؤجلة',
+            'description': 'للأجهزة منخفضة الأولوية',
+            'response_time_minutes': 240,
+            'resolution_time_hours': 72,
+            'escalation_time_minutes': 480,
+        },
+    ]
+    
+    sla_definitions = {}
+    
+    for config in sla_configs:
+        sla_def, created = SLADefinition.objects.get_or_create(
+            name=config['name'],
+            defaults={
+                'description': config['description'],
+                'response_time_hours': int(config['response_time_minutes'] / 60) if config['response_time_minutes'] >= 60 else 1,
+                'resolution_time_hours': config['resolution_time_hours'],
+                'is_active': True,
+            }
+        )
+        sla_definitions[config['name']] = sla_def
+        
+        if created:
+            logger.info(f'تم إنشاء تعريف SLA: {config["name"]}')
+    
+    return sla_definitions
+
+
+@receiver(post_save, sender=SLADefinition)
+def auto_update_existing_matrix_entries(sender, instance, created, **kwargs):
+    """
+    تحديث مدخلات المصفوفة الموجودة عند تحديث تعريف SLA
+    """
+    if not created:  # فقط عند التحديث
+        try:
+            from .models import SLAMatrix
+            
+            # تحديث جميع مدخلات المصفوفة التي تستخدم هذا التعريف
+            updated_count = SLAMatrix.objects.filter(sla_definition=instance).count()
+            
+            if updated_count > 0:
+                logger.info(f"تم تحديث {updated_count} مدخل في مصفوفة SLA بعد تحديث التعريف: {instance.name}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في تحديث مدخلات المصفوفة بعد تحديث التعريف {instance.name}: {str(e)}")

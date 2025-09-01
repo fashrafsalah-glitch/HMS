@@ -11,6 +11,9 @@ urlpatterns = [
     path('', views.maintenance_dashboard_qr, name='maintenance_dashboard'),
     path('dashboard_qr/', views.maintenance_dashboard_qr, name='dashboard_qr'),
     
+    # QR Code System
+    path('qr-links/', views.qr_links_page, name='qr_links_page'),
+    
     # Operations Management
     path('operations/', views.operations_list, name='operations_list'),
     path('operations/create/', views.operation_create, name='operation_create'),
@@ -115,6 +118,7 @@ urlpatterns = [
 
     # QR/Barcode Scanning APIs
     path('api/scan-qr/', views.scan_qr_code, name='scan_qr_code'),
+    path('api/qr-scan/', views.scan_qr_code_api, name='scan_qr_code_api'),
     path('scan-session/', views.scan_session_page, name='scan_session_page'),
     path('api/scan-session/end/', views.end_scan_session, name='end_scan_session'),
     
@@ -130,6 +134,7 @@ urlpatterns = [
     path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
     path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
     path('qr-test/', views.qr_test_page, name='qr_test_page'),
+    path('mobile-qr/', views.mobile_qr_scan, name='mobile_qr_scan'),
 
     # Device Accessories URLs
     path('devices/<int:device_id>/accessories/', views_accessory.DeviceAccessoryListView.as_view(), name='device_accessories'),

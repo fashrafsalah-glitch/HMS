@@ -12,10 +12,12 @@
                 <tr>
                     <th><i class="bi bi-hash me-1"></i>Number</th>
                     <th><i class="bi bi-door-closed me-1"></i>Ward</th>
-                    <th><i class="bi bi-tag me-1"></i>room Type</th>
-                     <th><i class="bi bi-info-circle me-1"></i>Status</th>
+                    <th><i class="bi bi-tag me-1"></i>Room Type</th>
+                    <th><i class="bi bi-info-circle me-1"></i>Status</th>
                     <th><i class="bi bi-building me-1"></i>Department</th>
                     <th><i class="bi bi-people me-1"></i>Capacity</th>
+                    <th><i class="bi bi-qr-code me-1"></i>QR Code</th>
+                    <th><i class="bi bi-gear me-1"></i>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -23,14 +25,28 @@
                 <tr>
                     <td>{{ room.number }}</td>
                     <td>{{ room.ward.name }}</td>
-                     <td>{{ room.get_room_type_display }}</td>
-                     <td>{{ room.get_status_display }}</td>
+                    <td>{{ room.get_room_type_display }}</td>
+                    <td>{{ room.get_status_display }}</td>
                     <td>{{ room.department.name }}</td>
                     <td>{{ room.capacity }}</td>
+                    <td>
+                        {% if room.qr_code %}
+                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#qrModal{{ room.id }}">
+                                <i class="bi bi-qr-code"></i> View QR
+                            </button>
+                        {% else %}
+                            <span class="text-muted">No QR</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'manager:room_detail' room.id %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted py-4">
+                    <td colspan="8" class="text-center text-muted py-4">
                         <i class="bi bi-house-x-fill me-2" style="font-size: 1.5rem;"></i>No rooms available currently.
                     </td>
                 </tr>
@@ -39,4 +55,40 @@
         </table>
     </div>
 </div>
+
+<!-- QR Code Modals -->
+{% for room in rooms %}
+{% if room.qr_code %}
+<div class="modal fade" id="qrModal{{ room.id }}" tabindex="-1" aria-labelledby="qrModalLabel{{ room.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrModalLabel{{ room.id }}">
+                    <i class="bi bi-qr-code me-2"></i>QR Code - Room {{ room.number }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <img src="{{ room.qr_code.url }}" alt="Room QR Code" class="img-fluid" style="max-width: 300px;">
+                </div>
+                <div class="alert alert-info">
+                    <strong>Room Details:</strong><br>
+                    Number: {{ room.number }}<br>
+                    Type: {{ room.get_room_type_display }}<br>
+                    Department: {{ room.department.name }}<br>
+                    Ward: {{ room.ward.name }}<br>
+                    Status: {{ room.get_status_display }}
+                </div>
+                <div class="d-grid gap-2">
+                    <a href="{{ room.qr_code.url }}" download="room_{{ room.number }}_qr.png" class="btn btn-success">
+                        <i class="bi bi-download me-2"></i>Download QR Code
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
 {% endblock %}

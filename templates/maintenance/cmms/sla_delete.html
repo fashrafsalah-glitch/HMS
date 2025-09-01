@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}حذف اتفاقية مستوى الخدمة{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .sla-info {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #dc3545;
+        margin-bottom: 20px;
+    }
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        حذف اتفاقية مستوى الخدمة
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="delete-container">
+                        <div class="warning-box">
+                            <h5 class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                تحذير
+                            </h5>
+                            <p class="mb-0">
+                                هل أنت متأكد من رغبتك في حذف هذه الاتفاقية؟ لا يمكن التراجع عن هذا الإجراء.
+                            </p>
+                        </div>
+
+                        <div class="sla-info">
+                            <h5>تفاصيل الاتفاقية</h5>
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>الاسم:</strong></td>
+                                    <td>{{ sla.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>فئة الجهاز:</strong></td>
+                                    <td>{{ sla.device_category.name|default:"جميع الفئات" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>الأولوية:</strong></td>
+                                    <td>
+                                        <span class="badge priority-{{ sla.priority }}">
+                                            {{ sla.get_priority_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>وقت الاستجابة:</strong></td>
+                                    <td>{{ sla.response_time_hours }} ساعة</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>وقت الحل:</strong></td>
+                                    <td>{{ sla.resolution_time_hours }} ساعة</td>
+                                </tr>
+                                {% if sla.escalation_time_hours %}
+                                <tr>
+                                    <td><strong>وقت التصعيد:</strong></td>
+                                    <td>{{ sla.escalation_time_hours }} ساعة</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td><strong>الحالة:</strong></td>
+                                    <td>
+                                        {% if sla.is_active %}
+                                        <span class="badge bg-success">نشط</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">غير نشط</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>تاريخ الإنشاء:</strong></td>
+                                    <td>{{ sla.created_at|date:"M d, Y H:i" }}</td>
+                                </tr>
+                                {% if sla.description %}
+                                <tr>
+                                    <td><strong>الوصف:</strong></td>
+                                    <td>{{ sla.description }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'maintenance:cmms:sla_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> إلغاء
+                                </a>
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('هل أنت متأكد تماماً من رغبتك في حذف هذه الاتفاقية؟')">
+                                    <i class="fas fa-trash"></i> حذف الاتفاقية
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Add priority badge colors
+    $('.priority-critical').addClass('bg-danger text-white');
+    $('.priority-high').addClass('bg-warning text-dark');
+    $('.priority-medium').addClass('bg-info text-white');
+    $('.priority-low').addClass('bg-success text-white');
+});
+</script>
+{% endblock %}

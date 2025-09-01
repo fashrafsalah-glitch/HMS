@@ -78,7 +78,7 @@ class Ward(models.Model):
         return f"{self.name} – {self.floor.name}"
 
 
-class Room(models.Model):
+class Room(QRCodeMixin, models.Model):
     ROOM_TYPE_CHOICES = [
         ('patients_ROOM', 'غرفة مرضي'),
         ('rad_ROOM', 'غرفة اشعة'),
@@ -113,6 +113,29 @@ class Room(models.Model):
 
     def __str__(self):
         return f"{self.get_room_type_display()} – قسم {self.department.name} – غرفة {self.number}"
+
+    def generate_qr_token(self, ephemeral=False, metadata=None):
+        """
+        Generate secure QR token for Room with additional metadata
+        """
+        from core.secure_qr import SecureQRToken
+        
+        # Add room-specific metadata
+        safe_metadata = metadata or {}
+        safe_metadata.update({
+            'room_type': self.room_type,
+            'department': self.department.name,
+            'ward': self.ward.name,
+            'capacity': self.capacity,
+            'status': self.status
+        })
+        
+        return SecureQRToken.generate_token(
+            entity_type='room',
+            entity_id=str(self.pk),
+            ephemeral=ephemeral,
+            metadata=safe_metadata
+        )
 
 
 class Bed(QRCodeMixin, models.Model):
@@ -233,6 +256,25 @@ class Patient(QRCodeMixin, models.Model):
         elif years < 18:
             return 'pediatric'
         return 'adult'
+
+    def generate_qr_token(self, ephemeral=False, metadata=None):
+        """
+        Override to generate secure QR tokens for Patient model.
+        No sensitive data included in token, only UUID mapping.
+        """
+        from core.secure_qr import SecureQRToken
+        
+        # Prepare metadata without sensitive info
+        safe_metadata = metadata or {}
+        safe_metadata['has_mrn'] = bool(self.medical_file_number)
+        
+        # Use SecureQRToken for secure token generation
+        return SecureQRToken.generate_token(
+            entity_type='patient',
+            entity_id=self.pk,
+            ephemeral=ephemeral,
+            metadata=safe_metadata
+        )
 
     def save(self, *args, **kwargs):
         if not self.mrn:

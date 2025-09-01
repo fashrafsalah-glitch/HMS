@@ -28,6 +28,9 @@ ICD11_CLIENT_SECRET = os.getenv(
 SECRET_KEY = "django-insecure-x$=eei$)z%*eglnvkc07h)t33g($7f(p44-)6p=74cj-j$y5oz"
 DEBUG      = True
 
+# QR Code System Settings
+QR_DOMAIN = "http://127.0.0.1:8000"
+
 # CSRF Settings
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False
@@ -52,6 +55,7 @@ SITE_URL = "http://localhost:8000"
 
 # ────────────────────────────  Installed apps  ────────────────────────────
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

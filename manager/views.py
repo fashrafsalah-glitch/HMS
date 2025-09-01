@@ -1005,6 +1005,29 @@ class RoomCreateView(LoginRequiredMixin, HospitalmanagerRequiredMixin, CreateVie
         context['hospital_id'] = self.request.user.hospital.id
         return context
 
+class RoomDetailView(LoginRequiredMixin, HospitalmanagerRequiredMixin, DetailView):
+    model = Room
+    template_name = 'rooms/room_detail.html'
+    context_object_name = 'room'
+
+    def get_queryset(self):
+        if not self.request.user.hospital:
+            raise Http404("User is not associated with a hospital.")
+        return Room.objects.filter(ward__floor__building__hospital=self.request.user.hospital)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        room = self.get_object()
+        
+        # Get beds in this room
+        context['beds'] = room.beds.all()
+        
+        # Get devices in this room
+        from maintenance.models import Device
+        context['devices'] = Device.objects.filter(room=room)
+        
+        return context
+
 class BedListView(LoginRequiredMixin, HospitalmanagerRequiredMixin, ListView):
     model = Bed
     template_name = 'beds/bed_list.html'

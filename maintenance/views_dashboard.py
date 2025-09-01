@@ -248,31 +248,29 @@ def device_performance_dashboard(request):
             print(f"خطأ في حساب إحصائيات الجهاز {device.name}: {str(e)}")
             
             # حساب قيم بديلة بسيطة
-            mtbf_fallback = 168  # أسبوع افتراضي
-            mttr_fallback = 4    # 4 ساعات افتراضي
-            availability_fallback = 85 if device.status == 'working' else 30
+            mtbf = 168  # أسبوع افتراضي
+            mttr = 4    # 4 ساعات افتراضي
+            availability = 85 if device.status == 'working' else 30
+            score = availability
             
             device_scores.append({
                 'device': device,
-                'score': availability_fallback,
-                'mtbf': mtbf_fallback,
-                'mttr': mttr_fallback,
-                'availability': availability_fallback,
-                'performance_score': availability_fallback,
-                'performance_color': 'success' if availability_fallback > 80 else 'warning',
+                'score': score,
+                'mtbf': mtbf,
+                'mttr': mttr,
+                'availability': availability,
+                'performance_score': score,
+                'performance_color': 'success' if availability > 80 else 'warning',
                 'failures_count': ServiceRequest.objects.filter(device=device, request_type='corrective').count(),
-                'total_downtime': mttr_fallback
+                'total_downtime': mttr
             })
-            if availability_fallback > 80:
+            if availability > 80:
                 performance_categories['very_good'] += 1
             else:
                 performance_categories['fair'] += 1
     
     # ترتيب الأجهزة حسب النقاط (الأسوأ أولاً للجدول)
     worst_performing_devices = sorted(device_scores, key=lambda x: x['score'])[:10]
-    
-    # حساب متوسط الإحصائيات - نحسب دائماً من الأجهزة الموجودة
-    from .kpi_utils import calculate_mtbf, calculate_mttr, calculate_availability
     
     # حساب الإحصائيات العامة
     avg_mtbf = calculate_mtbf(department_id=department_id)
@@ -793,8 +791,8 @@ def maintenance_trends(request):
     preventive_requests = service_requests.filter(request_type='preventive').count()
     preventive_ratio = (preventive_requests / total_requests * 100) if total_requests > 0 else 0
     
-    # حساب متوسط أوقات الاستجابة والإصلاح
-    completed_work_orders = work_orders.filter(status='closed')
+        # حساب متوسط أوقات الاستجابة والإصلاح
+    completed_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified'])
     avg_response_time = 0
     avg_repair_time = 0
     
@@ -802,20 +800,66 @@ def maintenance_trends(request):
         # حساب متوسط أوقات الاستجابة والإصلاح
         response_times = []
         repair_times = []
-        completed_work_orders = work_orders.filter(status='closed')
         
         for wo in completed_work_orders:
             if wo.actual_start and wo.service_request.created_at:
                 response_time = (wo.actual_start - wo.service_request.created_at).total_seconds() / 3600
-                response_times.append(response_time)
+                if response_time > 0:  # تجنب القيم السالبة
+                    response_times.append(response_time)
             
             if wo.actual_end and wo.actual_start:
                 repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
-                repair_times.append(repair_time)
-            
-            avg_response_time = sum(response_times) / len(response_times) if response_times else 0
-            avg_repair_time = sum(repair_times) / len(repair_times) if repair_times else 0
+                if repair_time > 0:  # تجنب القيم السالبة
+                    repair_times.append(repair_time)
         
+        avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+        avg_repair_time = sum(repair_times) / len(repair_times) if repair_times else 0
+    else:
+        # إذا لم توجد أوامر عمل مكتملة، نحسب تقديرات بناءً على البيانات المتاحة
+        all_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified'])
+        response_times = []
+        repair_times = []
+        
+        for wo in all_work_orders:
+            # تقدير وقت الاستجابة من تاريخ الإنشاء إلى تاريخ التحديث
+            if wo.created_at and wo.updated_at:
+                estimated_response = (wo.updated_at - wo.created_at).total_seconds() / 3600
+                if estimated_response > 0 and estimated_response < 168:  # أقل من أسبوع
+                    response_times.append(estimated_response / 2)  # نصف الوقت كتقدير للاستجابة
+            
+            # تقدير وقت الإصلاح
+            if wo.actual_end and wo.actual_start:
+                repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                if repair_time > 0:
+                    repair_times.append(repair_time)
+            elif wo.created_at and wo.updated_at:
+                estimated_repair = (wo.updated_at - wo.created_at).total_seconds() / 3600
+                if estimated_repair > 0 and estimated_repair < 72:  # أقل من 3 أيام
+                    repair_times.append(estimated_repair / 2)  # نصف الوقت كتقدير للإصلاح
+        
+        # إذا لم توجد بيانات، نستخدم قيم افتراضية بناءً على نوع الطلب
+        if not response_times:
+            critical_requests = service_requests.filter(priority='critical').count()
+            high_requests = service_requests.filter(priority='high').count()
+            medium_requests = service_requests.filter(priority='medium').count()
+            low_requests = service_requests.filter(priority='low').count()
+            
+            total_weighted_response = (critical_requests * 1 + high_requests * 2 + 
+                                     medium_requests * 4 + low_requests * 8)
+            avg_response_time = total_weighted_response / total_requests if total_requests > 0 else 2
+        else:
+            avg_response_time = sum(response_times) / len(response_times)
+        
+        if not repair_times:
+            # تقدير بناءً على نوع الطلب
+            corrective_requests = service_requests.filter(request_type='corrective').count()
+            preventive_requests = service_requests.filter(request_type='preventive').count()
+            
+            total_weighted_repair = (corrective_requests * 6 + preventive_requests * 3)
+            avg_repair_time = total_weighted_repair / total_requests if total_requests > 0 else 4
+        else:
+            avg_repair_time = sum(repair_times) / len(repair_times)
+    
     maintenance_stats = {
         'total_requests': total_requests,
         'avg_response_time': round(avg_response_time, 1),

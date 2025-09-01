@@ -23,6 +23,7 @@ class QROperationsManager:
             DeviceUsageLog, DeviceTransferLog, PatientTransferLog,
             DeviceHandoverLog, AccessoryTransaction
         )
+        from manager.models import Room
         self.OperationDefinition = OperationDefinition
         self.OperationStep = OperationStep
         self.OperationExecution = OperationExecution
@@ -35,6 +36,7 @@ class QROperationsManager:
         self.PatientTransferLog = PatientTransferLog
         self.DeviceHandoverLog = DeviceHandoverLog
         self.AccessoryTransaction = AccessoryTransaction
+        self.Room = Room
     
     def check_session_timeout(self, session: 'ScanSession') -> bool:
         """Check if session has timed out based on operation settings"""

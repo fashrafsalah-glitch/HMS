@@ -7,9 +7,7 @@ class MaintenanceConfig(AppConfig):
     
     def ready(self):
         """تشغيل المهام التلقائية عند بدء التطبيق"""
-        import maintenance.signals  # تحميل الـ signals
-        
-        # بدء تشغيل مهام الصيانة التلقائية
+        import maintenance.signals
         try:
             from .tasks import start_maintenance_tasks
             start_maintenance_tasks()

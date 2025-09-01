@@ -1495,47 +1495,228 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-def parse_qr_code(qr_code, sample_token=None):
+def log_qr_scan(qr_code, entity_type, entity_id, entity_data, user=None, device_type='unknown', scanner_id=None, request=None, is_secure=False, is_ephemeral=False, session_id=None, flow_name=None, flow_executed=False):
     """
-    Parse QR code and return entity type, ID, and data
-    Expected formats:
-    - Standard: entity_type:id (e.g., "device:123", "bed:456")
-    - Patient: patient:id|MRN:mrn|Name:first_last|DOB:yyyy-mm-dd
-    - Operation tokens: op:operation_type (e.g., "op:usage", "op:transfer")
-    - Lab tube: sample_token UUID (handled via sample_token parameter)
+    Log QR scan to database for tracking and analytics with secure token support
+    """
+    from .models import QRScanLog
+    
+    # Get IP address
+    ip_address = None
+    if request:
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0]
+        else:
+            ip_address = request.META.get('REMOTE_ADDR')
+    
+    # Get user agent
+    user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
+    
+    # Extract signature from QR code if present
+    token_signature = None
+    if '|sig=' in qr_code:
+        token_signature = qr_code.split('|sig=')[-1]
+    
+    # Create log entry
+    scan_log = QRScanLog.objects.create(
+        qr_code=qr_code,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        entity_data=entity_data,
+        scanned_by=user,
+        device_type=device_type,
+        scanner_id=scanner_id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        token_signature=token_signature,
+        is_secure=is_secure,
+        is_ephemeral=is_ephemeral,
+        session_id=session_id,
+        flow_name=flow_name,
+        flow_executed=flow_executed,
+        scanned_at=timezone.now()
+    )
+    
+    return scan_log
+
+
+def get_entity_detail_url(entity_type, entity_id):
+    """
+    Get detail page URL for different entity types
     """
     try:
-        # Handle lab tube sample_token
-        if sample_token:
+        if entity_type == 'device':
+            return reverse('maintenance:device_detail', kwargs={'pk': entity_id})
+        elif entity_type == 'patient':
+            return reverse('manager:patient_detail', kwargs={'pk': entity_id})
+        elif entity_type == 'bed':
+            return reverse('manager:bed_detail', kwargs={'pk': entity_id})
+        elif entity_type == 'user' or entity_type == 'customuser':
+            return reverse('hr:user_detail', kwargs={'pk': entity_id})
+        elif entity_type == 'accessory' or entity_type == 'deviceaccessory':
+            return reverse('maintenance:accessory_detail', kwargs={'pk': entity_id})
+        else:
+            return None
+    except:
+        return None
+
+
+def parse_qr_code(raw_value):
+    """
+    Parse QR code and return entity type, ID, entity data, and error
+    يدعم استخراج التوكن من URL كامل أو نص خام
+    
+    Supports formats:
+    - Full URL: https://hms.my-domain.com/api/scan-qr/?token=device:uuid|sig=signature
+    - Secure token: entity_type:uuid|sig=signature (e.g., device:uuid|sig=abc123)
+    - Ephemeral token: entity_type:uuid|eph=1|sig=signature
+    - Legacy standard: entity_type:id (e.g., device:123, patient:456)
+    - Legacy patient extended: patient:id|MRN:mrn|Name:first_last|DOB:yyyy-mm-dd
+    - Operation token: op:operation_type (e.g., op:usage, op:transfer)
+    - Lab sample: sample:uuid (e.g., sample:abc123)
+    """
+    from django.apps import apps
+    from core.secure_qr import SecureQRToken
+    from urllib.parse import urlparse, parse_qs
+    
+    if not raw_value or not raw_value.strip():
+        return None, None, None, "QR code is empty"
+    
+    # Extract token from URL or use raw value
+    if raw_value.startswith("http"):
+        try:
+            parsed = urlparse(raw_value)
+            query = parse_qs(parsed.query)
+            qr_code = query.get("token", [None])[0]
+            
+            if not qr_code:
+                return None, None, None, "No token parameter found in URL"
+        except Exception as e:
+            return None, None, None, f"Error parsing URL: {str(e)}"
+    else:
+        qr_code = raw_value
+    
+    try:
+        # Check if it's a secure token with signature
+        if '|sig=' in qr_code:
+            # Parse secure token
+            token_result = SecureQRToken.parse_token(qr_code)
+            
+            if not token_result['valid']:
+                return None, None, None, token_result.get('error', 'Invalid token')
+            
+            entity_type = token_result['entity_type']
+            entity_id = token_result['entity_id']
+            ephemeral = token_result.get('ephemeral', False)
+            metadata = token_result.get('metadata', {})
+            
+            # Map entity types to models
+            model_mapping = {
+                'device': ('maintenance', 'Device'),
+                'patient': ('manager', 'Patient'),
+                'bed': ('manager', 'Bed'),
+                'room': ('manager', 'Room'),
+                'user': ('hr', 'CustomUser'),
+                'customuser': ('hr', 'CustomUser'),
+                'accessory': ('maintenance', 'DeviceAccessory'),
+                'deviceaccessory': ('maintenance', 'DeviceAccessory'),
+                'department': ('manager', 'Department'),
+                'doctor': ('manager', 'Doctor'),
+            }
+            
+            if entity_type not in model_mapping:
+                return None, None, None, f"Unknown entity type: {entity_type}"
+            
+            app_label, model_name = model_mapping[entity_type]
+            model_class = apps.get_model(app_label, model_name)
+            
             try:
-                from laboratory.models import LabRequestItem
-                lab_item = LabRequestItem.objects.select_related(
-                    'request__patient', 'test'
-                ).get(sample_token=sample_token)
+                entity = model_class.objects.get(pk=entity_id)
                 
+                # Prepare entity data
                 entity_data = {
-                    'id': str(lab_item.sample_token),
-                    'type': 'lab_tube',
-                    'name': f"Lab Sample - {lab_item.test.english_name}",
-                    'patient': str(lab_item.request.patient),
-                    'patient_id': lab_item.request.patient.id,
-                    'test_name': lab_item.test.english_name,
-                    'status': lab_item.status,
-                    'status_display': lab_item.get_status_display(),
-                    'request_id': lab_item.request.id,
-                    'sample_collected_at': lab_item.sample_collected_at.isoformat() if lab_item.sample_collected_at else None,
-                    'sample_received_at': lab_item.sample_received_at.isoformat() if lab_item.sample_received_at else None,
+                    'id': entity.pk,
+                    'name': str(entity),
+                    'type': entity_type,
+                    'ephemeral': ephemeral,
+                    'token_uuid': token_result.get('token_uuid'),
+                    'metadata': metadata
                 }
                 
-                return 'lab_tube', str(sample_token), entity_data, None
+                # Add specific fields based on entity type
+                if entity_type == 'device':
+                    entity_data.update({
+                        'status': entity.status,
+                        'availability': entity.availability,
+                        'clean_status': entity.clean_status,
+                        'sterilization_status': entity.sterilization_status,
+                        'department': str(entity.department) if entity.department else None,
+                        'room': str(entity.room) if entity.room else None,
+                    })
+                elif entity_type == 'patient':
+                    entity_data.update({
+                        'full_name': f"{entity.first_name} {entity.last_name}",
+                        'mrn': entity.mrn,
+                        'age': entity.age if hasattr(entity, 'age') else None,
+                        'gender': getattr(entity, 'gender', None),
+                        'date_of_birth': entity.date_of_birth.strftime('%Y-%m-%d') if entity.date_of_birth else None,
+                    })
+                elif entity_type in ['bed']:
+                    entity_data.update({
+                        'status': entity.status,
+                        'department': str(entity.department) if entity.department else None,
+                        'room': str(entity.room) if entity.room else None,
+                    })
+                elif entity_type == 'room':
+                    entity_data.update({
+                        'status': entity.status,
+                        'room_type': entity.get_room_type_display(),
+                        'department': str(entity.department) if entity.department else None,
+                        'ward': str(entity.ward) if entity.ward else None,
+                        'capacity': entity.capacity,
+                        'number': entity.number,
+                    })
+                elif entity_type in ['user', 'customuser']:
+                    entity_data.update({
+                        'username': entity.username,
+                        'full_name': entity.get_full_name() if hasattr(entity, 'get_full_name') else str(entity),
+                        'role': getattr(entity, 'role', None),
+                        'department': str(entity.department) if hasattr(entity, 'department') and entity.department else None,
+                    })
+                elif entity_type in ['accessory', 'deviceaccessory']:
+                    entity_data.update({
+                        'device': str(entity.device) if entity.device else None,
+                        'status': getattr(entity, 'status', None),
+                    })
                 
-            except LabRequestItem.DoesNotExist:
-                return None, None, None, f"Lab sample with token {sample_token} not found"
+                return entity_type, entity_id, entity_data, None
+                
+            except model_class.DoesNotExist:
+                return None, None, None, f"{entity_type.title()} with ID {entity_id} not found"
         
-        if ':' not in qr_code:
-            return None, None, None, "Invalid QR code format"
+        # Legacy format handling below...
+        # Check if it's a lab sample
+        if qr_code.startswith('sample:'):
+            sample_id = qr_code.split(':', 1)[1]
+            lab_sample_model = apps.get_model('laboratory', 'Sample')
+            
+            try:
+                sample = lab_sample_model.objects.get(id=sample_id)
+                entity_data = {
+                    'id': str(sample.id),
+                    'type': 'sample',
+                    'name': f"Sample {sample.sample_id}",
+                    'patient': str(sample.patient) if sample.patient else None,
+                    'test_name': sample.test_name if hasattr(sample, 'test_name') else None,
+                    'status': sample.status if hasattr(sample, 'status') else None,
+                    'collected_at': sample.collected_at.isoformat() if hasattr(sample, 'collected_at') and sample.collected_at else None
+                }
+                return 'sample', sample_id, entity_data, None
+            except lab_sample_model.DoesNotExist:
+                return None, None, None, f"Sample with ID {sample_id} not found"
         
-        # Check for operation tokens
+        # Check if it's an operation token
         if qr_code.startswith('op:'):
             operation_type = qr_code.split(':', 1)[1]
             valid_operations = ['usage', 'transfer', 'handover', 'patient_transfer', 'clean', 'sterilize', 'inspect', 'maintenance']
@@ -1551,8 +1732,8 @@ def parse_qr_code(qr_code, sample_token=None):
             else:
                 return None, None, None, f"Unknown operation type: {operation_type}"
         
-        # Check if it's a patient with extended format
-        if qr_code.startswith('patient:') and '|' in qr_code:
+        # Check if it's a patient with extended format (legacy)
+        if qr_code.startswith('patient:') and '|' in qr_code and '|sig=' not in qr_code:
             # Parse patient extended format: patient:id|MRN:mrn|Name:first_last|DOB:yyyy-mm-dd
             parts = qr_code.split('|')
             if len(parts) >= 4:
@@ -1594,9 +1775,10 @@ def parse_qr_code(qr_code, sample_token=None):
                 except (ValueError, IndexError):
                     return None, None, None, "Invalid patient QR code format"
         
-        # Standard format parsing
-        entity_type, entity_id = qr_code.split(':', 1)
-        entity_id = int(entity_id)
+        # Standard format parsing (legacy)
+        if ':' in qr_code and '|' not in qr_code:
+            entity_type, entity_id = qr_code.split(':', 1)
+            entity_id = int(entity_id)
         
         # Map entity types to models
         model_mapping = {
@@ -1687,6 +1869,183 @@ def parse_qr_code(qr_code, sample_token=None):
         return None, None, None, f"Error parsing QR code: {str(e)}"
 
 
+@csrf_exempt
+def scan_qr_code_api(request):
+    """
+    Standalone QR scanning API for dedicated scanners and mobile devices
+    Works without browser interface - pure API endpoint
+    Now with context-based flow management and secure token validation
+    """
+    from core.secure_qr import QRContextFlow
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        # Parse request data
+        if request.content_type == 'application/json':
+            data = json.loads(request.body) if request.body else {}
+        else:
+            data = request.POST.dict()
+        
+        qr_code = data.get('qr_code', '').strip()
+        device_type = data.get('device_type', 'unknown')  # 'scanner', 'mobile', 'unknown'
+        user_id = data.get('user_id')
+        scanner_id = data.get('scanner_id')  # Unique ID for dedicated scanner
+        session_id = data.get('session_id')  # Session ID for context flows
+        
+        if not qr_code:
+            return JsonResponse({'error': 'QR code is required'}, status=400)
+        
+        # Parse QR code (now supports secure tokens)
+        entity_type, entity_id, entity_data, error = parse_qr_code(qr_code)
+        
+        if error:
+            return JsonResponse({
+                'success': False,
+                'error': error,
+                'qr_code': qr_code
+            }, status=400)
+        
+        # Get user if provided
+        user = None
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                pass
+        
+        # Initialize flow tracking variables
+        flow_name = None
+        flow_executed = False
+        
+        # Log the scan with enhanced data (initial log, will update if flow matches)
+        scan_log = log_qr_scan(
+            qr_code=qr_code,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_data=entity_data,
+            user=user,
+            device_type=device_type,
+            scanner_id=scanner_id,
+            request=request,
+            is_secure=entity_data.get('token_uuid') is not None,
+            is_ephemeral=entity_data.get('ephemeral', False),
+            session_id=session_id
+        )
+        
+        # Handle context-based flows for mobile devices
+        if device_type == 'mobile' and user_id:
+            # Start or continue session
+            if not session_id:
+                session_id = QRContextFlow.start_session(user_id, device_type)
+            
+            # Add scan to session and check for flow matches
+            flow_result = QRContextFlow.add_scan(session_id, entity_type, entity_id)
+            
+            if 'error' in flow_result:
+                # Session expired, start new one
+                session_id = QRContextFlow.start_session(user_id, device_type)
+                flow_result = QRContextFlow.add_scan(session_id, entity_type, entity_id)
+            
+            # Check if we matched a flow
+            if flow_result.get('matched'):
+                flow_info = flow_result['flow']
+                flow_name = flow_info['name']
+                
+                # Update scan log with flow information
+                scan_log.flow_name = flow_name
+                scan_log.session_id = session_id
+                
+                if flow_result.get('auto_execute'):
+                    # Execute flow automatically
+                    execution = QRContextFlow.execute_flow(session_id)
+                    flow_executed = True
+                    
+                    # Update scan log
+                    scan_log.flow_executed = True
+                    scan_log.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'flow_matched': True,
+                        'flow_name': flow_info['name'],
+                        'flow_action': flow_info['config']['action'],
+                        'auto_executed': True,
+                        'execution_result': execution,
+                        'session_id': session_id,
+                        'entity_data': entity_data,
+                        'message': f"تم تنفيذ العملية: {flow_info['config']['description']}"
+                    })
+                else:
+                    # Flow requires confirmation
+                    scan_log.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'flow_matched': True,
+                        'flow_name': flow_info['name'],
+                        'flow_action': flow_info['config']['action'],
+                        'requires_confirmation': True,
+                        'session_id': session_id,
+                        'entity_data': entity_data,
+                        'message': f"تأكيد العملية: {flow_info['config']['description']}"
+                    })
+            else:
+                # No flow matched yet, continue scanning
+                return JsonResponse({
+                    'success': True,
+                    'flow_matched': False,
+                    'scan_count': flow_result.get('scan_count', 1),
+                    'current_sequence': flow_result.get('current_sequence', []),
+                    'session_id': session_id,
+                    'entity_type': entity_type,
+                    'entity_id': entity_id,
+                    'entity_data': entity_data,
+                    'message': f'تم مسح {entity_type}:{entity_id}'
+                })
+        
+        # Handle based on device type (if no context flow)
+        elif device_type == 'scanner':
+            # Dedicated scanner - just log and return basic info
+            return JsonResponse({
+                'success': True,
+                'logged': True,
+                'scan_id': scan_log.id,
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'entity_name': entity_data.get('name', str(entity_id)),
+                'is_secure': entity_data.get('token_uuid') is not None,
+                'is_ephemeral': entity_data.get('ephemeral', False),
+                'timestamp': scan_log.scanned_at.isoformat(),
+                'message': f'تم تسجيل مسح {entity_type}:{entity_id}'
+            })
+        
+        else:
+            # Unknown device type or mobile without session - return basic info
+            redirect_url = get_entity_detail_url(entity_type, entity_id)
+            
+            return JsonResponse({
+                'success': True,
+                'logged': True,
+                'scan_id': scan_log.id,
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'entity_data': entity_data,
+                'redirect_url': redirect_url,
+                'is_secure': entity_data.get('token_uuid') is not None,
+                'is_ephemeral': entity_data.get('ephemeral', False),
+                'timestamp': scan_log.scanned_at.isoformat(),
+                'message': f'تم مسح {entity_type}:{entity_id}'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }, status=500)
+
+
 @login_required
 def scan_qr_code(request):
     """
@@ -1725,6 +2084,56 @@ def scan_qr_code(request):
                 'error': error,
                 'qr_code': qr_code
             })
+        
+        # Check if this is a direct entity scan that should redirect
+        redirect_to_page = data.get('redirect_to_page', True)  # Default to redirect
+        
+        if redirect_to_page and entity_type == 'device':
+            # Return redirect URL for device detail page
+            device_url = reverse('maintenance:device_detail', kwargs={'pk': entity_id})
+            return JsonResponse({
+                'success': True,
+                'redirect': True,
+                'redirect_url': device_url,
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'entity_data': entity_data,
+                'message': f'تم توجيهك إلى صفحة الجهاز: {entity_data.get("name", entity_id)}'
+            })
+        
+        elif redirect_to_page and entity_type == 'patient':
+            # Return redirect URL for patient detail page (if exists)
+            try:
+                patient_url = reverse('manager:patient_detail', kwargs={'pk': entity_id})
+                return JsonResponse({
+                    'success': True,
+                    'redirect': True,
+                    'redirect_url': patient_url,
+                    'entity_type': entity_type,
+                    'entity_id': entity_id,
+                    'entity_data': entity_data,
+                    'message': f'تم توجيهك إلى صفحة المريض: {entity_data.get("name", entity_id)}'
+                })
+            except:
+                # If patient detail URL doesn't exist, continue with normal flow
+                pass
+        
+        elif redirect_to_page and entity_type == 'bed':
+            # Return redirect URL for bed detail page (if exists)
+            try:
+                bed_url = reverse('manager:bed_detail', kwargs={'pk': entity_id})
+                return JsonResponse({
+                    'success': True,
+                    'redirect': True,
+                    'redirect_url': bed_url,
+                    'entity_type': entity_type,
+                    'entity_id': entity_id,
+                    'entity_data': entity_data,
+                    'message': f'تم توجيهك إلى صفحة السرير: {entity_data.get("name", entity_id)}'
+                })
+            except:
+                # If bed detail URL doesn't exist, continue with normal flow
+                pass
         
         # Get or create scan session
         scan_session = None
@@ -2480,7 +2889,7 @@ def start_scan_session(request):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
     try:
-        data = json.loads(request.body) if request.body else {}
+        data = json.loads(request.body)
         operation_type = data.get('operation_type')
         
         # Create new session
@@ -2517,7 +2926,7 @@ def reset_scan_session(request):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
     try:
-        data = json.loads(request.body) if request.body else {}
+        data = json.loads(request.body)
         session_id = data.get('session_id')
         
         if session_id:
@@ -2601,7 +3010,7 @@ def end_scan_session(request):
     End the current scan session
     """
     try:
-        data = json.loads(request.body) if request.body else {}
+        data = json.loads(request.body)
         session_id = data.get('session_id')
         
         if session_id:
@@ -2649,8 +3058,13 @@ def qr_test_page(request):
 @login_required
 def generate_qr_code(request):
     """
-    Generate QR code for any entity (bed, device, patient, etc.)
+    Generate QR code for any entity with support for static and ephemeral tokens
     """
+    from core.secure_qr import SecureQRToken
+    import base64
+    from io import BytesIO
+    import qrcode
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
@@ -2658,6 +3072,8 @@ def generate_qr_code(request):
         data = json.loads(request.body)
         entity_type = data.get('entity_type')
         entity_id = data.get('entity_id')
+        ephemeral = data.get('ephemeral', False)  # Default to static tokens
+        metadata = data.get('metadata', {})
         
         if not entity_type or not entity_id:
             return JsonResponse({'error': 'entity_type and entity_id are required'}, status=400)
@@ -2681,18 +3097,62 @@ def generate_qr_code(request):
         except model_class.DoesNotExist:
             return JsonResponse({'error': f'{entity_type} with ID {entity_id} not found'}, status=404)
         
-        # Generate QR code
-        if hasattr(entity, 'generate_qr_code'):
-            entity.generate_qr_code()
+        # Generate secure token
+        token = SecureQRToken.generate_token(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            ephemeral=ephemeral,
+            metadata=metadata
+        )
+        
+        # Generate full URL with token parameter
+        from urllib.parse import urlencode
+        base_url = f"{settings.QR_DOMAIN}/api/scan-qr/"
+        qr_url = f"{base_url}?{urlencode({'token': token})}"
+        
+        # Generate QR code image with URL
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_url)  # Use full URL instead of raw token
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        
+        # Convert to base64 for API response
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        # Update entity's QR token if it has the field and not ephemeral
+        if hasattr(entity, 'qr_token') and not ephemeral:
+            entity.qr_token = token
             entity.save()
-            
-            return JsonResponse({
-                'success': True,
-                'qr_code_url': entity.qr_code.url if entity.qr_code else None,
-                'qr_token': entity.qr_token
-            })
+        
+        response_data = {
+            'success': True,
+            'qr_token': token,
+            'qr_url': qr_url,
+            'qr_image_base64': img_base64,
+            'ephemeral': ephemeral,
+            'entity_type': entity_type,
+            'entity_id': entity_id,
+            'entity_name': str(entity),
+        }
+        
+        if ephemeral:
+            response_data['expires_in'] = SecureQRToken.EPHEMERAL_DURATION
+            response_data['message'] = f'Ephemeral QR code generated for {entity_type}, valid for {SecureQRToken.EPHEMERAL_DURATION} seconds'
         else:
-            return JsonResponse({'error': f'{entity_type} does not support QR code generation'}, status=400)
+            response_data['message'] = f'Static QR code generated for {entity_type}'
+            if hasattr(entity, 'qr_code') and entity.qr_code:
+                response_data['qr_code_url'] = entity.qr_code.url
+        
+        return JsonResponse(response_data)
     
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
@@ -2702,6 +3162,22 @@ def generate_qr_code(request):
 
 def test_links(request):
     return render(request, "maintenance/test_links.html")
+
+
+@login_required
+def qr_links_page(request):
+    """
+    صفحة شاملة تحتوي على جميع روابط ووظائف نظام QR Code
+    Comprehensive page containing all QR Code system links and functionality
+    """
+    from django.conf import settings
+    
+    context = {
+        'title': 'QR Code System Links',
+        'qr_domain': getattr(settings, 'QR_DOMAIN', 'https://hms.my-domain.com'),
+    }
+    
+    return render(request, 'maintenance/qr_links.html', context)
 
 
 @login_required
@@ -2754,6 +3230,13 @@ def transfer_test_page(request):
     Test page to show all transfer-related links
     """
     return render(request, 'maintenance/transfer_test_page.html')
+
+
+def mobile_qr_scan(request):
+    """
+    Mobile-optimized QR scanning page
+    """
+    return render(request, 'maintenance/mobile_qr_scan.html')
 
 
 @login_required

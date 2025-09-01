@@ -34,6 +34,17 @@
                 الأنواع المدعومة: Patient, Bed, User, Device, DeviceAccessory
               </div>
             </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="autoRedirectCheck" checked>
+                <label class="form-check-label" for="autoRedirectCheck">
+                  🔄 توجيه تلقائي لصفحة التفاصيل (للأجهزة والمرضى والأسرّة)
+                </label>
+              </div>
+              <div class="form-text">
+                إذا كان مفعل، سيتم توجيهك تلقائياً لصفحة تفاصيل الكيان المسحوب
+              </div>
+            </div>
             <div class="d-grid gap-2">
               <button type="submit" class="btn btn-primary btn-lg">🔍 مسح الكود</button>
               <button type="button" class="btn btn-outline-secondary" id="clearBtn">🗑️ مسح</button>
@@ -151,23 +162,39 @@ document.addEventListener('DOMContentLoaded', function() {
     function scanQRCode(qrCode) {
         loadingModal.show();
         
-        fetch('{% url "maintenance:scan_qr_code" %}', {
+        const autoRedirect = document.getElementById('autoRedirectCheck').checked;
+        
+        fetch('{% url "maintenance:scan_qr_code_api" %}', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                qr_code: qrCode
+                qr_code: qrCode,
+                device_type: autoRedirect ? 'mobile' : 'scanner'
             })
         })
         .then(response => response.json())
         .then(data => {
             loadingModal.hide();
-            displayResults(data, qrCode);
-            addToHistory(qrCode, data);
-            qrInput.value = '';
-            qrInput.focus();
+            
+            // Check if response contains redirect_url (mobile device type)
+            if (data.success && data.redirect_url) {
+                // Show success message briefly then redirect
+                displayRedirectMessage(data);
+                addToHistory(qrCode, data);
+                
+                // Redirect after 2 seconds
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 2000);
+            } else {
+                // Normal display for scanner responses
+                displayResults(data, qrCode);
+                addToHistory(qrCode, data);
+                qrInput.value = '';
+                qrInput.focus();
+            }
         })
         .catch(error => {
             loadingModal.hide();
@@ -273,6 +300,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         scanResults.innerHTML = html;
+    }
+    function displayRedirectMessage(data) {
+        const entityName = data.entity_data ? data.entity_data.name : data.entity_name;
+        scanResults.innerHTML = `
+            <div class="alert alert-success">
+                <h6 class="alert-heading">🔄 جاري التوجيه...</h6>
+                <p class="mb-2">تم مسح: <strong>${entityName}</strong></p>
+                <p class="mb-2">${data.message}</p>
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">جاري التحميل...</span>
+                    </div>
+                    <small class="text-muted">سيتم توجيهك خلال ثانيتين...</small>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">أو <a href="${data.redirect_url}" class="text-decoration-none">اضغط هنا للانتقال فوراً</a></small>
+                </div>
+            </div>
+        `;
     }
 
     // Display error
