@@ -4,7 +4,7 @@
 
 {% block title %}{% trans "تسجيل صيانة الجهاز" %} - {{ device.name }}{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
     .operation-card {
         border: none;
@@ -40,9 +40,7 @@
         margin-bottom: 1.5rem;
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="container-fluid" dir="rtl">
     <div class="row justify-content-center">
         <div class="col-lg-8 col-md-10">
@@ -108,7 +106,6 @@
                                 <option value="">{% trans "اختر نوع الصيانة" %}</option>
                                 <option value="preventive">{% trans "صيانة وقائية" %}</option>
                                 <option value="corrective">{% trans "صيانة تصحيحية" %}</option>
-                                <option value="emergency">{% trans "صيانة طارئة" %}</option>
                                 <option value="calibration">{% trans "معايرة" %}</option>
                                 <option value="inspection">{% trans "فحص دوري" %}</option>
                                 <option value="replacement">{% trans "استبدال قطع" %}</option>

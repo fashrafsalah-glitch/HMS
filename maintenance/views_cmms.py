@@ -1976,8 +1976,38 @@ def work_order_update_status(request, wo_id):
                     work_order.actual_hours = round(time_diff.total_seconds() / 3600, 2)
                     print(f"DEBUG: Calculated actual_hours: {work_order.actual_hours}")
             
+            # حفظ أمر العمل أولاً
             work_order.save()
             print(f"DEBUG: After save - actual_start: {work_order.actual_start}")
+            
+            # تحديث حالة الجهاز إلى "يعمل" عند إكمال أمر العمل (بعد الحفظ)
+            if new_status in ['resolved', 'qa_verified', 'closed']:
+                device = work_order.service_request.device
+                print(f"DEBUG: Checking device {device.id} status: {device.status}")
+                
+                if device.status == 'needs_maintenance':
+                    # التحقق من عدم وجود أوامر عمل أخرى مفتوحة (باستثناء الصيانة الوقائية والفحص)
+                    other_open_orders = device.service_requests.exclude(
+                        request_type__in=['preventive', 'inspection']
+                    ).filter(
+                        work_orders__status__in=['new', 'assigned', 'in_progress']
+                    ).exclude(work_orders__id=work_order.id)
+                    
+                    print(f"DEBUG: Other open work orders (excluding preventive/inspection): {other_open_orders.count()}")
+                    
+                    if not other_open_orders.exists():
+                        print(f"DEBUG: Updating device {device.id} status to working")
+                        device.status = 'working'
+                        device.save()
+                        print(f"DEBUG: Device {device.id} new status: {device.status}")
+                        messages.success(request, f'تم تحديث حالة الجهاز {device.name} إلى "يعمل" بعد إكمال أمر العمل')
+                    else:
+                        print(f"DEBUG: Cannot update - other critical open orders exist")
+                        for sr in other_open_orders:
+                            for wo in sr.work_orders.filter(status__in=['new', 'assigned', 'in_progress']):
+                                print(f"DEBUG: Critical open work order: WO {wo.id} - Status: {wo.status} - Type: {sr.request_type} - Title: {wo.title}")
+                else:
+                    print(f"DEBUG: Device status is not needs_maintenance: {device.status}")
             
             messages.success(request, f'تم تحديث حالة أمر الشغل من {old_status} إلى {new_status} بنجاح')
         else:

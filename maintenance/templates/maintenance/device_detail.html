@@ -1,388 +1,377 @@
 {% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "تفاصيل الجهاز" %} - {{ device.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4" dir="rtl">
-  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
-    <div>
-      <h2 class="mb-1">{{ device.brief_description }}</h2>
-      <div class="small text-muted">رقم الجهاز: {{ device.device_id }}</div>
-    </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-primary"> التفاصيل</a>
-      <a href="{% url 'maintenance:device_transfer_history' device.id %}" class="btn btn-outline-primary"> سجل الحركات</a>
-      <a href="{% url 'maintenance:add_accessory' device.id %}" class="btn btn-secondary"> إضافة ملحق</a>
-      <a href="{% url 'maintenance:maintenance_schedule' device.id %}" class="btn btn-success"> مواعيد الصيانة</a>
-      <a href="{% url 'maintenance:add_emergency_request' device.id %}" class="btn btn-danger"> صيانة مستعجلة</a>
-      <a href="{% url 'maintenance:add_spare_part' device.id %}" class="btn btn-warning"> قطع غيار</a>
-    </div>
-  </div>
+<style>
+    .device-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .device-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1.25rem;
+    }
+    .action-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .action-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1rem;
+    }
+    .records-header {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1rem;
+    }
+    .qr-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        padding: 1rem;
+    }
+    .operation-btn {
+        border-radius: 0.375rem;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    .operation-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
+    }
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+    }
+</style>
 
-  <div class="row g-4">
-    <div class="col-lg-8">
-      <div class="card shadow-sm">
-        <div class="card-header bg-light">
-          <h5 class="mb-0">معلومات الجهاز</h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <div class="text-muted">القسم</div>
-              <div class="fw-semibold">{{ device.department.name }}</div>
-            </div>
-            <div class="col-sm-6">
-              <div class="text-muted">الغرفة</div>
-              <div class="fw-semibold">{{ device.room }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">الموديل</div>
-              <div class="fw-semibold">{{ device.model }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">الحالة</div>
-              <span class="badge bg-{% if device.status == 'working' %}success{% elif device.status == 'broken' %}danger{% else %}secondary{% endif %}">
-                {{ device.get_status_display }}
-              </span>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">التنظيف</div>
-              <span class="badge bg-{% if device.clean_status == 'clean' %}success{% elif device.clean_status == 'needs_cleaning' %}warning{% else %}secondary{% endif %}">
-                {{ device.get_clean_status_display }}
-              </span>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">التعقيم</div>
-              <span class="badge bg-{% if device.sterilization_status == 'sterilized' %}success{% elif device.sterilization_status == 'needs_sterilization' %}warning{% else %}secondary{% endif %}">
-                {{ device.get_sterilization_status_display }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card shadow-sm mt-3">
-        <div class="card-header bg-primary text-white">
-          <h6 class="mb-0">إجراءات سريعة</h6>
-        </div>
-        <div class="card-body d-flex flex-wrap gap-2">
-          <button type="button" class="btn btn-warning ajax-action-btn" 
-                  data-action="clean" 
-                  data-url="{% url 'maintenance:ajax_clean_device' device.id %}"
-                  data-device-id="{{ device.id }}">
-            <i class="bi bi-droplet me-1"></i>
-            <span class="btn-text">تم تنظيف الجهاز</span>
-            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-          </button>
-          
-          <button type="button" class="btn btn-info text-white ajax-action-btn" 
-                  data-action="sterilize" 
-                  data-url="{% url 'maintenance:ajax_sterilize_device' device.id %}"
-                  data-device-id="{{ device.id }}">
-            <i class="bi bi-shield-check me-1"></i>
-            <span class="btn-text">تم تعقيم الجهاز</span>
-            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-          </button>
-          
-          <a href="{% url 'maintenance:device_maintain' device.id %}" class="btn btn-success">
-            <i class="bi bi-tools me-1"></i>
-            فحص الجهاز
-          </a>
-        </div>
-      </div>
-
-      <div class="card shadow-sm mt-3">
-        <div class="card-header bg-light">
-          <h6 class="mb-0">السجلات</h6>
-        </div>
-        <div class="card-body d-flex flex-wrap gap-2">
-          <a href="{% url 'maintenance:cleaning_history' device.id %}" class="btn btn-outline-warning btn-sm"> سجل التنظيف</a>
-          <a href="{% url 'maintenance:sterilization_history' device.id %}" class="btn btn-outline-info btn-sm"> سجل التعقيم</a>
-          <a href="{% url 'maintenance:maintenance_history' device.id %}" class="btn btn-outline-success btn-sm"> سجل الصيانة</a>
-        </div>
-        <div class="card-footer small text-muted">
-          {% if device.last_cleaned_by %}
-            آخر تنظيف: {{ device.last_cleaned_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_cleaned_by }}<br>
-          {% endif %}
-          {% if device.last_sterilized_by %}
-            آخر تعقيم: {{ device.last_sterilized_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_sterilized_by }}<br>
-          {% endif %}
-          {% if device.last_maintained_by %}
-            آخر صيانة: {{ device.last_maintained_at|date:"Y-m-d H:i" }} بواسطة {{ device.last_maintained_by }}
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Accessories Section with Tabs -->
-      <div class="card shadow-sm mt-3">
-        <div class="card-header bg-info text-white">
-          <h6 class="mb-0">
-            <i class="bi bi-gear me-2"></i>ملحقات الجهاز
-          </h6>
-        </div>
-        <div class="card-body p-0">
-          <!-- Nav tabs -->
-          <ul class="nav nav-tabs" id="accessoryTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="accessories-list-tab" data-bs-toggle="tab" data-bs-target="#accessories-list" type="button" role="tab">
-                <i class="bi bi-list me-1"></i>قائمة الملحقات
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="add-accessory-tab" data-bs-toggle="tab" data-bs-target="#add-accessory" type="button" role="tab">
-                <i class="bi bi-plus-circle me-1"></i>إضافة ملحق
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="scan-accessory-tab" data-bs-toggle="tab" data-bs-target="#scan-accessory" type="button" role="tab">
-                <i class="bi bi-qr-code-scan me-1"></i>مسح باركود
-              </button>
-            </li>
-          </ul>
-
-          <!-- Tab content -->
-          <div class="tab-content p-3" id="accessoryTabContent">
-            <!-- Accessories List Tab -->
-            <div class="tab-pane fade show active" id="accessories-list" role="tabpanel">
-              {% if device.accessories.all %}
-                <div class="table-responsive">
-                  <table class="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>الاسم</th>
-                        <th>الحالة</th>
-                        <th>الرقم التسلسلي</th>
-                        <th>الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for accessory in device.accessories.all %}
-                      <tr>
-                        <td>{{ accessory.name }}</td>
-                        <td>
-                          <span class="badge bg-{% if accessory.status == 'available' %}success{% elif accessory.status == 'in_use' %}primary{% elif accessory.status == 'maintenance' %}warning{% elif accessory.status == 'damaged' %}danger{% else %}secondary{% endif %}">
-                            {{ accessory.get_status_display }}
-                          </span>
-                        </td>
-                        <td>{{ accessory.serial_number|default:"-" }}</td>
-                        <td>
-                          <div class="btn-group btn-group-sm">
-                            <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-outline-info" title="التفاصيل">
-                              <i class="bi bi-eye"></i>
-                            </a>
-                            <a href="{% url 'maintenance:accessory_edit' accessory.id %}" class="btn btn-outline-warning" title="تعديل">
-                              <i class="bi bi-pencil"></i>
-                            </a>
-                            <a href="{% url 'maintenance:accessory_qr_print' accessory.id %}" class="btn btn-outline-secondary" title="طباعة QR">
-                              <i class="bi bi-qr-code"></i>
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
+<div class="container-fluid" dir="rtl">
+    <div class="row">
+        <div class="col-12">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-desktop text-primary me-2"></i>
+                        {% trans "تفاصيل الجهاز" %}
+                    </h2>
+                    <p class="text-muted mb-0">{{ device.name }}</p>
                 </div>
-              {% else %}
-                <div class="text-center text-muted py-4">
-                  <i class="bi bi-gear" style="font-size: 2rem;"></i>
-                  <p class="mb-0">لا توجد ملحقات مسجلة لهذا الجهاز</p>
-                  <button class="btn btn-sm btn-primary mt-2" onclick="document.getElementById('add-accessory-tab').click()">
-                    إضافة أول ملحق
-                  </button>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'maintenance:device_info' device.id %}" class="btn btn-primary">
+                        <i class="fas fa-info-circle me-1"></i>
+                        {% trans "التفاصيل" %}
+                    </a>
+                    <a href="{% url 'maintenance:device_transfer_history' device.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-history me-1"></i>
+                        {% trans "سجل الحركات" %}
+                    </a>
+                    <a href="{% url 'maintenance:add_accessory' device.id %}" class="btn btn-secondary">
+                        <i class="fas fa-plus me-1"></i>
+                        {% trans "إضافة ملحق" %}
+                    </a>
+                    <a href="{% url 'maintenance:maintenance_schedule' device.id %}" class="btn btn-success">
+                        <i class="fas fa-calendar me-1"></i>
+                        {% trans "مواعيد الصيانة" %}
+                    </a>
+                    <a href="{% url 'maintenance:add_emergency_request' device.id %}" class="btn btn-danger">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        {% trans "صيانة مستعجلة" %}
+                    </a>
+                    <a href="{% url 'maintenance:add_spare_part' device.id %}" class="btn btn-warning">
+                        <i class="fas fa-cog me-1"></i>
+                        {% trans "قطع غيار" %}
+                    </a>
                 </div>
-              {% endif %}
             </div>
 
-            <!-- Add Accessory Tab -->
-            <div class="tab-pane fade" id="add-accessory" role="tabpanel">
-              <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="add_accessory" value="1">
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.name.id_for_label }}" class="form-label">{{ accessory_form.name.label }}</label>
-                      {{ accessory_form.name }}
-                      {% if accessory_form.name.errors %}
-                        <div class="text-danger small">{{ accessory_form.name.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.status.id_for_label }}" class="form-label">{{ accessory_form.status.label }}</label>
-                      {{ accessory_form.status }}
-                      {% if accessory_form.status.errors %}
-                        <div class="text-danger small">{{ accessory_form.status.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mb-3">
-                  <label for="{{ accessory_form.description.id_for_label }}" class="form-label">{{ accessory_form.description.label }}</label>
-                  {{ accessory_form.description }}
-                  {% if accessory_form.description.errors %}
-                    <div class="text-danger small">{{ accessory_form.description.errors }}</div>
-                  {% endif %}
-                </div>
-
-                <div class="row">
-                  <div class="col-md-4">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.serial_number.id_for_label }}" class="form-label">{{ accessory_form.serial_number.label }}</label>
-                      {{ accessory_form.serial_number }}
-                      {% if accessory_form.serial_number.errors %}
-                        <div class="text-danger small">{{ accessory_form.serial_number.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.model.id_for_label }}" class="form-label">{{ accessory_form.model.label }}</label>
-                      {{ accessory_form.model }}
-                      {% if accessory_form.model.errors %}
-                        <div class="text-danger small">{{ accessory_form.model.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.manufacturer.id_for_label }}" class="form-label">{{ accessory_form.manufacturer.label }}</label>
-                      {{ accessory_form.manufacturer }}
-                      {% if accessory_form.manufacturer.errors %}
-                        <div class="text-danger small">{{ accessory_form.manufacturer.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.purchase_date.id_for_label }}" class="form-label">{{ accessory_form.purchase_date.label }}</label>
-                      {{ accessory_form.purchase_date }}
-                      {% if accessory_form.purchase_date.errors %}
-                        <div class="text-danger small">{{ accessory_form.purchase_date.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="mb-3">
-                      <label for="{{ accessory_form.warranty_expiry.id_for_label }}" class="form-label">{{ accessory_form.warranty_expiry.label }}</label>
-                      {{ accessory_form.warranty_expiry }}
-                      {% if accessory_form.warranty_expiry.errors %}
-                        <div class="text-danger small">{{ accessory_form.warranty_expiry.errors }}</div>
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="bi bi-check-lg me-1"></i>إضافة الملحق
-                </button>
-              </form>
-            </div>
-
-            <!-- Scan Accessory Tab -->
-            <div class="tab-pane fade" id="scan-accessory" role="tabpanel">
-              <div class="row">
-                <div class="col-md-8">
-                  <form method="post" id="scanForm">
-                    {% csrf_token %}
-                    <input type="hidden" name="scan_accessory" value="1">
-                    <div class="mb-3">
-                      <label for="{{ scan_form.barcode.id_for_label }}" class="form-label">{{ scan_form.barcode.label }}</label>
-                      {{ scan_form.barcode }}
-                      {% if scan_form.barcode.errors %}
-                        <div class="text-danger small">{{ scan_form.barcode.errors }}</div>
-                      {% endif %}
-                    </div>
-
-                    <div class="row">
-                      <div class="col-md-6">
-                        <div class="mb-3">
-                          <label for="{{ scan_form.transaction_type.id_for_label }}" class="form-label">{{ scan_form.transaction_type.label }}</label>
-                          {{ scan_form.transaction_type }}
-                          {% if scan_form.transaction_type.errors %}
-                            <div class="text-danger small">{{ scan_form.transaction_type.errors }}</div>
-                          {% endif %}
+            <!-- Device Information Card -->
+            <div class="device-card card">
+                <div class="device-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-1">
+                                <i class="fas fa-desktop me-2"></i>
+                                {{ device.name }}
+                            </h4>
+                            <p class="mb-0 opacity-75">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                {{ device.department.name }} - {{ device.room.name }}
+                                {% if device.serial_number %}
+                                    | <i class="fas fa-barcode me-1"></i>{{ device.serial_number }}
+                                {% endif %}
+                            </p>
                         </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="mb-3">
-                          <label for="{{ scan_form.notes.id_for_label }}" class="form-label">{{ scan_form.notes.label }}</label>
-                          {{ scan_form.notes }}
-                          {% if scan_form.notes.errors %}
-                            <div class="text-danger small">{{ scan_form.notes.errors }}</div>
-                          {% endif %}
+                        <div class="col-md-4 text-start">
+                            <span class="status-badge badge bg-{% if device.status == 'working' %}success{% elif device.status == 'needs_maintenance' %}warning{% elif device.status == 'broken' %}danger{% else %}secondary{% endif %} fs-6">
+                                <i class="fas fa-circle me-1"></i>
+                                {{ device.get_status_display }}
+                            </span>
                         </div>
-                      </div>
                     </div>
-
-                    <button type="submit" class="btn btn-primary">
-                      <i class="bi bi-check-lg me-1"></i>تسجيل العملية
-                    </button>
-                  </form>
                 </div>
-
-                <div class="col-md-4">
-                  <h6 class="mb-3">
-                    <i class="bi bi-clock-history me-2"></i>العمليات الأخيرة
-                  </h6>
-                  {% if recent_transactions %}
-                    <div class="list-group list-group-flush">
-                      {% for transaction in recent_transactions %}
-                      <div class="list-group-item px-0 py-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div>
-                            <h6 class="mb-1 small">{{ transaction.accessory.name }}</h6>
-                            <p class="mb-1 small text-muted">{{ transaction.get_transaction_type_display }}</p>
-                            <small class="text-muted">{{ transaction.created_at|date:"d/m H:i" }}</small>
-                          </div>
-                          <span class="badge bg-{% if transaction.is_confirmed %}success{% else %}warning{% endif %} small">
-                            {% if transaction.is_confirmed %}مؤكد{% else %}معلق{% endif %}
-                          </span>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="text-muted mb-1">{% trans "الموديل" %}</div>
+                                <div class="fw-bold">{{ device.model|default:"-" }}</div>
+                            </div>
                         </div>
-                      </div>
-                      {% endfor %}
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="text-muted mb-1">{% trans "التنظيف" %}</div>
+                                <span class="badge bg-{% if device.clean_status == 'clean' %}success{% elif device.clean_status == 'needs_cleaning' %}warning{% else %}secondary{% endif %}">
+                                    {{ device.get_clean_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="text-muted mb-1">{% trans "التعقيم" %}</div>
+                                <span class="badge bg-{% if device.sterilization_status == 'sterilized' %}success{% elif device.sterilization_status == 'needs_sterilization' %}warning{% else %}secondary{% endif %}">
+                                    {{ device.get_sterilization_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="text-muted mb-1">{% trans "آخر صيانة" %}</div>
+                                <div class="small">{{ device.last_maintained_at|date:"Y-m-d"|default:"-" }}</div>
+                            </div>
+                        </div>
                     </div>
-                  {% else %}
-                    <p class="text-muted text-center small">لا توجد عمليات سابقة</p>
-                  {% endif %}
                 </div>
-              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="col-lg-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-          <h6 class="mb-0">QR</h6>
-          <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-sm btn-outline-secondary">نقل</a>
+            <div class="row g-4">
+                <!-- Quick Actions -->
+                <div class="col-lg-8">
+                    <div class="action-card card">
+                        <div class="action-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-bolt me-2"></i>
+                                {% trans "الإجراءات السريعة" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-warning operation-btn w-100 ajax-action-btn" 
+                                            data-action="clean" 
+                                            data-url="{% url 'maintenance:ajax_clean_device' device.id %}"
+                                            data-device-id="{{ device.id }}">
+                                        <i class="fas fa-soap me-1"></i>
+                                        <span class="btn-text">{% trans "تنظيف الجهاز" %}</span>
+                                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-info operation-btn w-100 ajax-action-btn" 
+                                            data-action="sterilize" 
+                                            data-url="{% url 'maintenance:ajax_sterilize_device' device.id %}"
+                                            data-device-id="{{ device.id }}">
+                                        <i class="fas fa-shield-alt me-1"></i>
+                                        <span class="btn-text">{% trans "تعقيم الجهاز" %}</span>
+                                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="{% url 'maintenance:device_maintain' device.id %}" class="btn btn-success operation-btn w-100">
+                                        <i class="fas fa-wrench me-1"></i>
+                                        {% trans "تسجيل صيانة" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Records Section -->
+                    <div class="action-card card">
+                        <div class="records-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history me-2"></i>
+                                {% trans "السجلات والتقارير" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <a href="{% url 'maintenance:cleaning_history' device.id %}" class="btn btn-outline-warning operation-btn w-100">
+                                        <i class="fas fa-soap me-1"></i>
+                                        {% trans "سجل التنظيف" %}
+                                    </a>
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="{% url 'maintenance:sterilization_history' device.id %}" class="btn btn-outline-info operation-btn w-100">
+                                        <i class="fas fa-shield-alt me-1"></i>
+                                        {% trans "سجل التعقيم" %}
+                                    </a>
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="{% url 'maintenance:maintenance_history' device.id %}" class="btn btn-outline-success operation-btn w-100">
+                                        <i class="fas fa-wrench me-1"></i>
+                                        {% trans "سجل الصيانة" %}
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            {% if device.last_cleaned_by or device.last_sterilized_by or device.last_maintained_by %}
+                            <div class="mt-3 pt-3 border-top">
+                                <h6 class="text-muted mb-2">{% trans "آخر العمليات" %}</h6>
+                                <div class="row g-2">
+                                    {% if device.last_cleaned_by %}
+                                    <div class="col-md-4">
+                                        <small class="text-muted">
+                                            <i class="fas fa-soap me-1"></i>
+                                            <strong>{% trans "التنظيف:" %}</strong><br>
+                                            {{ device.last_cleaned_at|date:"Y-m-d H:i" }}<br>
+                                            {% trans "بواسطة" %} {{ device.last_cleaned_by.get_full_name }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    {% if device.last_sterilized_by %}
+                                    <div class="col-md-4">
+                                        <small class="text-muted">
+                                            <i class="fas fa-shield-alt me-1"></i>
+                                            <strong>{% trans "التعقيم:" %}</strong><br>
+                                            {{ device.last_sterilized_at|date:"Y-m-d H:i" }}<br>
+                                            {% trans "بواسطة" %} {{ device.last_sterilized_by.get_full_name }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    {% if device.last_maintained_by %}
+                                    <div class="col-md-4">
+                                        <small class="text-muted">
+                                            <i class="fas fa-wrench me-1"></i>
+                                            <strong>{% trans "الصيانة:" %}</strong><br>
+                                            {{ device.last_maintained_at|date:"Y-m-d H:i" }}<br>
+                                            {% trans "بواسطة" %} {{ device.last_maintained_by.get_full_name }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Accessories Section -->
+                    <div class="action-card card">
+                        <div class="action-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs me-2"></i>
+                                {% trans "ملحقات الجهاز" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if device.accessories.all %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "الاسم" %}</th>
+                                                <th>{% trans "الحالة" %}</th>
+                                                <th>{% trans "الرقم التسلسلي" %}</th>
+                                                <th>{% trans "الإجراءات" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for accessory in device.accessories.all %}
+                                            <tr>
+                                                <td>{{ accessory.name }}</td>
+                                                <td>
+                                                    <span class="badge bg-{% if accessory.status == 'available' %}success{% elif accessory.status == 'in_use' %}primary{% elif accessory.status == 'maintenance' %}warning{% elif accessory.status == 'damaged' %}danger{% else %}secondary{% endif %}">
+                                                        {{ accessory.get_status_display }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ accessory.serial_number|default:"-" }}</td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{% url 'maintenance:accessory_detail' accessory.id %}" class="btn btn-outline-info" title="{% trans 'التفاصيل' %}">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'maintenance:accessory_edit' accessory.id %}" class="btn btn-outline-warning" title="{% trans 'تعديل' %}">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                        <a href="{% url 'maintenance:accessory_qr_print' accessory.id %}" class="btn btn-outline-secondary" title="{% trans 'طباعة QR' %}">
+                                                            <i class="fas fa-qrcode"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-cogs fa-3x mb-3"></i>
+                                    <h6 class="text-muted">{% trans "لا توجد ملحقات مسجلة" %}</h6>
+                                    <p class="text-muted">{% trans "لم يتم تسجيل أي ملحقات لهذا الجهاز حتى الآن" %}</p>
+                                    <a href="{% url 'maintenance:add_accessory' device.id %}" class="btn btn-primary">
+                                        <i class="fas fa-plus me-1"></i>
+                                        {% trans "إضافة أول ملحق" %}
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code Section -->
+                <div class="col-lg-4">
+                    <div class="action-card card">
+                        <div class="qr-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-qrcode me-2"></i>
+                                {% trans "رمز QR" %}
+                            </h5>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if device.qr_code %}
+                                <img src="{{ device.qr_code.url }}" alt="QR Code" class="img-fluid mb-3" style="max-width: 200px; border-radius: 0.375rem;">
+                                {% if device.qr_token %}
+                                    <div class="small text-muted mb-3">
+                                        <code>{{ device.qr_token }}</code>
+                                    </div>
+                                {% endif %}
+                                <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-exchange-alt me-1"></i>
+                                    {% trans "نقل الجهاز" %}
+                                </a>
+                            {% else %}
+                                <div class="text-muted py-4">
+                                    <i class="fas fa-qrcode fa-3x mb-3"></i>
+                                    <p class="mb-0">{% trans "لا يوجد رمز QR" %}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body text-center">
-          {% if device.qr_code %}
-            <img src="{{ device.qr_code.url }}" alt="QR" class="img-thumbnail mb-2" style="max-width:220px">
-            {% if device.qr_token %}
-              <div class="small text-muted">{{ device.qr_token }}</div>
-            {% endif %}
-          {% else %}
-            <div class="text-muted">لا يوجد QR مسجل</div>
-          {% endif %}
-        </div>
-      </div>
     </div>
-  </div>
 </div>
 
 <!-- Toast Container for Notifications -->
 <div class="toast-container position-fixed top-0 end-0 p-3">
   <div id="actionToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">
-      <strong class="me-auto">إشعار</strong>
+      <strong class="me-auto">{% trans "إشعار" %}</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
     <div class="toast-body" id="toastMessage">
@@ -461,75 +450,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function updateDeviceStatus(action, data) {
-        // Update status badges and last action info
+        // Update status badges in the device info section
         if (action === 'clean') {
-            // Update clean status badge
-            const cleanBadge = document.querySelector('.col-sm-4:nth-child(3) .badge');
-            if (cleanBadge) {
-                cleanBadge.textContent = data.clean_status;
-                cleanBadge.className = `badge bg-${data.clean_status_class}`;
-            }
-            
-            // Update last cleaned info in footer
-            updateLastActionInfo('cleaned', data.last_cleaned_at, data.last_cleaned_by);
-            
-        } else if (action === 'sterilize') {
-            // Update sterilization status badge
-            const sterilizeBadge = document.querySelector('.col-sm-4:nth-child(4) .badge');
-            if (sterilizeBadge) {
-                sterilizeBadge.textContent = data.sterilization_status;
-                sterilizeBadge.className = `badge bg-${data.sterilization_status_class}`;
-            }
-            
-            // Update last sterilized info in footer
-            updateLastActionInfo('sterilized', data.last_sterilized_at, data.last_sterilized_by);
-            
-        } else if (action === 'maintenance') {
-            // Update device status badge
-            const statusBadge = document.querySelector('.col-sm-4:nth-child(2) .badge');
-            if (statusBadge) {
-                statusBadge.textContent = data.status;
-                statusBadge.className = `badge bg-${data.status_class}`;
-            }
-            
-            // Update last maintained info in footer
-            updateLastActionInfo('maintained', data.last_maintained_at, data.last_maintained_by);
-        }
-    }
-    
-    function updateLastActionInfo(actionType, timestamp, user) {
-        const footer = document.querySelector('.card-footer');
-        if (footer) {
-            let actionText = '';
-            if (actionType === 'cleaned') actionText = 'آخر تنظيف';
-            else if (actionType === 'sterilized') actionText = 'آخر تعقيم';
-            else if (actionType === 'maintained') actionText = 'آخر صيانة';
-            
-            // Find existing line or create new one
-            const lines = footer.innerHTML.split('<br>');
-            let updated = false;
-            
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].includes(actionText)) {
-                    lines[i] = `${actionText}: ${timestamp} بواسطة ${user}`;
-                    updated = true;
-                    break;
+            // Find and update clean status badge
+            const cleanBadges = document.querySelectorAll('.badge');
+            cleanBadges.forEach(badge => {
+                if (badge.textContent.includes('نظيف') || badge.textContent.includes('يحتاج')) {
+                    badge.textContent = data.clean_status;
+                    badge.className = `badge bg-${data.clean_status_class}`;
                 }
-            }
-            
-            if (!updated) {
-                lines.push(`${actionText}: ${timestamp} بواسطة ${user}`);
-            }
-            
-            footer.innerHTML = lines.join('<br>');
+            });
+        } else if (action === 'sterilize') {
+            // Find and update sterilization status badge
+            const sterilizeBadges = document.querySelectorAll('.badge');
+            sterilizeBadges.forEach(badge => {
+                if (badge.textContent.includes('معقم') || badge.textContent.includes('تعقيم')) {
+                    badge.textContent = data.sterilization_status;
+                    badge.className = `badge bg-${data.sterilization_status_class}`;
+                }
+            });
         }
     }
     
     function getOriginalButtonText(action) {
         switch(action) {
-            case 'clean': return 'تم تنظيف الجهاز';
-            case 'sterilize': return 'تم تعقيم الجهاز';
-            case 'maintenance': return 'تم فحص الجهاز';
+            case 'clean': return 'تنظيف الجهاز';
+            case 'sterilize': return 'تعقيم الجهاز';
+            case 'maintenance': return 'تسجيل صيانة';
             default: return 'تم';
         }
     }

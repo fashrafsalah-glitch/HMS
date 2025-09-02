@@ -347,15 +347,22 @@ def sterilization_history(request, device_id):
 @login_required
 def perform_maintenance(request, device_id):
     device = get_object_or_404(Device, id=device_id)
+    
+    # التحقق من إمكانية تغيير حالة الجهاز
+    if not device.can_change_status():
+        messages.error(request, '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
     device.status = 'working'
     device.last_maintained_by = request.user
     device.last_maintained_at = timezone.now()
     device.save()
-
-    # إضافة سجل جديد
+    
+    # Add maintenance log
     DeviceMaintenanceLog.objects.create(device=device, maintained_by=request.user)
-    messages.success(request, f"✅ تم صيانة الجهاز بواسطة {request.user.username}")
-    return redirect('maintenance:device_detail', pk=device.id)
+    
+    messages.success(request, f'تم فحص الجهاز "{device.name}" بنجاح.')
+    return redirect('maintenance:device_list')
 
 @login_required
 def maintenance_history(request, device_id):
@@ -370,6 +377,14 @@ def ajax_clean_device(request, device_id):
     """AJAX endpoint for instant device cleaning"""
     try:
         device = get_object_or_404(Device, id=device_id)
+        
+        # التحقق من إمكانية تغيير حالة الجهاز
+        if not device.can_change_status():
+            return JsonResponse({
+                'success': False,
+                'message': '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً'
+            })
+        
         device.clean_status = 'clean'
         device.last_cleaned_by = request.user
         device.last_cleaned_at = timezone.now()
@@ -398,6 +413,14 @@ def ajax_sterilize_device(request, device_id):
     """AJAX endpoint for instant device sterilization"""
     try:
         device = get_object_or_404(Device, id=device_id)
+        
+        # التحقق من إمكانية تغيير حالة الجهاز
+        if not device.can_change_status():
+            return JsonResponse({
+                'success': False,
+                'message': '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً'
+            })
+        
         device.sterilization_status = 'sterilized'
         device.last_sterilized_by = request.user
         device.last_sterilized_at = timezone.now()
@@ -426,6 +449,14 @@ def ajax_perform_maintenance(request, device_id):
     """AJAX endpoint for instant device maintenance"""
     try:
         device = get_object_or_404(Device, id=device_id)
+        
+        # التحقق من إمكانية تغيير حالة الجهاز
+        if not device.can_change_status():
+            return JsonResponse({
+                'success': False,
+                'message': '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً'
+            })
+        
         device.status = 'working'
         device.last_maintained_by = request.user
         device.last_maintained_at = timezone.now()
@@ -475,6 +506,11 @@ def assign_device(request, device_id):
             messages.error(request, "المريض المحدد غير موجود.")
             return render(request, 'maintenance/assign_device.html', {'device': device, 'patients': patients})
 
+        # التحقق من إمكانية تغيير حالة الجهاز
+        if not device.can_change_status():
+            messages.error(request, '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً')
+            return redirect('maintenance:device_detail', pk=device_id)
+        
         device.current_patient = patient
         device.status = 'in_use'
         device.save()
@@ -485,16 +521,19 @@ def assign_device(request, device_id):
 
 def release_device(request, device_id):
     device = get_object_or_404(Device, id=device_id)
+    
+    # التحقق من إمكانية تغيير حالة الجهاز
+    if not device.can_change_status():
+        messages.error(request, '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
     device.current_patient = None
     device.status = 'needs_check'
     device.clean_status = 'needs_cleaning'
     device.sterilization_status = 'needs_sterilization'
     device.save()
+    messages.success(request, f'تم تحرير الجهاز "{device.name}" من المريض بنجاح.')
     return redirect('maintenance:device_list')
-
-
-
-
 
 @login_required
 def approve_transfer(request, transfer_id):
@@ -1195,6 +1234,11 @@ def perform_maintenance(request, device_id):
             maintenance_type=maintenance_type
         )
         
+        # التحقق من إمكانية تغيير حالة الجهاز
+        if not device.can_change_status():
+            messages.error(request, '⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة يجب إكمالها أولاً')
+            return redirect('maintenance:device_detail', pk=device_id)
+        
         # Update device status to working after maintenance
         device.status = 'working'
         device.last_maintained_by = request.user
@@ -1247,7 +1291,11 @@ def add_emergency_request(request, pk):
                 service_request.title = f'طلب صيانة مستعجلة - {device.name}'
             service_request.save()
             
-            messages.success(request, f'تم إنشاء طلب الصيانة المستعجلة للجهاز {device.name} بنجاح')
+            # تحديث حالة الجهاز إلى "يحتاج صيانة"
+            device.status = 'needs_maintenance'
+            device.save()
+            
+            messages.success(request, f'تم إنشاء طلب الصيانة المستعجلة للجهاز {device.name} بنجاح وتم تحديث حالة الجهاز إلى "يحتاج صيانة"')
             return redirect('maintenance:device_detail', pk=device.pk)
         else:
             messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
@@ -2819,10 +2867,14 @@ def save_scan_session(request):
                         DeviceSterilizationLog.objects.create(device=device, last_sterilized_by=user)
                     
                     elif operation_type == 'maintenance':
-                        device.status = 'working'
-                        device.last_maintained_by = user
-                        device.last_maintained_at = timezone.now()
-                        DeviceMaintenanceLog.objects.create(device=device, last_maintained_by=user)
+                        # التحقق من إمكانية تغيير حالة الجهاز
+                        if device.can_change_status():
+                            device.status = 'working'
+                            device.last_maintained_by = user
+                            device.last_maintained_at = timezone.now()
+                            DeviceMaintenanceLog.objects.create(device=device, last_maintained_by=user)
+                        else:
+                            warnings.append("⚠️ لا يمكن تغيير حالة الجهاز - يوجد أوامر عمل مفتوحة")
                     
                     device.save()
                     created_records.append({'type': f'device_{operation_type}', 'device_id': device.id})

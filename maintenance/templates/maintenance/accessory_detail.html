@@ -4,7 +4,7 @@
 
 {% block title %}{% trans "تفاصيل الملحق" %} - {{ accessory.name }}{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
     .card {
         border: none;
@@ -34,9 +34,7 @@
         border-radius: 2rem;
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="container-fluid" dir="rtl">
     <div class="row">
         <div class="col-lg-10 mx-auto">

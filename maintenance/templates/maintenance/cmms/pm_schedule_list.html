@@ -1,72 +1,224 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}جداول الصيانة الوقائية{% endblock %}
+{% block title %}{% trans "جداول الصيانة الوقائية" %}{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4">
-    <h1 class="mt-4">جداول الصيانة الوقائية</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
-        <li class="breadcrumb-item active">جداول الصيانة الوقائية</li>
-    </ol>
+<style>
+    /* PM Schedule Page Specific Styles */
+    .pm-stats-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.75rem;
+        transition: transform 0.2s ease-in-out;
+    }
+    .pm-stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .pm-main-card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.75rem;
+        background-color: var(--bs-body-bg);
+    }
+    .pm-header-gradient {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 0.75rem 0.75rem 0 0 !important;
+        padding: 1.25rem;
+    }
+    .pm-filter-section {
+        background-color: var(--bs-gray-100);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    .pm-table-modern {
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background-color: var(--bs-body-bg);
+    }
+    .pm-table-modern thead th {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        border: none;
+        font-weight: 600;
+        padding: 1rem;
+    }
+    .pm-table-modern tbody tr {
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background-color 0.2s ease;
+        background-color: var(--bs-body-bg);
+    }
+    .pm-table-modern tbody tr:hover {
+        background-color: var(--bs-gray-100);
+    }
+    .pm-table-modern tbody td {
+        color: var(--bs-body-color);
+        border-color: var(--bs-border-color);
+    }
+    .pm-action-btn {
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        margin: 0.125rem;
+        transition: all 0.2s ease;
+    }
+    .pm-action-btn:hover {
+        transform: translateY(-1px);
+    }
+    .pm-status-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.375rem;
+    }
     
-    <div class="row mb-4">
+    /* Dark Mode Compatibility */
+    @media (prefers-color-scheme: dark) {
+        .pm-filter-section {
+            background-color: #2d3748;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .pm-table-modern tbody tr:hover {
+            background-color: #2d3748;
+        }
+        .pm-main-card {
+            background-color: #1a202c;
+            border-color: #2d3748;
+        }
+        .pm-table-modern {
+            background-color: #1a202c;
+        }
+        .pm-table-modern tbody tr {
+            background-color: #1a202c;
+            border-color: #2d3748;
+        }
+        .pm-table-modern tbody td {
+            color: #e2e8f0;
+        }
+    }
+    
+    /* Bootstrap Dark Theme Support */
+    [data-bs-theme="dark"] .pm-filter-section {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    [data-bs-theme="dark"] .pm-table-modern tbody tr:hover {
+        background-color: #2d3748;
+    }
+    
+    [data-bs-theme="dark"] .pm-main-card {
+        background-color: #1a202c;
+        border-color: #2d3748;
+    }
+    
+    [data-bs-theme="dark"] .pm-table-modern {
+        background-color: #1a202c;
+    }
+    
+    [data-bs-theme="dark"] .pm-table-modern tbody tr {
+        background-color: #1a202c;
+        border-color: #2d3748;
+    }
+    
+    [data-bs-theme="dark"] .pm-table-modern tbody td {
+        color: #e2e8f0;
+    }
+    
+    [data-bs-theme="dark"] .pm-filter-section .form-label {
+        color: #e2e8f0;
+    }
+    
+    [data-bs-theme="dark"] .pm-filter-section .form-select {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    [data-bs-theme="dark"] .pm-filter-section .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+</style>
+
+<div class="container-fluid" dir="rtl">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-calendar-alt text-primary me-2"></i>
+                {% trans "جداول الصيانة الوقائية" %}
+            </h2>
+            <p class="text-muted mb-0">{% trans "إدارة وتتبع جداول الصيانة الدورية" %}</p>
+        </div>
+        <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>
+            {% trans "إضافة جدول جديد" %}
+        </a>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-primary text-white mb-4">
+            <div class="pm-stats-card card bg-primary text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-0">{{ active_count }}</h5>
-                            <div>جداول نشطة</div>
+                            <h4 class="mb-1">{{ active_count }}</h4>
+                            <div class="opacity-75">{% trans "جداول نشطة" %}</div>
                         </div>
                         <div>
-                            <i class="fas fa-calendar-check fa-2x"></i>
+                            <i class="fas fa-calendar-check fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-secondary text-white mb-4">
+            <div class="pm-stats-card card bg-secondary text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-0">{{ inactive_count }}</h5>
-                            <div>جداول غير نشطة</div>
+                            <h4 class="mb-1">{{ inactive_count }}</h4>
+                            <div class="opacity-75">{% trans "جداول غير نشطة" %}</div>
                         </div>
                         <div>
-                            <i class="fas fa-calendar-times fa-2x"></i>
+                            <i class="fas fa-calendar-times fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-success text-white mb-4">
+            <div class="pm-stats-card card bg-success text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-0">{{ completed_count }}</h5>
-                            <div>جداول مكتملة</div>
+                            <h4 class="mb-1">{{ completed_count }}</h4>
+                            <div class="opacity-75">{% trans "جداول مكتملة" %}</div>
                         </div>
                         <div>
-                            <i class="fas fa-calendar-alt fa-2x"></i>
+                            <i class="fas fa-check-circle fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-info text-white mb-4">
+            <div class="pm-stats-card card bg-info text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-0">{{ total_count }}</h5>
-                            <div>إجمالي الجداول</div>
+                            <h4 class="mb-1">{{ total_count }}</h4>
+                            <div class="opacity-75"><h5>{% trans "إجمالي الجداول" %}</h5></div>
                         </div>
                         <div>
-                            <i class="fas fa-calendar fa-2x"></i>
+                            <i class="fas fa-calendar fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
@@ -74,119 +226,164 @@
         </div>
     </div>
     
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <i class="fas fa-calendar-alt me-1"></i>
-                قائمة جداول الصيانة الوقائية
-            </div>
-            <div>
-                <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> إضافة جدول جديد
+    <!-- Main Content Card -->
+    <div class="pm-main-card card">
+        <div class="pm-header-gradient">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        {% trans "قائمة جداول الصيانة الوقائية" %}
+                    </h5>
+                </div>
+                <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-light">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "إضافة جدول جديد" %}
                 </a>
             </div>
         </div>
         <div class="card-body">
-            <!-- Filters -->
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <form method="get" class="row g-3">
-                        <div class="col-md-3">
-                            <label for="status" class="form-label">الحالة</label>
-                            <select name="status" id="status" class="form-select">
-                                <option value="">الكل</option>
-                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>نشط</option>
-                                <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>غير نشط</option>
-                                <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>مكتمل</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="device" class="form-label">الجهاز</label>
-                            <select name="device" id="device" class="form-select">
-                                <option value="">الكل</option>
-                                {% for device in devices %}
-                                <option value="{{ device.id }}" {% if request.GET.device|add:"0" == device.id %}selected{% endif %}>{{ device.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="frequency" class="form-label">التكرار</label>
-                            <select name="frequency" id="frequency" class="form-select">
-                                <option value="">الكل</option>
-                                <option value="daily" {% if request.GET.frequency == 'daily' %}selected{% endif %}>يومي</option>
-                                <option value="weekly" {% if request.GET.frequency == 'weekly' %}selected{% endif %}>أسبوعي</option>
-                                <option value="monthly" {% if request.GET.frequency == 'monthly' %}selected{% endif %}>شهري</option>
-                                <option value="quarterly" {% if request.GET.frequency == 'quarterly' %}selected{% endif %}>ربع سنوي</option>
-                                <option value="semi_annual" {% if request.GET.frequency == 'semi_annual' %}selected{% endif %}>نصف سنوي</option>
-                                <option value="annual" {% if request.GET.frequency == 'annual' %}selected{% endif %}>سنوي</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">تصفية</button>
-                        </div>
-                    </form>
-                </div>
+            <!-- Filters Section -->
+            <div class="pm-filter-section">
+                <h6 class="mb-3">
+                    <i class="fas fa-filter me-2"></i>
+                    {% trans "تصفية النتائج" %}
+                </h6>
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="status" class="form-label fw-bold">{% trans "الحالة" %}</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>{% trans "نشط" %}</option>
+                            <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>{% trans "غير نشط" %}</option>
+                            <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>{% trans "مكتمل" %}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="device" class="form-label fw-bold">{% trans "الجهاز" %}</label>
+                        <select name="device" id="device" class="form-select">
+                            <option value="">{% trans "الكل" %}</option>
+                            {% for device in devices %}
+                            <option value="{{ device.id }}" {% if request.GET.device|add:"0" == device.id %}selected{% endif %}>{{ device.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="frequency" class="form-label fw-bold">{% trans "التكرار" %}</label>
+                        <select name="frequency" id="frequency" class="form-select">
+                            <option value="">{% trans "الكل" %}</option>
+                            <option value="daily" {% if request.GET.frequency == 'daily' %}selected{% endif %}>{% trans "يومي" %}</option>
+                            <option value="weekly" {% if request.GET.frequency == 'weekly' %}selected{% endif %}>{% trans "أسبوعي" %}</option>
+                            <option value="monthly" {% if request.GET.frequency == 'monthly' %}selected{% endif %}>{% trans "شهري" %}</option>
+                            <option value="quarterly" {% if request.GET.frequency == 'quarterly' %}selected{% endif %}>{% trans "ربع سنوي" %}</option>
+                            <option value="semi_annual" {% if request.GET.frequency == 'semi_annual' %}selected{% endif %}>{% trans "نصف سنوي" %}</option>
+                            <option value="annual" {% if request.GET.frequency == 'annual' %}selected{% endif %}>{% trans "سنوي" %}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-1"></i>
+                            {% trans "تصفية" %}
+                        </button>
+                    </div>
+                </form>
             </div>
             
             {% if schedules %}
             <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="schedules-table">
+                <table class="table pm-table-modern table-hover">
                     <thead>
                         <tr>
-                            <th>الجهاز</th>
-                            <th>خطة العمل</th>
-                            <th>التكرار</th>
-                            <th>تاريخ البدء</th>
-                            <th>تاريخ الانتهاء</th>
-                            <th>الفني المسؤول</th>
-                            <th>الحالة</th>
-                            <th>الإجراءات</th>
+                            <th>{% trans "الجهاز" %}</th>
+                            <th>{% trans "خطة العمل" %}</th>
+                            <th>{% trans "التكرار" %}</th>
+                            <th>{% trans "تاريخ البدء" %}</th>
+                            <th>{% trans "تاريخ الانتهاء" %}</th>
+                            <th>{% trans "الفني المسؤول" %}</th>
+                            <th>{% trans "الحالة" %}</th>
+                            <th>{% trans "الإجراءات" %}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for schedule in schedules %}
                         <tr>
                             <td>
-                                <a href="{% url 'maintenance:device_detail' schedule.device.id %}">
-                                    {{ schedule.device.name }}
-                                </a>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-desktop text-primary me-2"></i>
+                                    <a href="{% url 'maintenance:device_detail' schedule.device.id %}" class="text-decoration-none fw-bold">
+                                        {{ schedule.device.name }}
+                                    </a>
+                                </div>
                             </td>
                             <td>
-                                <a href="{% url 'maintenance:cmms:job_plan_detail' schedule.job_plan.id %}">
-                                    {{ schedule.job_plan.name }}
-                                </a>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-clipboard-list text-info me-2"></i>
+                                    <a href="{% url 'maintenance:cmms:job_plan_detail' schedule.job_plan.id %}" class="text-decoration-none">
+                                        {{ schedule.job_plan.name }}
+                                    </a>
+                                </div>
                             </td>
-                            <td>{{ schedule.get_frequency_display }}</td>
-                            <td>{{ schedule.start_date|date:"Y-m-d" }}</td>
-                            <td>{{ schedule.end_date|date:"Y-m-d"|default:"-" }}</td>
-                            <td>{{ schedule.assignee|default:"-" }}</td>
+                            <td>
+                                <span class="badge bg-info text-white">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ schedule.get_frequency_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-plus me-1"></i>
+                                    {{ schedule.start_date|date:"Y-m-d" }}
+                                </small>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-minus me-1"></i>
+                                    {{ schedule.end_date|date:"Y-m-d"|default:"-" }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if schedule.assignee %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user text-success me-2"></i>
+                                        <span>{{ schedule.assignee }}</span>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if schedule.is_active %}
-                                <span class="badge bg-success">نشط</span>
+                                <span class="pm-status-badge badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    {% trans "نشط" %}
+                                </span>
                                 {% else %}
-                                <span class="badge bg-secondary">غير نشط</span>
+                                <span class="pm-status-badge badge bg-secondary">
+                                    <i class="fas fa-pause-circle me-1"></i>
+                                    {% trans "غير نشط" %}
+                                </span>
                                 {% endif %}
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_detail' schedule.id %}" class="btn btn-info btn-sm">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_detail' schedule.id %}" class="pm-action-btn btn btn-outline-info btn-sm" title="{% trans 'التفاصيل' %}">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_update' schedule.id %}" class="btn btn-warning btn-sm">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_update' schedule.id %}" class="pm-action-btn btn btn-outline-warning btn-sm" title="{% trans 'تعديل' %}">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_delete' schedule.id %}" class="pm-action-btn btn btn-outline-danger btn-sm" title="{% trans 'حذف' %}">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                     {% if schedule.is_active %}
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm" title="إيقاف">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="pm-action-btn btn btn-outline-secondary btn-sm" title="{% trans 'إيقاف' %}">
                                         <i class="fas fa-pause"></i>
                                     </a>
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm" title="إنشاء أمر شغل">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_generate_wo' schedule.id %}" class="pm-action-btn btn btn-outline-primary btn-sm" title="{% trans 'إنشاء أمر شغل' %}">
                                         <i class="fas fa-tools"></i>
                                     </a>
                                     {% else %}
-                                    <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm" title="تنشيط">
+                                    <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="pm-action-btn btn btn-outline-success btn-sm" title="{% trans 'تنشيط' %}">
                                         <i class="fas fa-play"></i>
                                     </a>
                                     {% endif %}
@@ -200,7 +397,7 @@
             
             <!-- Pagination -->
             {% if schedules.has_other_pages %}
-            <nav aria-label="Page navigation">
+            <nav aria-label="Page navigation" class="mt-4">
                 <ul class="pagination justify-content-center">
                     {% if schedules.has_previous %}
                     <li class="page-item">
@@ -242,8 +439,14 @@
             {% endif %}
             
             {% else %}
-            <div class="alert alert-info">
-                لا توجد جداول صيانة وقائية مسجلة حتى الآن. <a href="{% url 'maintenance:cmms:pm_schedule_create' %}">إضافة جدول جديد</a>
+            <div class="alert alert-info text-center py-4">
+                <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
+                <h5 class="mb-2">{% trans "لا توجد جداول صيانة وقائية" %}</h5>
+                <p class="mb-3">{% trans "لم يتم إنشاء أي جداول صيانة وقائية حتى الآن" %}</p>
+                <a href="{% url 'maintenance:cmms:pm_schedule_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "إضافة جدول جديد" %}
+                </a>
             </div>
             {% endif %}
         </div>

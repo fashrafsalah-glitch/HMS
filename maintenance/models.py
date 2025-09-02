@@ -855,6 +855,23 @@ class Device(QRCodeMixin, models.Model):
     )
     last_maintained_at = models.DateTimeField(null=True, blank=True)
 
+    def has_open_work_orders(self):
+        """التحقق من وجود أوامر عمل مفتوحة للجهاز (باستثناء الوقائية والفحص)"""
+        return self.service_requests.exclude(
+            request_type__in=['preventive', 'inspection']
+        ).exclude(
+            status__in=['closed', 'cancelled']
+        ).filter(
+            work_orders__status__in=['new', 'assigned', 'in_progress']
+        ).exists()
+    
+    def can_change_status(self):
+        """التحقق من إمكانية تغيير حالة الجهاز"""
+        # إذا كان الجهاز يحتاج صيانة ولديه أوامر عمل مفتوحة (باستثناء الوقائية والفحص والمغلقة والملغية)، لا يمكن تغيير الحالة
+        if self.status == 'needs_maintenance' and self.has_open_work_orders():
+            return False
+        return True
+
     # Company relationships
     manufacture_company = models.ForeignKey(
         Company,
@@ -2470,6 +2487,36 @@ class WorkOrder(models.Model):
             self.labor_cost = self.calculate_labor_cost(hourly_rate)
         self.total_cost = (self.parts_cost or 0) + (self.labor_cost or 0)
         self.save()
+    
+    def update_device_status_on_completion(self):
+        """تحديث حالة الجهاز عند إكمال أمر العمل"""
+        print(f"DEBUG: WorkOrder {self.id} status: {self.status}")
+        
+        if self.status in ['resolved', 'qa_verified', 'closed']:
+            device = self.service_request.device
+            print(f"DEBUG: Device {device.id} current status: {device.status}")
+            
+            if device.status == 'needs_maintenance':
+                # التحقق من عدم وجود أوامر عمل أخرى مفتوحة
+                other_open_orders = device.service_requests.filter(
+                    work_orders__status__in=['new', 'assigned', 'in_progress']
+                ).exclude(work_orders__id=self.id)
+                
+                print(f"DEBUG: Other open orders count: {other_open_orders.count()}")
+                
+                if not other_open_orders.exists():
+                    print(f"DEBUG: Updating device {device.id} status to working")
+                    device.status = 'working'
+                    device.save()
+                    print(f"DEBUG: Device {device.id} status updated to: {device.status}")
+                    return True
+                else:
+                    print(f"DEBUG: Cannot update device status - other open orders exist")
+            else:
+                print(f"DEBUG: Device status is not needs_maintenance: {device.status}")
+        else:
+            print(f"DEBUG: WorkOrder status not in completion states: {self.status}")
+        return False
     
     def get_cost_breakdown(self):
         """الحصول على تفصيل التكاليف"""
