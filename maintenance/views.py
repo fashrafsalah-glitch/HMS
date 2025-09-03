@@ -705,6 +705,9 @@ def transfer_request_create(request, device_id):
     temp_request = DeviceTransferRequest(device=device)
     eligibility_errors = temp_request.check_device_eligibility()
     
+    # Get from_department parameter from URL
+    from_department_id = request.GET.get('from_department')
+    
     if request.method == 'POST':
         form = DeviceTransferRequestForm(request.POST, device=device, user=request.user)
         if form.is_valid():
@@ -720,8 +723,13 @@ def transfer_request_create(request, device_id):
         else:
             # Display specific form errors
             for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{form.fields[field].label}: {error}')
+                if field == '__all__':
+                    for error in errors:
+                        messages.error(request, f'خطأ في النموذج: {error}')
+                else:
+                    field_label = form.fields.get(field, {}).label if hasattr(form.fields.get(field, {}), 'label') else field
+                    for error in errors:
+                        messages.error(request, f'{field_label}: {error}')
             messages.error(request, 'يرجى تصحيح الأخطاء في النموذج')
     else:
         form = DeviceTransferRequestForm(device=device, user=request.user)
@@ -730,7 +738,8 @@ def transfer_request_create(request, device_id):
         'form': form, 
         'device': device,
         'eligibility_errors': eligibility_errors,
-        'device_ready': len(eligibility_errors) == 0
+        'device_ready': len(eligibility_errors) == 0,
+        'from_department_id': from_department_id,
     }
     return render(request, 'maintenance/transfer_request_form.html', context)
 
@@ -774,12 +783,14 @@ def get_room_beds(request):
     if room_id:
         try:
             from manager.models import Bed
-            beds = Bed.objects.filter(room_id=room_id, status='available')
+            beds = Bed.objects.filter(room_id=room_id)
             
             # Format bed names for display
             bed_list = []
             for bed in beds:
-                bed_name = f"سرير {bed.bed_number} - {bed.get_bed_type_display()}"
+                bed_name = f"سرير {bed.bed_number}"
+                if hasattr(bed, 'bed_type') and bed.bed_type:
+                    bed_name += f" - {bed.get_bed_type_display()}"
                 bed_list.append({'id': bed.id, 'name': bed_name})
             
             return JsonResponse({'beds': bed_list})
@@ -3350,6 +3361,7 @@ def all_devices_transfer(request):
     search_query = request.GET.get('search', '')
     department_filter = request.GET.get('department', '')
     status_filter = request.GET.get('status', '')
+    from_department = request.GET.get('from_department', '')
     
     if search_query:
         devices = devices.filter(
@@ -3377,6 +3389,7 @@ def all_devices_transfer(request):
         'search_query': search_query,
         'department_filter': department_filter,
         'status_filter': status_filter,
+        'from_department': from_department,
     }
     
     return render(request, 'maintenance/all_devices_transfer.html', context)

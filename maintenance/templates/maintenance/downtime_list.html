@@ -114,7 +114,7 @@
                                     </td>
                                     <td>
                                         {% if downtime.work_order %}
-                                        <a href="{% url 'maintenance:work_order_detail' downtime.work_order.pk %}">
+                                        <a href="{% url 'maintenance:cmms:work_order_detail' wo_id=downtime.work_order.pk %}">
                                             {{ downtime.work_order.wo_number }}
                                         </a>
                                         {% else %}

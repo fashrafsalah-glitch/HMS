@@ -1208,6 +1208,12 @@ def department_devices(request, department_id):
         device__department=department,
         status__in=['pending', 'approved']
     ).select_related('device')
+    
+    # طلبات النقل الصادرة من هذا القسم (فقط المعلقة وغير المكتملة)
+    outgoing_transfers = DeviceTransferRequest.objects.filter(
+        from_department=department,
+        status__in=['pending', 'approved']
+    ).select_related('device', 'to_department')
 
     # تجميع الأجهزة حسب الغرف
     devices_by_room = {}
@@ -1237,10 +1243,12 @@ def department_devices(request, department_id):
         'actual_devices': actual_devices,
         'devices_by_room': devices_by_room,
         'pending_transfers': pending_transfers,
+        'outgoing_transfers': outgoing_transfers,
         'stats': stats,
         'critical_devices': critical_devices,
         'total_devices': actual_devices.count(),
         'active_devices': actual_devices.filter(status='working').count(),
+        'inactive_devices': actual_devices.filter(status='out_of_order').count() + actual_devices.filter(status='needs_maintenance').count(),
     })
 
 def add_department(request):

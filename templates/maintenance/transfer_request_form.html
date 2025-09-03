@@ -245,32 +245,54 @@
 $(document).ready(function() {
     console.log('Transfer form script loaded');
     
+    // Auto-select department if coming from department page
+    {% if from_department_id %}
+    var fromDepartmentId = '{{ from_department_id }}';
+    if (fromDepartmentId) {
+        setTimeout(function() {
+            document.getElementById('id_to_department').value = fromDepartmentId;
+            $('#id_to_department').trigger('change');
+        }, 100);
+    }
+    {% endif %}
+    
     // Dynamic room loading based on department
     $('#id_to_department').change(function() {
         console.log('Department changed:', $(this).val());
         var departmentId = $(this).val();
         var roomSelect = $('#id_to_room');
         var patientSelect = $('#id_patient');
+        var bedSelect = $('#id_to_bed');
         
-        // Clear room and patient dropdowns
+        // Clear room, patient and bed dropdowns
         roomSelect.empty();
         roomSelect.append('<option value="">-- اختر الغرفة --</option>');
         patientSelect.empty();
         patientSelect.append('<option value="">-- اختر المريض --</option>');
+        bedSelect.empty();
+        bedSelect.append('<option value="">-- اختر السرير --</option>');
         
         if (departmentId) {
+            console.log('Loading rooms and patients for department:', departmentId);
+            
             // Load rooms
             $.ajax({
                 url: '{% url "maintenance:get_department_rooms" %}',
                 data: { 'department_id': departmentId },
+                dataType: 'json',
                 success: function(data) {
-                    console.log('Rooms loaded:', data);
-                    $.each(data.rooms, function(index, room) {
-                        roomSelect.append('<option value="' + room.id + '">' + room.name + '</option>');
-                    });
+                    console.log('Rooms loaded successfully:', data);
+                    if (data.rooms && data.rooms.length > 0) {
+                        $.each(data.rooms, function(index, room) {
+                            roomSelect.append('<option value="' + room.id + '">' + room.name + '</option>');
+                        });
+                    } else {
+                        console.log('No rooms found for department');
+                    }
                 },
                 error: function(xhr, status, error) {
                     console.error('Error loading rooms:', error);
+                    console.error('Response:', xhr.responseText);
                 }
             });
             
@@ -278,14 +300,20 @@ $(document).ready(function() {
             $.ajax({
                 url: '{% url "maintenance:get_department_patients" %}',
                 data: { 'department_id': departmentId },
+                dataType: 'json',
                 success: function(data) {
-                    console.log('Patients loaded:', data);
-                    $.each(data.patients, function(index, patient) {
-                        patientSelect.append('<option value="' + patient.id + '">' + patient.name + '</option>');
-                    });
+                    console.log('Patients loaded successfully:', data);
+                    if (data.patients && data.patients.length > 0) {
+                        $.each(data.patients, function(index, patient) {
+                            patientSelect.append('<option value="' + patient.id + '">' + patient.name + '</option>');
+                        });
+                    } else {
+                        console.log('No patients found for department');
+                    }
                 },
                 error: function(xhr, status, error) {
                     console.error('Error loading patients:', error);
+                    console.error('Response:', xhr.responseText);
                 }
             });
         }
@@ -301,17 +329,24 @@ $(document).ready(function() {
         bedSelect.append('<option value="">-- اختر السرير --</option>');
         
         if (roomId) {
+            console.log('Loading beds for room:', roomId);
             $.ajax({
                 url: '{% url "maintenance:get_room_beds" %}',
                 data: { 'room_id': roomId },
+                dataType: 'json',
                 success: function(data) {
-                    console.log('Beds loaded:', data);
-                    $.each(data.beds, function(index, bed) {
-                        bedSelect.append('<option value="' + bed.id + '">' + bed.name + '</option>');
-                    });
+                    console.log('Beds loaded successfully:', data);
+                    if (data.beds && data.beds.length > 0) {
+                        $.each(data.beds, function(index, bed) {
+                            bedSelect.append('<option value="' + bed.id + '">' + bed.name + '</option>');
+                        });
+                    } else {
+                        console.log('No beds found for room');
+                    }
                 },
                 error: function(xhr, status, error) {
                     console.error('Error loading beds:', error);
+                    console.error('Response:', xhr.responseText);
                 }
             });
         }

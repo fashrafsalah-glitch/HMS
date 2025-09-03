@@ -99,7 +99,7 @@
                 </div>
                 <div class="card-footer">
                     <div class="btn-group w-100" role="group">
-                        <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'maintenance:device_transfer' device.id %}{% if from_department %}?from_department={{ from_department }}{% endif %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-exchange-alt"></i> طلب نقل
                         </a>
                         <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-info btn-sm">
@@ -250,13 +250,32 @@ function requestTransfer(deviceId, deviceName, fromDepartment) {
     
     // Update form action URL with device ID
     const form = document.getElementById('transferForm');
-    form.action = form.action.replace('/0/', '/' + deviceId + '/');
+    form.action = form.action.replace('/1/', '/' + deviceId + '/');
     
     // Reset form
     document.getElementById('toDepartment').value = '';
     document.getElementById('reason').value = '';
     document.getElementById('reasonDetails').value = '';
     document.getElementById('priority').value = 'normal';
+    
+    // Auto-populate source department if coming from department page
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromDepartmentId = urlParams.get('from_department');
+    if (fromDepartmentId) {
+        // Find the department name from the departments list
+        const toDepartmentSelect = document.getElementById('toDepartment');
+        let sourceDepartmentName = '';
+        for (let i = 0; i < toDepartmentSelect.options.length; i++) {
+            if (toDepartmentSelect.options[i].value === fromDepartmentId) {
+                sourceDepartmentName = toDepartmentSelect.options[i].text;
+                break;
+            }
+        }
+        // Override the device's current department with the source department
+        if (sourceDepartmentName) {
+            document.getElementById('fromDepartment').innerHTML = sourceDepartmentName + ' <small class="text-muted">(القسم المصدر)</small>';
+        }
+    }
     
     $('#transferModal').modal('show');
 }
