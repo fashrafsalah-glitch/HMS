@@ -154,7 +154,7 @@
                 <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                     <h5 class="mb-0">
                         <i class="fas fa-mountain me-2"></i>
-                        تنقلات الأجهزة بين الأقسام - عرض الجبال التفاعلي
+                        تنقلات الأجهزة بين الأقسام 
                     </h5>
                     <small class="opacity-75">تتبع حركة الأجهزة عبر الأقسام المختلفة بشكل بصري مذهل</small>
                 </div>
@@ -241,26 +241,61 @@
 
     // بيانات تحليل الأعطال حسب النوع
     const failureTypesCtx = document.getElementById('failureTypesChart').getContext('2d');
-    const failureTypesChart = new Chart(failureTypesCtx, {
-        type: 'bar',
-        data: {
-            labels: failureTypesLabels,
-            datasets: [{
-                label: 'عدد الأعطال',
-                data: failureTypesData,
-                backgroundColor: '#36a2eb'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
+    
+    // التحقق من وجود البيانات
+    console.log('Failure Types Labels:', failureTypesLabels);
+    console.log('Failure Types Data:', failureTypesData);
+    
+    // إذا لم توجد بيانات، عرض رسالة
+    if (!failureTypesLabels.length || !failureTypesData.length) {
+        failureTypesCtx.font = '16px Arial';
+        failureTypesCtx.fillStyle = '#6c757d';
+        failureTypesCtx.textAlign = 'center';
+        failureTypesCtx.fillText('لا توجد بيانات أعطال متاحة', failureTypesCtx.canvas.width / 2, failureTypesCtx.canvas.height / 2);
+    } else {
+        const failureTypesChart = new Chart(failureTypesCtx, {
+            type: 'bar',
+            data: {
+                labels: failureTypesLabels,
+                datasets: [{
+                    label: 'عدد الأعطال',
+                    data: failureTypesData,
+                    backgroundColor: [
+                        '#dc3545', // أحمر للأعطال المفاجئة
+                        '#fd7e14', // برتقالي للصيانة التصحيحية
+                        '#dc3545', // أحمر للحرجة
+                        '#ffc107', // أصفر للعالية
+                        '#28a745', // أخضر للمتوسطة
+                        '#6c757d'  // رمادي للمنخفضة
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' حالة';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     // بيانات استخدام الأقسام للأجهزة
     const departmentUsageCtx = document.getElementById('departmentUsageChart').getContext('2d');
@@ -339,7 +374,7 @@
             plugins: {
                 title: {
                     display: true,
-                    text: '🏔️ رحلة الأجهزة عبر الأقسام - منظر جبلي رائع',
+                    text: ' رحلة الأجهزة عبر الأقسام ',
                     font: {
                         size: 18,
                         weight: 'bold'
@@ -456,14 +491,5 @@
         }
     });
 
-    // تحديث البيانات كل 30 ثانية (محاكاة البيانات الحية)
-    setInterval(function() {
-        transferData.datasets.forEach(dataset => {
-            dataset.data = dataset.data.map(value => 
-                Math.max(0, value + Math.floor(Math.random() * 21) - 10)
-            );
-        });
-        deviceTransferMountainChart.update('none');
-    }, 30000);
 </script>
 {% endblock %}

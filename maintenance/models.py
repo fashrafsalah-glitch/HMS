@@ -242,33 +242,13 @@ class JobPlanStep(models.Model):
         return f"{self.job_plan.name} - Step {self.step_number}"
 
 # نموذج جدول الصيانة الوقائية
-class PreventiveMaintenanceSchedule(models.Model):
-    FREQUENCY_CHOICES = [
-        ('daily', 'يومي'),
-        ('weekly', 'أسبوعي'),
-        ('monthly', 'شهري'),
-        ('quarterly', 'ربع سنوي'),
-        ('semi_annual', 'نصف سنوي'),
-        ('annual', 'سنوي'),
-        ('custom', 'مخصص'),
-    ]
-    
-    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='pm_schedules')
-    job_plan = models.ForeignKey('JobPlan', on_delete=models.CASCADE)
-    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
-    custom_days = models.PositiveIntegerField(null=True, blank=True, help_text='عدد الأيام إذا كان التكرار مخصصًا')
-    next_due_date = models.DateField(null=True, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.device.name} - {self.get_frequency_display()} PM"
+# Old PreventiveMaintenanceSchedule model removed - using the comprehensive one below
 
 # SLADefinition model moved below - removing duplicate
 
 # نموذج المورد - تم نقله إلى قسم Spare Parts Models أدناه
 
-# Old SparePart model removed - using the new comprehensive one below
+# Old PreventiveMaintenanceSchedule model removed - using the comprehensive one below
 
 # نموذج إشعار النظام
 class SystemNotification(models.Model):
@@ -402,6 +382,12 @@ class DeviceDowntime(models.Model):
         ('other', 'أخرى'),
     ]
     
+    DOWNTIME_TYPE_CHOICES = [
+        ('planned', 'مخطط'),
+        ('unplanned', 'غير مخطط'),
+        ('emergency', 'طوارئ'),
+    ]
+    
     device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='downtimes')
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
@@ -420,6 +406,19 @@ class DeviceDowntime(models.Model):
         if self.end_time and self.start_time:
             return self.end_time - self.start_time
         return None
+    
+    def is_ongoing(self):
+        """التحقق من استمرار التوقف"""
+        return self.end_time is None
+    
+    def duration_hours(self):
+        """حساب مدة التوقف بالساعات"""
+        if self.end_time and self.start_time:
+            return (self.end_time - self.start_time).total_seconds() / 3600
+        elif self.start_time:
+            from django.utils import timezone
+            return (timezone.now() - self.start_time).total_seconds() / 3600
+        return 0
 
 # نموذج تقرير تحليل الأعطال
 class FailureAnalysisReport(models.Model):
@@ -856,14 +855,26 @@ class Device(QRCodeMixin, models.Model):
     last_maintained_at = models.DateTimeField(null=True, blank=True)
 
     def has_open_work_orders(self):
-        """التحقق من وجود أوامر عمل مفتوحة للجهاز (باستثناء الوقائية والفحص)"""
-        return self.service_requests.exclude(
+        """التحقق من وجود أوامر عمل مفتوحة (باستثناء الوقائية والفحص)"""
+        # فحص أوامر الشغل المرتبطة بـ service requests (غير الوقائية)
+        service_request_work_orders = self.service_requests.exclude(
             request_type__in=['preventive', 'inspection']
         ).exclude(
             status__in=['closed', 'cancelled']
         ).filter(
             work_orders__status__in=['new', 'assigned', 'in_progress']
         ).exists()
+        
+        # فحص أوامر الشغل المرتبطة مباشرة بـ PM schedules
+        from .models import WorkOrder
+        pm_work_orders = WorkOrder.objects.filter(
+            pm_schedule__device=self,
+            wo_type='preventive',
+            status__in=['new', 'assigned', 'in_progress']
+        ).exists()
+        
+        # إرجاع true فقط إذا كان هناك أوامر شغل غير وقائية مفتوحة
+        return service_request_work_orders
     
     def can_change_status(self):
         """التحقق من إمكانية تغيير حالة الجهاز"""
@@ -871,6 +882,65 @@ class Device(QRCodeMixin, models.Model):
         if self.status == 'needs_maintenance' and self.has_open_work_orders():
             return False
         return True
+    
+    def get_estimated_repair_time(self):
+        """حساب الوقت المقدر لإصلاح الجهاز بناءً على SLA matrix"""
+        from django.utils import timezone
+        
+        if self.status != 'needs_maintenance':
+            return None
+            
+        # البحث عن أوامر الشغل المفتوحة غير الوقائية
+        open_work_orders = WorkOrder.objects.filter(
+            service_request__device=self,
+            service_request__request_type__in=['breakdown', 'corrective'],
+            status__in=['new', 'assigned', 'in_progress']
+        ).select_related('service_request').first()
+        
+        if open_work_orders and open_work_orders.service_request:
+            service_request = open_work_orders.service_request
+            
+            # البحث عن SLA Matrix مناسب
+            try:
+                sla_matrix = SLAMatrix.objects.filter(
+                    device_category=service_request.device.category,
+                    severity=service_request.severity,
+                    impact=service_request.impact,
+                    priority=service_request.priority,
+                    is_active=True
+                ).first()
+                
+                if sla_matrix and sla_matrix.resolution_time_hours:
+                    return timezone.now() + timezone.timedelta(hours=sla_matrix.resolution_time_hours)
+            except Exception as e:
+                print(f"Error in SLA calculation: {e}")
+        
+        # إذا لم نجد work order، نحاول البحث عن service request مباشرة
+        service_requests = self.service_requests.filter(
+            request_type__in=['breakdown', 'corrective'],
+            status__in=['new', 'assigned', 'in_progress']
+        ).first()
+        
+        if service_requests:
+            try:
+                sla_matrix = SLAMatrix.objects.filter(
+                    device_category=service_requests.device.category,
+                    severity=service_requests.severity,
+                    impact=service_requests.impact,
+                    priority=service_requests.priority,
+                    is_active=True
+                ).first()
+                
+                if sla_matrix and sla_matrix.resolution_time_hours:
+                    return timezone.now() + timezone.timedelta(hours=sla_matrix.resolution_time_hours)
+            except Exception as e:
+                print(f"Error in direct SLA calculation: {e}")
+        
+        # إذا لم نجد أي شيء، نعطي تقدير افتراضي للأجهزة التي تحتاج صيانة
+        if self.status == 'needs_maintenance':
+            return timezone.now() + timezone.timedelta(hours=24)  # 24 ساعة افتراضي
+        
+        return None
 
     # Company relationships
     manufacture_company = models.ForeignKey(
@@ -2194,7 +2264,7 @@ class CalibrationRecord(models.Model):
         return self.next_calibration_date < date.today()
 
 
-class DowntimeEvent(models.Model):
+class vent(models.Model):
     """
     أحداث التوقف للأجهزة
     هنا بنتتبع فترات توقف الأجهزة عن العمل
@@ -2410,7 +2480,8 @@ class WorkOrderPart(models.Model):
 
 class WorkOrder(models.Model):
     """نموذج أمر العمل"""
-    service_request = models.ForeignKey('ServiceRequest', on_delete=models.CASCADE, related_name='work_orders', verbose_name="البلاغ")
+    service_request = models.ForeignKey('ServiceRequest', on_delete=models.CASCADE, related_name='work_orders', verbose_name="البلاغ", null=True, blank=True)
+    pm_schedule = models.ForeignKey('maintenance.PreventiveMaintenanceSchedule', on_delete=models.CASCADE, related_name='work_orders', verbose_name="جدول الصيانة الوقائية", null=True, blank=True)
     wo_number = models.CharField(max_length=50, unique=True, verbose_name="رقم أمر العمل", default='')
     title = models.CharField(max_length=200, verbose_name="عنوان أمر العمل", default='')
     description = models.TextField(verbose_name="وصف العمل", blank=True, null=True)
@@ -2550,13 +2621,66 @@ class WorkOrder(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.wo_number:
-            # Generate work order number
+            # Generate unique work order number
             from datetime import datetime
             year = datetime.now().year
             month = datetime.now().month
-            count = WorkOrder.objects.filter(created_at__year=year, created_at__month=month).count() + 1
-            self.wo_number = f"WO-{year}{month:02d}-{count:04d}"
+            
+            # البحث عن آخر رقم أمر شغل في نفس الشهر
+            last_wo = WorkOrder.objects.filter(
+                created_at__year=year, 
+                created_at__month=month
+            ).order_by('-id').first()
+            
+            if last_wo and last_wo.wo_number:
+                # استخراج الرقم من آخر أمر شغل
+                try:
+                    last_number = int(last_wo.wo_number.split('-')[-1])
+                    count = last_number + 1
+                except (ValueError, IndexError):
+                    count = 1
+            else:
+                count = 1
+            
+            # التأكد من عدم وجود رقم مكرر
+            while True:
+                wo_number = f"WO-{year}{month:02d}-{count:04d}"
+                if not WorkOrder.objects.filter(wo_number=wo_number).exists():
+                    self.wo_number = wo_number
+                    break
+                count += 1
+        
+        # تحديث next_due_date للصيانة الوقائية عند إكمال أمر العمل
+        old_status = None
+        if self.pk:
+            try:
+                old_instance = WorkOrder.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except WorkOrder.DoesNotExist:
+                pass
+        
         super().save(*args, **kwargs)
+        
+        # إذا تم إكمال أمر عمل صيانة وقائية، حديث next_due_date
+        completed_statuses = ['resolved', 'qa_verified', 'closed']
+        if (self.status in completed_statuses and old_status not in completed_statuses and 
+            self.pm_schedule and self.wo_type == 'preventive'):
+            print(f"DEBUG: Work order {self.id} completed, updating PM schedule {self.pm_schedule.id}")
+            print(f"DEBUG: Old next_due_date: {self.pm_schedule.next_due_date}")
+            
+            # تحديث completed_at
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+                # حفظ WorkOrder مرة أخرى لتحديث completed_at
+                WorkOrder.objects.filter(pk=self.pk).update(completed_at=self.completed_at)
+            
+            self.pm_schedule.last_completed_date = timezone.now().date()
+            new_due_date = self.pm_schedule.calculate_next_due_date()
+            self.pm_schedule.next_due_date = new_due_date
+            self.pm_schedule.save()
+            
+            print(f"DEBUG: New next_due_date: {self.pm_schedule.next_due_date}")
+            print(f"DEBUG: PM schedule {self.pm_schedule.id} updated successfully")
     
     def calculate_duration(self):
         """حساب مدة العمل"""
@@ -2661,6 +2785,22 @@ class PreventiveMaintenanceSchedule(models.Model):
     def __str__(self):
         return f"{self.name} - {self.device.name}"
     
+    def calculate_interval_days(self):
+        """حساب الفترة بالأيام بناءً على التكرار"""
+        if self.frequency == 'daily':
+            return 1
+        elif self.frequency == 'weekly':
+            return 7
+        elif self.frequency == 'monthly':
+            return 30
+        elif self.frequency == 'quarterly':
+            return 90
+        elif self.frequency == 'semi_annual':
+            return 180
+        elif self.frequency == 'annual':
+            return 365
+        return 1  # افتراضي يومي
+    
     def calculate_next_due_date(self):
         """حساب تاريخ الاستحقاق التالي بناءً على التاريخ الحالي وليس التاريخ السابق"""
         from datetime import timedelta, date
@@ -2668,7 +2808,7 @@ class PreventiveMaintenanceSchedule(models.Model):
         
         # استخدم التاريخ الحالي كنقطة بداية لحساب التاريخ التالي
         today = date.today()
-        base_date = self.last_completed_date or today
+        base_date = self.last_completed_date or self.start_date or today
         
         if self.frequency == 'daily':
             return base_date + timedelta(days=1)
@@ -2698,15 +2838,77 @@ class PreventiveMaintenanceSchedule(models.Model):
             return base_date + timedelta(days=180)
         elif self.frequency == 'annual':
             return base_date + timedelta(days=365)
-        elif self.frequency == 'custom' and self.interval_days:
-            return base_date + timedelta(days=self.interval_days)
         
         return base_date + timedelta(days=1)  # افتراضي يومي
+    
+    def save(self, *args, **kwargs):
+        """حفظ مع حساب الفترة وتاريخ الاستحقاق تلقائياً"""
+        # حساب الفترة بالأيام تلقائياً
+        self.interval_days = self.calculate_interval_days()
+        
+        # حساب تاريخ الاستحقاق التالي إذا لم يكن محدداً
+        if not self.next_due_date:
+            self.next_due_date = self.calculate_next_due_date()
+        
+        super().save(*args, **kwargs)
     
     def is_due(self):
         """التحقق من استحقاق الصيانة"""
         from datetime import date
-        return self.next_due_date <= date.today()
+        
+        print(f"DEBUG: Checking if schedule {self.id} is due")
+        print(f"DEBUG: Next due date: {self.next_due_date}, Today: {date.today()}")
+        
+        # التحقق من وجود أمر عمل مفتوح
+        open_wo_query = WorkOrder.objects.filter(
+            pm_schedule=self,
+            status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'on_hold']
+        )
+        open_wo = open_wo_query.exists()
+        
+        print(f"DEBUG: Open work orders count: {open_wo_query.count()}")
+        if open_wo:
+            print(f"DEBUG: Found open work order, not due")
+            return False  # لا تنشئ أمر عمل جديد إذا كان هناك أمر مفتوح
+        
+        # التحقق من عدم وجود أمر عمل مكتمل اليوم
+        completed_statuses = ['resolved', 'qa_verified', 'closed']
+        completed_today_query = WorkOrder.objects.filter(
+            pm_schedule=self,
+            status__in=completed_statuses,
+            completed_at__date=date.today()
+        )
+        completed_today = completed_today_query.exists()
+        
+        print(f"DEBUG: Completed today count: {completed_today_query.count()}")
+        if completed_today:
+            print(f"DEBUG: Found completed work order today")
+            
+            # تحديث آخر تاريخ إنجاز إذا لم يكن موجود
+            if not self.last_completed_date:
+                print(f"DEBUG: Setting last_completed_date to today")
+                self.last_completed_date = date.today()
+                self.next_due_date = self.calculate_next_due_date()
+                self.save(update_fields=['last_completed_date', 'next_due_date'])
+                print(f"DEBUG: Updated next_due_date to {self.next_due_date}")
+            
+            # إذا كان آخر تاريخ إنجاز هو نفس تاريخ الاستحقاق، حدث التاريخ التالي
+            elif self.last_completed_date == self.next_due_date:
+                print(f"DEBUG: Last completed date equals due date, updating next due date")
+                self.last_completed_date = date.today()
+                self.next_due_date = self.calculate_next_due_date()
+                self.save(update_fields=['last_completed_date', 'next_due_date'])
+                print(f"DEBUG: Updated next_due_date to {self.next_due_date}")
+            
+            return False  # لا تنشئ أمر عمل جديد إذا تم إكمال واحد اليوم
+            
+        # التحقق من أن التاريخ المستحق قد حان ولم يتم تحديثه اليوم
+        if self.next_due_date > date.today():
+            print(f"DEBUG: Next due date is in future, not due")
+            return False  # لم يحن الموعد بعد
+            
+        print(f"DEBUG: Schedule {self.id} is due!")
+        return True
     
     def is_overdue(self):
         """التحقق من تجاوز موعد الصيانة"""
@@ -2714,41 +2916,85 @@ class PreventiveMaintenanceSchedule(models.Model):
         return self.next_due_date < date.today()
     
     def generate_work_order(self):
-        """إنشاء أمر عمل للصيانة الوقائية"""
-        # Create service request first
+        """إنشاء أمر عمل من جدولة الصيانة الوقائية"""
+        from datetime import date
+        
+        # التحقق من عدم وجود أمر عمل مفتوح أو مكتمل اليوم لنفس الجدولة
+        from datetime import date
+        existing_wo = WorkOrder.objects.filter(
+            pm_schedule=self,
+            status__in=['new', 'assigned', 'in_progress']
+        ).first()
+        
+        # التحقق من وجود أمر عمل مكتمل اليوم
+        completed_statuses = ['resolved', 'qa_verified', 'closed']
+        completed_today = WorkOrder.objects.filter(
+            pm_schedule=self,
+            status__in=completed_statuses,
+            completed_at__date=date.today()
+        ).exists()
+        
+        if existing_wo or completed_today:
+            return existing_wo  # إرجاع أمر العمل الموجود أو منع الإنشاء إذا تم الإكمال اليوم
+        
+        # إنشاء ServiceRequest أولاً للصيانة الوقائية
         service_request = ServiceRequest.objects.create(
+            title=f"صيانة وقائية - {self.name}",
+            description=f"صيانة وقائية مجدولة للجهاز: {self.device.name}",
             device=self.device,
             reporter=self.created_by,
-            title=f"صيانة وقائية - {self.device.name}",
-            description=f"صيانة وقائية مجدولة للجهاز {self.device.name}",
-            request_type='preventive',
             priority='medium',
-            status='new'
+            status='assigned',
+            request_type='preventive'
         )
         
-        # Create work order
-        wo = WorkOrder.objects.create(
+        # إنشاء أمر عمل مرتبط بـ ServiceRequest
+        work_order = WorkOrder.objects.create(
             service_request=service_request,
-            title=f"صيانة وقائية - {self.device.name}",
-            description=self.job_plan.instructions if self.job_plan else "صيانة وقائية عامة",
-            wo_type='preventive',
+            title=f"صيانة وقائية - {self.name}",
+            description=f"صيانة وقائية مجدولة للجهاز: {self.device.name}\nخطة العمل: {self.job_plan.name}",
             priority='medium',
-            created_by=self.created_by,
+            wo_type='preventive',
             assignee=self.assigned_to,
-            estimated_hours=self.job_plan.estimated_hours if self.job_plan else 2.0
+            created_by=self.created_by,
+            pm_schedule=self,
+            scheduled_end=self.next_due_date
         )
         
-        # Update last completed date and next due date
-        from datetime import date
-        self.last_completed_date = date.today()
-        self.next_due_date = self.calculate_next_due_date()
-        self.save(update_fields=['last_completed_date', 'next_due_date'])
+        # لا نحدث next_due_date هنا - سيتم تحديثه عند إكمال أمر العمل
         
-        return wo
+        return work_order
+    
+    @classmethod
+    def check_and_generate_work_orders(cls):
+        """فحص الجدولات وإنشاء أوامر العمل المستحقة"""
+        active_schedules = cls.objects.filter(is_active=True)
+        generated_count = 0
+        
+        print(f"DEBUG: Checking {active_schedules.count()} active PM schedules")
+        
+        for schedule in active_schedules:
+            print(f"DEBUG: Checking schedule {schedule.id} - {schedule.name}")
+            print(f"DEBUG: Next due date: {schedule.next_due_date}")
+            print(f"DEBUG: Is due: {schedule.is_due()}")
+            
+            if schedule.is_due():
+                print(f"DEBUG: Schedule {schedule.id} is due, generating work order")
+                work_order = schedule.generate_work_order()
+                if work_order:
+                    generated_count += 1
+                    print(f"DEBUG: Work order {work_order.id} generated for schedule {schedule.id}")
+                else:
+                    print(f"DEBUG: No work order generated for schedule {schedule.id} (already exists or completed today)")
+        
+        print(f"DEBUG: Generated {generated_count} work orders from PM schedules")
+        return generated_count
 
+
+# ===== SLA Models =====
 
 class SLADefinition(models.Model):
-    """نموذج تعريف اتفاقية مستوى الخدمة"""
+    """نموذج تعريف اتفاقيات مستوى الخدمة"""
     name = models.CharField(max_length=200, verbose_name="اسم الاتفاقية", default='')
     description = models.TextField(blank=True, verbose_name="الوصف")
     

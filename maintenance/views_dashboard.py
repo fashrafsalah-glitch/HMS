@@ -102,10 +102,9 @@ def device_performance_dashboard(request):
     
     # حساب إحصائيات الأجهزة العامة
     total_devices = devices.count()
-    down_devices = devices.filter(status='out_of_order').count()
+    down_devices = devices.filter(status__in=['out_of_order', 'needs_maintenance']).count()
     
     # جلب بيانات تنقلات الأجهزة الحقيقية من قاعدة البيانات
-    # جمع البيانات من DeviceTransferRequest و DeviceTransferLog
     current_year = datetime.now().year
     transfer_data_by_month = {}
     
@@ -123,10 +122,10 @@ def device_performance_dashboard(request):
             'departments': {}
         }
     
-    # جلب طلبات النقل المكتملة من DeviceTransferRequest
+    # جلب طلبات النقل المقبولة فقط (accepted) من DeviceTransferRequest
     completed_requests = DeviceTransferRequest.objects.filter(
-        status='approved',
-        requested_at__year=current_year
+        status='accepted',
+        accepted_at__year=current_year
     ).select_related('to_department', 'device')
     
     # جلب سجلات النقل من DeviceTransferLog
@@ -134,14 +133,15 @@ def device_performance_dashboard(request):
         moved_at__year=current_year
     ).select_related('to_department', 'device')
     
-    # معالجة طلبات النقل المكتملة
+    # معالجة طلبات النقل المقبولة
     for transfer_request in completed_requests:
-        month = transfer_request.requested_at.month
-        dept_name = transfer_request.to_department.name if transfer_request.to_department else 'غير محدد'
-        
-        if dept_name not in transfer_data_by_month[month]['departments']:
-            transfer_data_by_month[month]['departments'][dept_name] = 0
-        transfer_data_by_month[month]['departments'][dept_name] += 1
+        if transfer_request.accepted_at:
+            month = transfer_request.accepted_at.month
+            dept_name = transfer_request.to_department.name if transfer_request.to_department else 'غير محدد'
+            
+            if dept_name not in transfer_data_by_month[month]['departments']:
+                transfer_data_by_month[month]['departments'][dept_name] = 0
+            transfer_data_by_month[month]['departments'][dept_name] += 1
     
     # معالجة سجلات النقل
     for log in transfer_logs:
@@ -232,6 +232,29 @@ def device_performance_dashboard(request):
                 performance_categories['poor'] += 1
                 performance_color = 'danger'
             
+            # حساب عدد الأعطال الفعلي
+            failures_count = ServiceRequest.objects.filter(
+                device=device, 
+                request_type__in=['breakdown', 'corrective']
+            ).count()
+            
+            # حساب إجمالي وقت التعطل الفعلي من WorkOrder
+            total_downtime = 0
+            work_orders = WorkOrder.objects.filter(
+                service_request__device=device,
+                service_request__request_type__in=['breakdown', 'corrective'],
+                actual_end__isnull=False,
+                actual_start__isnull=False
+            )
+            
+            for wo in work_orders:
+                downtime_hours = (wo.actual_end - wo.actual_start).total_seconds() / 3600
+                total_downtime += downtime_hours
+            
+            # إذا لم توجد work orders، استخدم تقدير بناءً على MTTR
+            if total_downtime == 0 and failures_count > 0:
+                total_downtime = round(mttr * failures_count, 1)
+            
             device_scores.append({
                 'device': device,
                 'score': score,
@@ -240,34 +263,85 @@ def device_performance_dashboard(request):
                 'availability': availability,
                 'performance_score': score,
                 'performance_color': performance_color,
-                'failures_count': ServiceRequest.objects.filter(device=device, request_type='corrective').count(),
-                'total_downtime': round(mttr * ServiceRequest.objects.filter(device=device, request_type='corrective').count(), 1)
+                'failures_count': failures_count,
+                'total_downtime': round(total_downtime, 1)
             })
         except Exception as e:
             # في حالة حدوث خطأ، نضع قيم افتراضية ونسجل الخطأ
             print(f"خطأ في حساب إحصائيات الجهاز {device.name}: {str(e)}")
             
-            # حساب قيم بديلة بسيطة
-            mtbf = 168  # أسبوع افتراضي
-            mttr = 4    # 4 ساعات افتراضي
-            availability = 85 if device.status == 'working' else 30
-            score = availability
+            # حساب عدد الأعطال الفعلي للحالة الاستثنائية أيضاً
+            failures_count = ServiceRequest.objects.filter(
+                device=device, 
+                request_type__in=['breakdown', 'corrective']
+            ).count()
+            
+            # إذا لم توجد أعطال، الجهاز يعتبر ممتاز
+            if failures_count == 0:
+                if device.status == 'working':
+                    availability = 100
+                    score = 100
+                    performance_color = 'success'
+                    performance_categories['excellent'] += 1
+                elif device.status == 'needs_check':
+                    availability = 90
+                    score = 90
+                    performance_color = 'success'
+                    performance_categories['excellent'] += 1
+                elif device.status == 'needs_maintenance':
+                    availability = 70
+                    score = 70
+                    performance_color = 'primary'
+                    performance_categories['good'] += 1
+                else:  # out_of_order
+                    availability = 0
+                    score = 0
+                    performance_color = 'danger'
+                    performance_categories['poor'] += 1
+            else:
+                # إذا وجدت أعطال، احسب بناءً على العدد
+                if failures_count >= 5:
+                    availability = 20
+                    score = 20
+                    performance_color = 'danger'
+                    performance_categories['poor'] += 1
+                elif failures_count >= 3:
+                    availability = 40
+                    score = 40
+                    performance_color = 'warning'
+                    performance_categories['fair'] += 1
+                elif failures_count >= 2:
+                    availability = 60
+                    score = 60
+                    performance_color = 'primary'
+                    performance_categories['good'] += 1
+                else:  # failures_count == 1
+                    availability = 80
+                    score = 80
+                    performance_color = 'info'
+                    performance_categories['very_good'] += 1
+            
+            # حساب MTBF و MTTR بناءً على البيانات الحقيقية
+            if failures_count > 0:
+                # تقدير MTBF بناءً على عمر الجهاز وعدد الأعطال
+                device_age_days = (timezone.now().date() - (device.production_date or timezone.now().date())).days
+                mtbf = max(device_age_days / failures_count, 1) if device_age_days > 0 else 30
+                mttr = 2 + (failures_count * 0.5)  # كلما زادت الأعطال، زاد وقت الإصلاح
+            else:
+                mtbf = 365  # سنة كاملة بدون أعطال
+                mttr = 0    # لا يوجد وقت إصلاح
             
             device_scores.append({
                 'device': device,
                 'score': score,
-                'mtbf': mtbf,
-                'mttr': mttr,
+                'mtbf': round(mtbf, 1),
+                'mttr': round(mttr, 1),
                 'availability': availability,
                 'performance_score': score,
-                'performance_color': 'success' if availability > 80 else 'warning',
-                'failures_count': ServiceRequest.objects.filter(device=device, request_type='corrective').count(),
-                'total_downtime': mttr
+                'performance_color': performance_color,
+                'failures_count': failures_count,
+                'total_downtime': round(mttr * failures_count, 1) if failures_count > 0 else 0
             })
-            if availability > 80:
-                performance_categories['very_good'] += 1
-            else:
-                performance_categories['fair'] += 1
     
     # ترتيب الأجهزة حسب النقاط (الأسوأ أولاً للجدول)
     worst_performing_devices = sorted(device_scores, key=lambda x: x['score'])[:10]
@@ -277,44 +351,59 @@ def device_performance_dashboard(request):
     avg_mttr = calculate_mttr(department_id=department_id) 
     avg_uptime = calculate_availability(department_id=department_id)
     
-    # إذا كانت القيم لا تزال صفر، نحسب بناءً على حالات الأجهزة مباشرة
-    if avg_uptime == 0:
-        working_devices = devices.filter(status='working').count()
-        needs_check_devices = devices.filter(status='needs_check').count()
-        needs_maintenance_devices = devices.filter(status='needs_maintenance').count()
-        out_of_order_devices = devices.filter(status='out_of_order').count()
+    # حساب الإحصائيات الحقيقية بناءً على البيانات المحسوبة
+    if device_scores:
+        avg_uptime = sum(d['availability'] for d in device_scores) / len(device_scores)
+        avg_mtbf = sum(d['mtbf'] for d in device_scores) / len(device_scores)
+        avg_mttr = sum(d['mttr'] for d in device_scores) / len(device_scores)
+    else:
+        avg_uptime = 0
+        avg_mtbf = 0
+        avg_mttr = 0
+    
+    # بيانات تحليل الأعطال حسب النوع الحقيقي
+    # فلترة حسب القسم إذا تم تحديده
+    failure_requests = ServiceRequest.objects.filter(request_type__in=['breakdown', 'corrective'])
+    if department_id:
+        failure_requests = failure_requests.filter(device__department_id=department_id)
+    
+    # إذا لم توجد بيانات، عرض قوائم فارغة
+    if not failure_requests.exists():
+        failure_types_labels = []
+        failure_types_data = []
+    else:
+        # تحليل حسب نوع الطلب
+        failure_type_analysis = failure_requests.values('request_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
         
-        if total_devices > 0:
-            avg_uptime = (
-                (working_devices * 95) + 
-                (needs_check_devices * 75) + 
-                (needs_maintenance_devices * 40) + 
-                (out_of_order_devices * 0)
-            ) / total_devices
-    
-    if avg_mtbf == 0:
-        avg_mtbf = 168 if total_devices > 0 else 0  # أسبوع افتراضي
-    
-    if avg_mttr == 0:
-        if needs_maintenance_devices > 0:
-            avg_mttr = 8  # 8 ساعات للأجهزة التي تحتاج صيانة
-        elif needs_check_devices > 0:
-            avg_mttr = 4  # 4 ساعات للأجهزة التي تحتاج تفقد
-        else:
-            avg_mttr = 2  # ساعتان للأجهزة العاملة
-    
-    # بيانات تحليل الأعطال حسب النوع
-    failure_types = ServiceRequest.objects.filter(request_type='corrective').values('request_type').annotate(
-        count=Count('id')
-    ).order_by('-count')[:10]
-    
-    # إضافة تحليل حسب الخطورة بدلاً من failure_type
-    severity_analysis = ServiceRequest.objects.filter(request_type='corrective').values('severity').annotate(
-        count=Count('id')
-    ).order_by('-count')[:10]
-    
-    failure_types_labels = [f['severity'] or 'غير محدد' for f in severity_analysis]
-    failure_types_data = [f['count'] for f in severity_analysis]
+        # تحليل حسب الخطورة
+        severity_analysis = failure_requests.values('severity').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # دمج البيانات لعرض أفضل
+        failure_data = {}
+        for item in failure_type_analysis:
+            request_type = item['request_type']
+            if request_type == 'breakdown':
+                failure_data['أعطال مفاجئة'] = item['count']
+            elif request_type == 'corrective':
+                failure_data['صيانة تصحيحية'] = item['count']
+        
+        for item in severity_analysis:
+            severity = item['severity']
+            if severity == 'critical':
+                failure_data['حرجة'] = failure_data.get('حرجة', 0) + item['count']
+            elif severity == 'high':
+                failure_data['عالية'] = failure_data.get('عالية', 0) + item['count']
+            elif severity == 'medium':
+                failure_data['متوسطة'] = failure_data.get('متوسطة', 0) + item['count']
+            elif severity == 'low':
+                failure_data['منخفضة'] = failure_data.get('منخفضة', 0) + item['count']
+        
+        failure_types_labels = list(failure_data.keys()) if failure_data else ['لا توجد أعطال']
+        failure_types_data = list(failure_data.values()) if failure_data else [0]
     
     # بيانات استخدام الأقسام
     department_usage = devices.values('department__name').annotate(

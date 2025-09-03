@@ -300,11 +300,10 @@ class DowntimeForm(forms.ModelForm):
     """نموذج إدارة توقفات الأجهزة"""
     
     class Meta:
-        model = DowntimeEvent
+        model = DeviceDowntime
         fields = [
-            'device', 'start_time', 'end_time', 'downtime_type',
-            'reason', 'impact_description', 'related_work_order',
-            'cost_impact'
+            'device', 'start_time', 'end_time', 'reason', 
+            'description', 'work_order'
         ]
         widgets = {
             'device': forms.Select(attrs={'class': 'form-control'}),
@@ -320,34 +319,21 @@ class DowntimeForm(forms.ModelForm):
                     'type': 'datetime-local'
                 }
             ),
-            'downtime_type': forms.Select(attrs={'class': 'form-control'}),
-            'reason': forms.Textarea(attrs={
+            'reason': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'placeholder': 'سبب التوقف'
+                'placeholder': 'وصف التوقف'
             }),
-            'impact_description': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'وصف التأثير'
-            }),
-            'related_work_order': forms.Select(attrs={'class': 'form-control'}),
-            'cost_impact': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 0,
-                'step': '0.01',
-                'placeholder': 'التأثير المالي'
-            }),
+            'work_order': forms.Select(attrs={'class': 'form-control'}),
         }
         labels = {
             'device': 'الجهاز',
             'start_time': 'وقت بداية التوقف',
             'end_time': 'وقت نهاية التوقف',
-            'downtime_type': 'نوع التوقف',
             'reason': 'سبب التوقف',
-            'impact_description': 'وصف التأثير',
-            'related_work_order': 'أمر الشغل المرتبط',
-            'cost_impact': 'التأثير المالي',
+            'description': 'وصف التوقف',
+            'work_order': 'أمر الشغل المرتبط',
         }
     
     def __init__(self, *args, **kwargs):
@@ -355,11 +341,11 @@ class DowntimeForm(forms.ModelForm):
         # فلترة أوامر الشغل حسب الجهاز المحدد
         if 'initial' in kwargs and 'device' in kwargs['initial']:
             device = kwargs['initial']['device']
-            self.fields['related_work_order'].queryset = WorkOrder.objects.filter(
+            self.fields['work_order'].queryset = WorkOrder.objects.filter(
                 service_request__device=device
             )
         else:
-            self.fields['related_work_order'].queryset = WorkOrder.objects.none()
+            self.fields['work_order'].queryset = WorkOrder.objects.none()
 
     def clean(self):
         """التحقق من صحة البيانات"""
@@ -756,8 +742,8 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
     class Meta:
         model = PreventiveMaintenanceSchedule
         fields = [
-            'name', 'description', 'job_plan', 'frequency', 'interval_days',
-            'start_date', 'end_date', 'next_due_date', 'assigned_to', 'is_active'
+            'name', 'description', 'job_plan', 'frequency',
+            'start_date', 'end_date', 'assigned_to', 'is_active'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -778,11 +764,6 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
                 'class': 'form-control',
                 'required': True
             }),
-            'interval_days': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': '1',
-                'placeholder': 'عدد الأيام (اختياري)'
-            }),
             'start_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
@@ -791,11 +772,6 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
             'end_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date'
-            }),
-            'next_due_date': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date',
-                'required': True
             }),
             'assigned_to': forms.Select(attrs={
                 'class': 'form-control'
@@ -809,10 +785,8 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
             'description': 'الوصف',
             'job_plan': 'خطة العمل',
             'frequency': 'التكرار',
-            'interval_days': 'الفترة بالأيام',
             'start_date': 'تاريخ البدء',
             'end_date': 'تاريخ الانتهاء',
-            'next_due_date': 'تاريخ الاستحقاق التالي',
             'assigned_to': 'مُعين إلى',
             'is_active': 'نشط'
         }
@@ -837,14 +811,10 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
         cleaned_data = super().clean()
         start_date = cleaned_data.get('start_date')
         end_date = cleaned_data.get('end_date')
-        next_due_date = cleaned_data.get('next_due_date')
         
         # التحقق من صحة التواريخ
         if start_date and end_date and start_date >= end_date:
             raise forms.ValidationError("تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء")
-        
-        if start_date and next_due_date and next_due_date < start_date:
-            raise forms.ValidationError("تاريخ الاستحقاق التالي يجب أن يكون بعد تاريخ البدء")
         
         return cleaned_data
 

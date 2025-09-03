@@ -116,7 +116,7 @@
                             </div>
                             <div class="col-md-6 text-right">
                                 {% if form.instance.device %}
-                                <a href="{% url 'device_transfer' form.instance.device.id %}" class="btn btn-warning">
+                                <a href="{% url 'maintenance:device_transfer' form.instance.device.id %}" class="btn btn-warning">
                                     <i class="fas fa-exchange-alt"></i> نقل الجهاز
                                 </a>
                                 {% endif %}

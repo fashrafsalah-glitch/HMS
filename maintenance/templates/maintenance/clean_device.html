@@ -4,7 +4,7 @@
 
 {% block title %}{% trans "تسجيل تنظيف الجهاز" %} - {{ device.name }}{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
     .operation-card {
         border: none;
@@ -39,9 +39,7 @@
         margin-bottom: 1.5rem;
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="container-fluid" dir="rtl">
     <div class="row justify-content-center">
         <div class="col-lg-8 col-md-10">

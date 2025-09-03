@@ -10,7 +10,7 @@ import csv
 
 from .models import (
     Supplier, SparePart, SparePartRequest, SparePartTransaction, 
-    Calibration, CalibrationRecord, DowntimeEvent,
+    Calibration, CalibrationRecord,
     Device, WorkOrder, DeviceDowntime, CALIBRATION_STATUS_CHOICES
 )
 from .forms import (
@@ -884,7 +884,7 @@ def calibration_update(request, pk):
 @login_required
 def downtime_list(request):
     """عرض قائمة توقفات الأجهزة"""
-    downtimes = DowntimeEvent.objects.all().select_related('device', 'related_work_order')
+    downtimes = DeviceDowntime.objects.all().select_related('device', 'work_order')
     
     # البحث
     search_query = request.GET.get('search', '')
@@ -920,20 +920,44 @@ def downtime_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # إحصائيات للرسوم البيانية
+    all_downtimes = DeviceDowntime.objects.all()
+    
+    # إحصائيات أسباب التوقف
+    stats = {
+        'breakdown_count': all_downtimes.filter(reason='breakdown').count(),
+        'maintenance_count': all_downtimes.filter(reason='maintenance').count(),
+        'calibration_count': all_downtimes.filter(reason='calibration').count(),
+        'power_count': all_downtimes.filter(reason='power_failure').count(),
+        'other_count': all_downtimes.filter(reason='other').count(),
+    }
+    
+    # الأجهزة الأكثر توقفاً
+    from django.db.models import Count
+    top_devices = all_downtimes.values('device__name').annotate(
+        count=Count('id')
+    ).order_by('-count')[:5]
+    
+    top_devices_names = [device['device__name'] for device in top_devices]
+    top_devices_counts = [device['count'] for device in top_devices]
+    
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'sort_by': sort_by,
         'selected_type': downtime_type,
         'period': period,
-        'type_choices': DowntimeEvent.DOWNTIME_TYPE_CHOICES,
+        'type_choices': DeviceDowntime.DOWNTIME_TYPE_CHOICES,
+        'stats': stats,
+        'top_devices_names': top_devices_names,
+        'top_devices_counts': top_devices_counts,
     }
     return render(request, 'maintenance/downtime_list.html', context)
 
 @login_required
 def downtime_detail(request, pk):
     """عرض تفاصيل توقف الجهاز"""
-    downtime = get_object_or_404(DowntimeEvent, pk=pk)
+    downtime = get_object_or_404(DeviceDowntime, pk=pk)
     
     context = {
         'downtime': downtime,
@@ -974,7 +998,7 @@ def downtime_create(request, device_id=None, work_order_id=None):
         if device:
             initial_data['device'] = device
         if work_order:
-            initial_data['related_work_order'] = work_order
+            initial_data['work_order'] = work_order
         form = DowntimeForm(initial=initial_data)
     
     context = {
@@ -988,7 +1012,7 @@ def downtime_create(request, device_id=None, work_order_id=None):
 @login_required
 def downtime_update(request, pk):
     """تحديث بيانات توقف الجهاز"""
-    downtime = get_object_or_404(DowntimeEvent, pk=pk)
+    downtime = get_object_or_404(DeviceDowntime, pk=pk)
     old_end_time = downtime.end_time
     
     if request.method == 'POST':
@@ -1000,7 +1024,7 @@ def downtime_update(request, pk):
             if old_end_time is None and downtime.end_time is not None:
                 device = downtime.device
                 # تحقق من عدم وجود توقفات أخرى مفتوحة لنفس الجهاز
-                other_open_downtimes = DowntimeEvent.objects.filter(
+                other_open_downtimes = DeviceDowntime.objects.filter(
                     device=device, 
                     end_time__isnull=True
                 ).exclude(pk=downtime.pk).exists()
@@ -1118,12 +1142,12 @@ def api_device_downtime_stats(request, device_id):
         device = get_object_or_404(Device, pk=device_id)
         
         # حساب إجمالي وقت التوقف
-        downtimes = DowntimeEvent.objects.filter(device=device)
+        downtimes = DeviceDowntime.objects.filter(device=device)
         
         # إحصائيات حسب نوع التوقف
         downtime_by_type = {}
-        for dt_type, _ in DowntimeEvent.DOWNTIME_TYPE_CHOICES:
-            type_downtimes = downtimes.filter(downtime_type=dt_type)
+        for dt_type, _ in DeviceDowntime.DOWNTIME_TYPE_CHOICES:
+            type_downtimes = downtimes.filter(reason=dt_type)
             total_hours = 0
             for dt in type_downtimes:
                 if dt.end_time and dt.start_time:

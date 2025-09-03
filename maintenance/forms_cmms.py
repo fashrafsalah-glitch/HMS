@@ -337,7 +337,7 @@ class PMScheduleForm(forms.ModelForm):
     
     class Meta:
         model = PreventiveMaintenanceSchedule
-        fields = ['name', 'description', 'device', 'job_plan', 'frequency', 'interval_days', 'start_date', 'end_date', 'assigned_to']
+        fields = ['name', 'description', 'device', 'job_plan', 'frequency', 'start_date', 'end_date', 'assigned_to']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),

@@ -518,10 +518,10 @@ def work_order_create(request):
     
     # إذا كان هناك توقف، نحصل على معلوماته
     if downtime_id and device_id:
-        # استخدام نموذج DowntimeEvent الموجود في المشروع
-        from .models import DowntimeEvent
+        # استخدام نموذج DeviceDowntime الموجود في المشروع
+        from .models import DeviceDowntime
         try:
-            downtime = DowntimeEvent.objects.get(id=downtime_id, device_id=device_id)
+            downtime = DeviceDowntime.objects.get(id=downtime_id, device_id=device_id)
         except:
             # إذا لم يتم العثور على التوقف، نتجاهله
             pass
@@ -1586,12 +1586,6 @@ def pm_schedule_list(request):
     
     pm_schedules = PreventiveMaintenanceSchedule.objects.all().order_by('next_due_date')
     
-    # Debug information
-    total_schedules = PreventiveMaintenanceSchedule.objects.count()
-    print(f"DEBUG: Total PM schedules in database: {total_schedules}")
-    print(f"DEBUG: User: {request.user.username}, Role: {getattr(request.user, 'role', 'No role')}")
-    print(f"DEBUG: Is superuser: {request.user.is_superuser}")
-    print(f"DEBUG: User groups: {list(request.user.groups.values_list('name', flat=True))}")
     
     # فلترة حسب الحالة
     status_filter = request.GET.get('status', '')
@@ -1645,7 +1639,7 @@ def pm_schedule_list(request):
         'total_count': total_count,
         'devices': devices,
         'debug_info': {
-            'total_schedules': total_schedules,
+            'total_schedules': total_count,
             'filtered_schedules': pm_schedules.count(),
             'user_role': getattr(request.user, 'role', 'No role'),
             'is_superuser': request.user.is_superuser,
@@ -1737,16 +1731,15 @@ def pm_schedule_detail(request, schedule_id):
         if hasattr(schedule, 'next_due_date'):
             next_maintenance_date = schedule.next_due_date
     
-    # إحصائيات أوامر الشغل المرتبطة بالجدول
-    # البحث عن أوامر الشغل المرتبطة بنفس الجهاز والنوع الوقائي
+    # إحصائيات أوامر الشغل المرتبطة بجدول الصيانة الوقائية المحدد
     work_orders = WorkOrder.objects.filter(
-        service_request__device=schedule.device,
-        wo_type='preventive'
+        pm_schedule=schedule
     )
     total_work_orders = work_orders.count()
-    completed_work_orders = work_orders.filter(status__in=['closed', 'qa_verified']).count()
+    completed_work_orders = work_orders.filter(status__in=['resolved', 'qa_verified', 'closed']).count()
     cancelled_work_orders = work_orders.filter(status='cancelled').count()
-    active_work_orders = total_work_orders - completed_work_orders - cancelled_work_orders
+    in_progress_work_orders = work_orders.filter(status__in=['new', 'assigned', 'in_progress', 'wait_parts', 'on_hold']).count()
+    active_work_orders = in_progress_work_orders
     
     # حساب نسبة الالتزام بالجدول
     compliance_rate = 0
@@ -1765,6 +1758,7 @@ def pm_schedule_detail(request, schedule_id):
         'cancelled_work_orders': cancelled_work_orders,
         'active_work_orders': active_work_orders,
         'compliance_rate': compliance_rate,
+        'today': timezone.now().date(),
     }
     
     return render(request, 'maintenance/cmms/pm_schedule_detail.html', context)
@@ -1982,10 +1976,16 @@ def work_order_update_status(request, wo_id):
             
             # تحديث حالة الجهاز إلى "يعمل" عند إكمال أمر العمل (بعد الحفظ)
             if new_status in ['resolved', 'qa_verified', 'closed']:
-                device = work_order.service_request.device
-                print(f"DEBUG: Checking device {device.id} status: {device.status}")
+                # الحصول على الجهاز من service_request أو pm_schedule
+                device = None
+                if work_order.service_request:
+                    device = work_order.service_request.device
+                elif work_order.pm_schedule:
+                    device = work_order.pm_schedule.device
                 
-                if device.status == 'needs_maintenance':
+                if device:
+                    print(f"DEBUG: Checking device {device.id} status: {device.status}")
+                    
                     # التحقق من عدم وجود أوامر عمل أخرى مفتوحة (باستثناء الصيانة الوقائية والفحص)
                     other_open_orders = device.service_requests.exclude(
                         request_type__in=['preventive', 'inspection']
@@ -1995,7 +1995,7 @@ def work_order_update_status(request, wo_id):
                     
                     print(f"DEBUG: Other open work orders (excluding preventive/inspection): {other_open_orders.count()}")
                     
-                    if not other_open_orders.exists():
+                    if device.status == 'needs_maintenance' and not other_open_orders.exists():
                         print(f"DEBUG: Updating device {device.id} status to working")
                         device.status = 'working'
                         device.save()

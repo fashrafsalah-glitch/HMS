@@ -188,30 +188,28 @@
                 </div>
                 <div class="card-body">
                     {% if history %}
-                    <div class="timeline">
+                    <div class="pmsch-timeline">
                         {% for entry in history %}
-                        <div class="timeline-item">
-                            <div class="timeline-item-marker">
-                                <div class="timeline-item-marker-text">{{ entry.created_at|date:"Y-m-d" }}</div>
-                                <div class="timeline-item-marker-indicator bg-primary"></div>
+                        <div class="pmsch-timeline-item">
+                            <div class="pmsch-timeline-item-marker">
+                                <div class="pmsch-timeline-item-marker-text">{{ entry.created_at|date:"Y-m-d" }}</div>
+                                <div class="pmsch-timeline-item-marker-indicator bg-primary"></div>
                             </div>
-                            <div class="timeline-item-content">
-                                {% if entry.work_order %}
-                                <a href="{% url 'work_order_detail' entry.work_order.id %}" class="fw-bold">
-                                    أمر شغل #{{ entry.work_order.id }}
+                            <div class="pmsch-timeline-item-content">
+                                <a href="{% url 'maintenance:cmms:work_order_detail' wo_id=entry.id %}" class="fw-bold">
+                                    أمر شغل #{{ entry.id }}
                                 </a>
                                 <div>
-                                    {% if entry.work_order.status == 'closed' or entry.work_order.status == 'qa_verified' %}
+                                    {% if entry.status == 'closed' or entry.status == 'qa_verified' or entry.status == 'resolved' %}
                                     <span class="badge bg-success">مكتمل</span>
-                                    {% elif entry.work_order.status == 'cancelled' %}
+                                    {% elif entry.status == 'cancelled' %}
                                     <span class="badge bg-danger">ملغي</span>
                                     {% else %}
                                     <span class="badge bg-warning">قيد التنفيذ</span>
                                     {% endif %}
                                 </div>
-                                {% else %}
-                                <span class="fw-bold">تم إنشاء أمر شغل</span>
-                                <div class="small text-muted">لم يتم العثور على أمر الشغل</div>
+                                {% if entry.description %}
+                                <div class="small text-muted mt-1">{{ entry.description|truncatechars:50 }}</div>
                                 {% endif %}
                                 <div class="small text-muted">{{ entry.created_at|date:"H:i" }}</div>
                             </div>
@@ -247,11 +245,48 @@
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div>أوامر الشغل قيد التنفيذ:</div>
-                        <div class="fw-bold">{{ active_work_orders }}</div>
+                        <div class="fw-bold text-warning">{{ active_work_orders }}</div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div>نسبة الالتزام بالجدول:</div>
-                        <div class="fw-bold">{{ compliance_rate }}%</div>
+                        <div class="fw-bold">
+                            {% if compliance_rate >= 80 %}
+                                <span class="text-success">{{ compliance_rate }}%</span>
+                            {% elif compliance_rate >= 60 %}
+                                <span class="text-warning">{{ compliance_rate }}%</span>
+                            {% else %}
+                                <span class="text-danger">{{ compliance_rate }}%</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- إضافة معلومات إضافية -->
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>آخر تاريخ إنجاز:</div>
+                        <div class="fw-bold">
+                            {% if schedule.last_completed_date %}
+                                {{ schedule.last_completed_date|date:"Y-m-d" }}
+                            {% else %}
+                                <span class="text-muted">لم يتم الإنجاز بعد</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>تاريخ الاستحقاق التالي:</div>
+                        <div class="fw-bold">
+                            {% if schedule.next_due_date %}
+                                {% if schedule.next_due_date < today %}
+                                    <span class="text-danger">{{ schedule.next_due_date|date:"Y-m-d" }} (متأخر)</span>
+                                {% elif schedule.next_due_date == today %}
+                                    <span class="text-warning">{{ schedule.next_due_date|date:"Y-m-d" }} (اليوم)</span>
+                                {% else %}
+                                    <span class="text-info">{{ schedule.next_due_date|date:"Y-m-d" }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">غير محدد</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -261,40 +296,53 @@
 
 <style>
     /* Timeline styles */
-    .timeline {
+    .pmsch-timeline {
         margin-left: 1rem;
         padding-left: 1.5rem;
-        border-left: 1px solid #dee2e6;
+        border-left: 1px solid var(--bs-border-color);
     }
-    .timeline-item {
+    .pmsch-timeline-item {
         position: relative;
         margin-bottom: 1.5rem;
     }
-    .timeline-item-marker {
+    .pmsch-timeline-item-marker {
         position: absolute;
         left: -1.5rem;
         width: 1rem;
         top: 0;
     }
-    .timeline-item-marker-text {
+    .pmsch-timeline-item-marker-text {
         position: absolute;
         width: 6rem;
         left: -7.5rem;
         top: 0;
         font-size: 0.75rem;
         font-weight: 500;
-        color: #6c757d;
+        color: var(--bs-secondary-color);
     }
-    .timeline-item-marker-indicator {
+    .pmsch-timeline-item-marker-indicator {
         display: block;
         width: 0.75rem;
         height: 0.75rem;
         border-radius: 100%;
-        background-color: #dee2e6;
+        background-color: var(--bs-border-color);
     }
-    .timeline-item-content {
+    .pmsch-timeline-item-content {
         padding-bottom: 1rem;
         padding-left: 0.5rem;
+    }
+    
+    /* Dark Mode Support */
+    [data-bs-theme="dark"] .pmsch-timeline {
+        border-left-color: #4a5568;
+    }
+    
+    [data-bs-theme="dark"] .pmsch-timeline-item-marker-text {
+        color: #a0aec0;
+    }
+    
+    [data-bs-theme="dark"] .pmsch-timeline-item-marker-indicator {
+        background-color: #4a5568;
     }
 </style>
 {% endblock %}

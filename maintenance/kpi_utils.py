@@ -1,5 +1,6 @@
 # هنا بنحسب الـ KPIs والإحصائيات المهمة للـ CMMS عشان نعرف أداء الصيانة إزاي
 from django.db.models import Count, Avg, Sum, Q, F
+from django.db import models
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .models import Device, SLADefinition
@@ -742,13 +743,13 @@ def get_critical_alerts(department_id=None):
         })
     
     # قطع الغيار بمخزون منخفض
-    low_stock_parts = SparePart.objects.filter(status='low_stock')[:5]
+    low_stock_parts = SparePart.objects.filter(current_stock__lte=models.F('minimum_stock'))[:5]
     for part in low_stock_parts:
         alerts.append({
             'type': 'low_stock',
             'severity': 'low',
             'title': f'مخزون منخفض: {part.name}',
-            'description': f'الكمية المتبقية: {part.quantity}',
+            'description': f'الكمية المتبقية: {part.current_stock}',
             'url': f'/maintenance/spare-part/{part.id}/',
             'created_at': timezone.now(),
         })

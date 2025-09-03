@@ -364,74 +364,8 @@ def auto_create_maintenance_request(sender, instance, created, **kwargs):
             logger.error(f"خطأ في إنشاء بلاغ تلقائي من التفقد اليومي: {str(e)}")
 
 
-@receiver(post_save, sender=DowntimeEvent)
-def auto_create_downtime_request(sender, instance, created, **kwargs):
-    """
-    إنشاء بلاغ تلقائي عند بداية توقف الجهاز
-    هنا لو الجهاز توقف، بنعمل بلاغ عاجل تلقائي
-    """
-    if created and instance.downtime_type in ['unplanned', 'emergency']:
-        try:
-            # التحقق من عدم وجود بلاغ مرتبط
-            if not instance.related_work_order:
-                
-                # تحديد الأولوية حسب نوع التوقف
-                priority = 'critical' if instance.downtime_type == 'emergency' else 'high'
-                
-                # إنشاء البلاغ التلقائي
-                service_request = ServiceRequest.objects.create(
-                    title=f"توقف الجهاز - {instance.device.name}",
-                    description=f"توقف الجهاز عن العمل:\nالسبب: {instance.reason}\nالتأثير: {instance.impact_description}",
-                    device=instance.device,
-                    request_type='breakdown',
-                    severity='critical',
-                    impact='high',
-                    priority=priority,
-                    reporter=instance.reported_by,
-                    estimated_hours=6.0 if priority == 'critical' else 4.0
-                )
-                
-                # ربط حدث التوقف بأمر الشغل الذي سيتم إنشاؤه
-                # (سيتم إنشاؤه تلقائياً بواسطة signal البلاغ)
-                work_orders = service_request.work_orders.all()
-                if work_orders.exists():
-                    instance.related_work_order = work_orders.first()
-                    instance.save(update_fields=['related_work_order'])
-                
-                logger.info(f"تم إنشاء بلاغ توقف تلقائي {service_request.id} للجهاز {instance.device.name}")
-                
-        except Exception as e:
-            logger.error(f"خطأ في إنشاء بلاغ توقف تلقائي: {str(e)}")
-
-
-# Signal لتحديث حالة الجهاز عند بداية ونهاية التوقف
-@receiver(post_save, sender=DowntimeEvent)
-def update_device_status_on_downtime(sender, instance, created, **kwargs):
-    """
-    تحديث حالة الجهاز عند بداية أو نهاية التوقف
-    هنا بنخلي حالة الجهاز تتغير لما يتوقف أو يرجع يشتغل
-    """
-    try:
-        device = instance.device
-        
-        if created and instance.end_time is None:
-            # بداية التوقف - تحديث حالة الجهاز
-            device.status = 'out_of_order'
-            device.availability = False
-            device.save(update_fields=['status', 'availability'])
-            
-            logger.info(f"تم تحديث حالة الجهاز {device.name} إلى خارج الخدمة")
-            
-        elif not created and instance.end_time and instance.is_ongoing() == False:
-            # نهاية التوقف - إعادة تشغيل الجهاز
-            device.status = 'needs_check'  # يحتاج فحص قبل العودة للخدمة
-            device.availability = True
-            device.save(update_fields=['status', 'availability'])
-            
-            logger.info(f"تم إنهاء توقف الجهاز {device.name} - يحتاج فحص")
-            
-    except Exception as e:
-        logger.error(f"خطأ في تحديث حالة الجهاز عند التوقف: {str(e)}")
+# تم حذف دوال DowntimeEvent لأنها لم تعد مستخدمة
+# النظام الآن يستخدم DeviceDowntime مع المراقبة التلقائية في tasks.py
 
 
 # ═══════════════════════════════════════════════════════════════

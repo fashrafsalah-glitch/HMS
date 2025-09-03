@@ -6,7 +6,7 @@
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit" class="btn btn-primary">Add Usage</button>
-        <a href="{% url 'device_list' %}" class="btn btn-secondary">Back to Devices</a>
+        <a href="{% url 'maintenance:device_list' %}" class="btn btn-secondary">Back to Devices</a>
     </form>
 </div>
 {% endblock %}

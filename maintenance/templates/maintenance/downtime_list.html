@@ -104,28 +104,26 @@
                                     </td>
                                     <td>
                                         {% if downtime.reason %}
-                                        {{ downtime.reason }}
+                                        {{ downtime.get_reason_display }}
                                         {% else %}
                                         <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <span class="badge badge-{% if downtime.downtime_type == 'planned' %}info{% elif downtime.downtime_type == 'unplanned' %}warning{% else %}danger{% endif %}">
-                                            {{ downtime.get_downtime_type_display }}
-                                        </span>
+                                        <span class="text-muted">-</span>
                                     </td>
                                     <td>
-                                        {% if downtime.related_work_order %}
-                                        <a href="{% url 'maintenance:cmms:work_order_detail' downtime.related_work_order.pk %}">
-                                            {{ downtime.related_work_order.wo_number }}
+                                        {% if downtime.work_order %}
+                                        <a href="{% url 'maintenance:work_order_detail' downtime.work_order.pk %}">
+                                            {{ downtime.work_order.wo_number }}
                                         </a>
                                         {% else %}
                                         <span class="text-muted">غير محدد</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if downtime.cost_impact %}
-                                        {{ downtime.cost_impact }} ريال
+                                        {% if downtime.financial_impact %}
+                                        {{ downtime.financial_impact }} ريال
                                         {% else %}
                                         <span class="text-muted">غير محدد</span>
                                         {% endif %}
@@ -254,18 +252,18 @@
 <script>
     $(document).ready(function() {
         // رسم بياني لأسباب التوقف
-        var reasonsCtx = document.getElementById('downtimeReasonsChart').getContext('2d');
+        var reasonsCtx = document.getElementById('reasonsChart').getContext('2d');
         var reasonsChart = new Chart(reasonsCtx, {
-            type: 'pie',
+            type: 'doughnut',
             data: {
-                labels: ['عطل', 'صيانة', 'معايرة', 'مشكلة كهرباء', 'أخرى'],
+                labels: ['أعطال', 'صيانة', 'معايرة', 'انقطاع الكهرباء', 'أخرى'],
                 datasets: [{
                     data: [
-                        {{ stats.breakdown_count }},
-                        {{ stats.maintenance_count }},
-                        {{ stats.calibration_count }},
-                        {{ stats.power_count }},
-                        {{ stats.other_count }}
+                        parseInt('{{ stats.breakdown_count|default:0 }}'),
+                        parseInt('{{ stats.maintenance_count|default:0 }}'),
+                        parseInt('{{ stats.calibration_count|default:0 }}'),
+                        parseInt('{{ stats.power_count|default:0 }}'),
+                        parseInt('{{ stats.other_count|default:0 }}')
                     ],
                     backgroundColor: [
                         '#dc3545',
@@ -284,13 +282,16 @@
         
         // رسم بياني للأجهزة الأكثر توقفاً
         var devicesCtx = document.getElementById('topDevicesChart').getContext('2d');
+        var topDevicesNames = JSON.parse('{{ top_devices_names|default:"[]"|escapejs }}');
+        var topDevicesCounts = JSON.parse('{{ top_devices_counts|default:"[]"|escapejs }}');
+        
         var devicesChart = new Chart(devicesCtx, {
             type: 'bar',
             data: {
-                labels: {{ top_devices_names|safe }},
+                labels: topDevicesNames,
                 datasets: [{
                     label: 'عدد مرات التوقف',
-                    data: {{ top_devices_counts|safe }},
+                    data: topDevicesCounts,
                     backgroundColor: '#007bff'
                 }]
             },

@@ -143,8 +143,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ────────────────────────────  I18N / TZ  ─────────────────────────────────
-LANGUAGE_CODE = "en-us"
-TIME_ZONE     = "UTC"
+LANGUAGE_CODE = "ar"
+TIME_ZONE     = "Asia/Riyadh"
 USE_I18N      = True
 USE_TZ        = True
 

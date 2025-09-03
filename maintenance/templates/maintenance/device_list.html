@@ -166,7 +166,7 @@
             
             <div class="mb-3">
               <div class="d-flex flex-wrap gap-1">
-                <span class="status-badge text-bg-{% if device.status == 'working' %}success{% elif device.status == 'in_use' %}info{% elif device.status == 'needs_check' %}warning{% else %}secondary{% endif %}">
+                <span class="status-badge text-bg-{% if device.status == 'working' %}success{% elif device.status == 'in_use' %}info{% elif device.status == 'needs_maintenance' %}danger{% elif device.status == 'needs_check' %}warning{% else %}secondary{% endif %}">
                   {{ device.get_status_display }}
                 </span>
                 <span class="status-badge text-bg-{% if device.clean_status == 'clean' %}success{% elif device.clean_status == 'needs_cleaning' %}warning{% else %}secondary{% endif %}">
@@ -176,6 +176,23 @@
                   {{ device.get_sterilization_status_display }}
                 </span>
               </div>
+              {% if device.status == 'needs_maintenance' %}
+                {% with estimated_time=device.get_estimated_repair_time %}
+                  {% if estimated_time %}
+                    <div class="mt-2">
+                      <small class="text-danger fw-bold">
+                        ⏰ الوقت المقدر للإصلاح: {{ estimated_time|date:"Y-m-d H:i" }}
+                      </small>
+                    </div>
+                  {% else %}
+                    <div class="mt-2">
+                      <small class="text-warning">
+                        ⚠️ لا يوجد تقدير زمني متاح
+                      </small>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              {% endif %}
             </div>
             
             <div class="d-flex flex-wrap gap-1 mb-3">
