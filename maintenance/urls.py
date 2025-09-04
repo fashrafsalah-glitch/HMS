@@ -70,6 +70,7 @@ urlpatterns = [
     path('device/<int:device_id>/maintenance-schedule/', views.maintenance_schedule, name='maintenance_schedule'),
     path('device/<int:device_id>/edit-schedule/', views.edit_schedule, name='edit_schedule'),
     path('device/<int:device_id>/delete-schedule/', views.delete_schedule, name='delete_schedule'),
+    path('calibration-tracking/', views.calibration_tracking, name='calibration_tracking'),
     path('device/<int:pk>/emergency-request/', views.add_emergency_request, name='add_emergency_request'),
     path('device/<int:pk>/add-spare-part/', views.add_spare_part, name='add_spare_part'),
    

@@ -171,35 +171,102 @@ class CMMSScheduler:
         
     def check_due_calibrations(self):
         """
-        فحص المعايرات المستحقة
+        فحص المعايرات المستحقة وإنشاء Work Orders و Service Requests تلقائياً
         """
         logger.info("فحص المعايرات المستحقة")
         
+        from .models import CalibrationRecord
+        
         today = date.today()
-        warning_date = today + timedelta(days=30)  # تحذير قبل 30 يوم
         
-        # الأجهزة التي تحتاج معايرة خلال 30 يوم
-        devices_needing_calibration = Device.objects.filter(
-            calibration_records__next_calibration_date__lte=warning_date,
-            calibration_records__next_calibration_date__gte=today
-        ).distinct()
+        # المعايرات المستحقة اليوم أو متأخرة
+        due_calibrations = CalibrationRecord.objects.filter(
+            next_calibration_date__lte=today,
+            status__in=['due', 'overdue']
+        ).select_related('device', 'calibrated_by')
         
-        for device in devices_needing_calibration:
-            latest_calibration = device.calibration_records.filter(
-                next_calibration_date__lte=warning_date
-            ).order_by('-calibration_date').first()
-            
-            if latest_calibration:
-                # البحث عن مسؤول الصيانة للجهاز
-                responsible_user = self._get_device_responsible_user(device)
+        created_count = 0
+        
+        for calibration in due_calibrations:
+            try:
+                with transaction.atomic():
+                    # التحقق من عدم وجود طلب معايرة مفتوح للجهاز
+                    existing_request = ServiceRequest.objects.filter(
+                        device=calibration.device,
+                        request_type='calibration',
+                        status__in=['new', 'assigned', 'in_progress']
+                    ).exists()
+                    
+                    if existing_request:
+                        logger.info(f"يوجد طلب معايرة مفتوح للجهاز {calibration.device.name}")
+                        continue
+                    
+                    # إنشاء طلب خدمة جديد للمعايرة
+                    service_request = ServiceRequest.objects.create(
+                        title=f"معايرة - {calibration.device.name}",
+                        description=f"معايرة مستحقة للجهاز {calibration.device.name} - كل {calibration.calibration_interval_months} شهر",
+                        device=calibration.device,
+                        request_type='calibration',
+                        priority='low',  # أولوية منخفضة كما طلب المستخدم
+                        requested_by=calibration.calibrated_by or self._get_system_user(),
+                        assigned_to=calibration.calibrated_by,
+                        is_auto_generated=True
+                    )
+                    
+                    # تحديد SLA المناسب للمعايرة
+                    sla = self._get_appropriate_sla(calibration.device, 'calibration', 'low')
+                    if sla:
+                        service_request.sla = sla
+                        service_request.response_due = timezone.now() + timedelta(hours=sla.response_time_hours)
+                        service_request.resolution_due = timezone.now() + timedelta(hours=sla.resolution_time_hours)
+                        service_request.save()
+                    
+                    # إنشاء أمر شغل للمعايرة
+                    work_order = WorkOrder.objects.create(
+                        service_request=service_request,
+                        assignee=calibration.calibrated_by or self._get_system_user(),
+                        description=f"تنفيذ معايرة للجهاز {calibration.device.name}",
+                        priority='low'
+                    )
+                    
+                    # تحديث حالة المعايرة
+                    if calibration.next_calibration_date < today:
+                        calibration.status = 'overdue'
+                    else:
+                        calibration.status = 'due'
+                    calibration.save()
+                    
+                    # إرسال إشعار
+                    responsible_user = calibration.calibrated_by or self._get_device_responsible_user(calibration.device)
+                    self.notification_manager.send_calibration_due_notification(
+                        calibration.device,
+                        responsible_user,
+                        calibration.next_calibration_date
+                    )
+                    
+                    created_count += 1
+                    logger.info(f"تم إنشاء طلب معايرة للجهاز {calibration.device.name}")
+                    
+            except Exception as e:
+                logger.error(f"خطأ في إنشاء طلب معايرة للجهاز {calibration.device.name}: {str(e)}")
+        
+        # فحص المعايرات التي ستستحق خلال 30 يوم للتنبيه
+        warning_date = today + timedelta(days=30)
+        upcoming_calibrations = CalibrationRecord.objects.filter(
+            next_calibration_date__gt=today,
+            next_calibration_date__lte=warning_date,
+            status='completed'
+        ).select_related('device', 'calibrated_by')
+        
+        for calibration in upcoming_calibrations:
+            responsible_user = calibration.calibrated_by or self._get_device_responsible_user(calibration.device)
+            self.notification_manager.send_calibration_due_notification(
+                calibration.device,
+                responsible_user,
+                calibration.next_calibration_date
+            )
                 
-                self.notification_manager.send_calibration_due_notification(
-                    device,
-                    responsible_user,
-                    latest_calibration.next_calibration_date
-                )
-                
-        logger.info(f"تم فحص {devices_needing_calibration.count()} جهاز يحتاج معايرة")
+        logger.info(f"تم إنشاء {created_count} طلب معايرة وفحص {upcoming_calibrations.count()} معايرة قادمة")
         
     def check_low_stock_spare_parts(self):
         """

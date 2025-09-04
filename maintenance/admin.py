@@ -4,7 +4,7 @@ from .models import (
     DeviceDailyUsageLog, DeviceUsageLogItem, ScanSession, ScanHistory,
     DeviceTransferLog, PatientTransferLog, DeviceHandoverLog, DeviceAccessory, DeviceAccessoryUsageLog,
     DeviceTransferRequest, DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog,
-    OperationDefinition, OperationStep, OperationExecution
+    OperationDefinition, OperationStep, OperationExecution, CalibrationRecord
 )
 
 from .models import (
@@ -286,4 +286,31 @@ class OperationExecutionAdmin(admin.ModelAdmin):
         }),
     )
 
+
+@admin.register(CalibrationRecord)
+class CalibrationRecordAdmin(admin.ModelAdmin):
+    list_display = ['device', 'calibration_date', 'next_calibration_date', 'status', 'calibration_agency', 'certificate_number']
+    list_filter = ['status', 'calibration_date', 'next_calibration_date', 'calibration_agency']
+    search_fields = ['device__name', 'device__serial_number', 'certificate_number', 'calibration_agency']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'calibration_date'
+    
+    fieldsets = (
+        ('معلومات أساسية', {
+            'fields': ('device', 'calibration_date', 'calibration_interval_months', 'next_calibration_date')
+        }),
+        ('تفاصيل المعايرة', {
+            'fields': ('calibrated_by', 'calibration_agency', 'certificate_number', 'status')
+        }),
+        ('الملفات والملاحظات', {
+            'fields': ('certificate_file', 'notes', 'cost')
+        }),
+        ('معلومات النظام', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('device', 'calibrated_by')
 

@@ -576,10 +576,20 @@
                         <i class="bi bi-scissors me-2"></i><span>{% trans "Surgical Ops" %}</span>
                     </a>
 
-                    <!-- maintenance link -->
-                    <a class="nav-link" href="{% url 'maintenance:maintenance_index' %}">
-                      <i class="fas fa-tools me-2"></i><span>{% trans "Maintenance" %}</span>
+                    <!-- Maintenance Submenu -->
+                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#maintenanceSubmenu" aria-expanded="false" aria-controls="maintenanceSubmenu">
+                        <i class="fas fa-tools me-2"></i><span>{% trans "Maintenance" %}</span>
                     </a>
+                    <div class="collapse" id="maintenanceSubmenu">
+                        <nav class="nav flex-column" style="padding-left: 20px;">
+                            <a class="nav-link" href="{% url 'maintenance:maintenance_index' %}"><i class="fas fa-tachometer-alt me-2"></i><span>Dashboard</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:sla_list' %}"><i class="fas fa-handshake me-2"></i><span>Service Agreements</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:job_plan_list' %}"><i class="fas fa-clipboard-list me-2"></i><span>Job Plans</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:pm_schedule_list' %}"><i class="fas fa-calendar-check me-2"></i><span>Preventive Maintenance</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:calibration_tracking' %}"><i class="fas fa-balance-scale me-2"></i><span>Calibration</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:work_order_list' %}"><i class="fas fa-clock me-2"></i><span>Downtime</span></a>
+                        </nav>
+                    </div>
 
                     <!-- Laboratory -->
                     <a class="nav-link {% if request.resolver_match.namespace == 'laboratory' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}"

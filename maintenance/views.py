@@ -22,7 +22,8 @@ from .models import (Company, Device, DeviceTransferRequest, DeviceType, DeviceU
                      DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, 
                      DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, 
                      WorkOrder, JobPlan, OperationDefinition, OperationStep, 
-                     OperationExecution, ScanSession, DeviceUsageLog, DeviceTransferLog)
+                     OperationExecution, ScanSession, DeviceUsageLog, DeviceTransferLog,
+                     CalibrationRecord, DeviceUsageLogDaily)
 from manager.models import Department, Room, Bed, Patient
 
 from .models import DeviceAccessory, AccessoryTransaction
@@ -1101,8 +1102,11 @@ def add_accessory(request, pk):
 def maintenance_schedule(request, device_id):
     device = get_object_or_404(Device, pk=device_id)
     
-    # جلب الصيانات المجدولة للجهاز
-    scheduled_maintenances = PreventiveMaintenanceSchedule.objects.filter(device=device)
+    # جلب الصيانات المجدولة للجهاز (الصيانات الوقائية فقط)
+    preventive_schedules = PreventiveMaintenanceSchedule.objects.filter(device=device)
+    
+    # جلب المعايرات من جدول منفصل
+    calibration_records = CalibrationRecord.objects.filter(device=device).order_by('-calibration_date')
     
     # جلب سجل الصيانة من DeviceMaintenanceLog
     maintenance_logs = DeviceMaintenanceLog.objects.filter(device=device).order_by('-maintained_at')[:10]
@@ -1111,48 +1115,118 @@ def maintenance_schedule(request, device_id):
     work_orders = WorkOrder.objects.filter(service_request__device=device).order_by('-created_at')[:5]
     
     if request.method == 'POST':
-        from .forms import PreventiveMaintenanceScheduleForm
-        form = PreventiveMaintenanceScheduleForm(request.POST, device=device)
+        form_type = request.POST.get('form_type', 'preventive')
         
-        if form.is_valid():
-            # إنشاء جدولة صيانة جديدة
-            schedule = form.save(commit=False)
-            schedule.device = device
-            schedule.created_by = request.user
+        if form_type == 'calibration':
+            # معالجة فورم المعايرة
+            from .forms import CalibrationRecordForm
+            calibration_form = CalibrationRecordForm(request.POST, request.FILES, device=device)
             
-            # إذا لم يتم تحديد خطة عمل، أنشئ واحدة افتراضية
-            if not schedule.job_plan:
-                maintenance_type = request.POST.get('maintenance_type', 'صيانة عامة')
-                job_plan, created = JobPlan.objects.get_or_create(
-                    name=f"خطة صيانة {maintenance_type} - {device.name}",
-                    defaults={
-                        'description': f"خطة صيانة {maintenance_type} افتراضية للجهاز {device.name}",
-                        'estimated_duration': 60,  # 60 دقيقة افتراضي
-                        'created_by': request.user,
-                        'is_active': True
-                    }
-                )
-                schedule.job_plan = job_plan
-            
-            schedule.save()
-            messages.success(request, f'تم جدولة الصيانة "{schedule.name}" للجهاز {device.name} بنجاح')
-            return redirect('maintenance:maintenance_schedule', device_id=device_id)
+            if calibration_form.is_valid():
+                calibration_record = calibration_form.save(commit=False)
+                calibration_record.device = device
+                calibration_record.save()
+                messages.success(request, f'تم إضافة سجل المعايرة للجهاز {device.name} بنجاح')
+                return redirect('maintenance:maintenance_schedule', device_id=device_id)
+            else:
+                for field, errors in calibration_form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{calibration_form.fields[field].label}: {error}')
         else:
-            # عرض أخطاء النموذج
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{form.fields[field].label}: {error}')
+            # معالجة فورم الصيانة الوقائية
+            from .forms import PreventiveMaintenanceScheduleForm
+            form = PreventiveMaintenanceScheduleForm(request.POST, device=device)
+            
+            if form.is_valid():
+                # إنشاء جدولة صيانة جديدة
+                schedule = form.save(commit=False)
+                schedule.device = device
+                schedule.created_by = request.user
+                
+                # إذا لم يتم تحديد خطة عمل، أنشئ واحدة افتراضية
+                if not schedule.job_plan:
+                    maintenance_type = request.POST.get('maintenance_type', 'صيانة عامة')
+                    job_plan, created = JobPlan.objects.get_or_create(
+                        name=f"خطة صيانة {maintenance_type} - {device.name}",
+                        defaults={
+                            'description': f"خطة صيانة {maintenance_type} افتراضية للجهاز {device.name}",
+                            'estimated_duration': 60,  # 60 دقيقة افتراضي
+                            'created_by': request.user,
+                            'is_active': True
+                        }
+                    )
+                    schedule.job_plan = job_plan
+                
+                schedule.save()
+                messages.success(request, f'تم جدولة الصيانة "{schedule.name}" للجهاز {device.name} بنجاح')
+                return redirect('maintenance:maintenance_schedule', device_id=device_id)
+            else:
+                # عرض أخطاء النموذج
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{form.fields[field].label}: {error}')
     else:
-        from .forms import PreventiveMaintenanceScheduleForm
+        from .forms import PreventiveMaintenanceScheduleForm, CalibrationRecordForm
         form = PreventiveMaintenanceScheduleForm(device=device)
+        calibration_form = CalibrationRecordForm(device=device)
     
     return render(request, 'maintenance/maintenance_schedule.html', {
         'device': device,
         'device_id': device_id,
-        'scheduled_maintenances': scheduled_maintenances,
+        'scheduled_maintenances': preventive_schedules,
+        'preventive_schedules': preventive_schedules,
+        'calibration_records': calibration_records,
         'maintenance_logs': maintenance_logs,
         'work_orders': work_orders,
-        'form': form
+        'form': form,
+        'calibration_form': calibration_form
+    })
+
+@login_required
+def calibration_tracking(request):
+    """صفحة متابعة المعايرات"""
+    from datetime import date, timedelta
+    
+    today = date.today()
+    next_month = today + timedelta(days=30)
+    
+    # المعايرات المستحقة (متأخرة)
+    overdue_calibrations = CalibrationRecord.objects.filter(
+        next_calibration_date__lt=today,
+        status__in=['due', 'overdue']
+    ).select_related('device', 'calibrated_by').order_by('next_calibration_date')
+    
+    # المعايرات المستحقة خلال الشهر القادم
+    upcoming_calibrations = CalibrationRecord.objects.filter(
+        next_calibration_date__gte=today,
+        next_calibration_date__lte=next_month,
+        status__in=['due', 'completed']
+    ).select_related('device', 'calibrated_by').order_by('next_calibration_date')
+    
+    # جميع المعايرات الأخيرة
+    recent_calibrations = CalibrationRecord.objects.filter(
+        calibration_date__isnull=False
+    ).select_related('device', 'calibrated_by').order_by('-calibration_date')[:20]
+    
+    # إحصائيات
+    stats = {
+        'total_devices_need_calibration': CalibrationRecord.objects.values('device').distinct().count(),
+        'overdue_count': overdue_calibrations.count(),
+        'upcoming_count': upcoming_calibrations.count(),
+        'completed_this_month': CalibrationRecord.objects.filter(
+            calibration_date__year=today.year,
+            calibration_date__month=today.month,
+            status='completed'
+        ).count(),
+    }
+    
+    return render(request, 'maintenance/calibration_tracking.html', {
+        'overdue_calibrations': overdue_calibrations,
+        'upcoming_calibrations': upcoming_calibrations,
+        'recent_calibrations': recent_calibrations,
+        'stats': stats,
+        'today': today,
+        'next_month': next_month
     })
 
 @login_required

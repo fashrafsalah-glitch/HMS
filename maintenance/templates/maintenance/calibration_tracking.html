@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}متابعة المعايرات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <h4 class="page-title">متابعة المعايرات</h4>
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item active">متابعة المعايرات</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <h5 class="text-muted fw-normal mt-0 text-truncate" title="إجمالي الأجهزة">إجمالي الأجهزة</h5>
+                            <h3 class="my-2 py-1">{{ stats.total_devices_need_calibration }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-end">
+                                <div id="campaign-sent-chart" data-colors="#727cf5"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <h5 class="text-muted fw-normal mt-0 text-truncate" title="معايرات متأخرة">معايرات متأخرة</h5>
+                            <h3 class="my-2 py-1 text-danger">{{ stats.overdue_count }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-end">
+                                <i class="mdi mdi-alert-circle-outline text-danger" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <h5 class="text-muted fw-normal mt-0 text-truncate" title="مستحقة قريباً">مستحقة قريباً</h5>
+                            <h3 class="my-2 py-1 text-warning">{{ stats.upcoming_count }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-end">
+                                <i class="mdi mdi-clock-outline text-warning" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <h5 class="text-muted fw-normal mt-0 text-truncate" title="مكتملة هذا الشهر">مكتملة هذا الشهر</h5>
+                            <h3 class="my-2 py-1 text-success">{{ stats.completed_this_month }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-end">
+                                <i class="mdi mdi-check-circle-outline text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- المعايرات المتأخرة -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="header-title text-danger">
+                        <i class="mdi mdi-alert-circle-outline me-1"></i>
+                        معايرات متأخرة ({{ stats.overdue_count }})
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if overdue_calibrations %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>الجهاز</th>
+                                        <th>تاريخ الاستحقاق</th>
+                                        <th>الأيام المتأخرة</th>
+                                        <th>الإجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for calibration in overdue_calibrations %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ calibration.device.name }}</strong><br>
+                                            <small class="text-muted">{{ calibration.device.serial_number }}</small>
+                                        </td>
+                                        <td>{{ calibration.next_calibration_date|date:"Y-m-d" }}</td>
+                                        <td>
+                                            {% with days_overdue=calibration.next_calibration_date|timesince:today %}
+                                                <span class="badge bg-danger">{{ days_overdue }}</span>
+                                            {% endwith %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:maintenance_schedule' calibration.device.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="mdi mdi-calendar-edit"></i> جدولة
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="mdi mdi-check-circle text-success" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-2">لا توجد معايرات متأخرة</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- المعايرات المستحقة قريباً -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="header-title text-warning">
+                        <i class="mdi mdi-clock-outline me-1"></i>
+                        مستحقة خلال 30 يوم ({{ stats.upcoming_count }})
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_calibrations %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>الجهاز</th>
+                                        <th>تاريخ الاستحقاق</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for calibration in upcoming_calibrations %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ calibration.device.name }}</strong><br>
+                                            <small class="text-muted">{{ calibration.device.serial_number }}</small>
+                                        </td>
+                                        <td>{{ calibration.next_calibration_date|date:"Y-m-d" }}</td>
+                                        <td>
+                                            {% if calibration.status == 'completed' %}
+                                                <span class="badge bg-success">مكتملة</span>
+                                            {% elif calibration.status == 'due' %}
+                                                <span class="badge bg-warning">مستحقة</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ calibration.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:maintenance_schedule' calibration.device.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="mdi mdi-calendar-edit"></i> جدولة
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="mdi mdi-calendar-check text-success" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-2">لا توجد معايرات مستحقة قريباً</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- المعايرات الأخيرة -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="header-title">
+                        <i class="mdi mdi-history me-1"></i>
+                        المعايرات الأخيرة
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if recent_calibrations %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>الجهاز</th>
+                                        <th>تاريخ المعايرة</th>
+                                        <th>التاريخ القادم</th>
+                                        <th>المعاير</th>
+                                        <th>الجهة</th>
+                                        <th>رقم الشهادة</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for calibration in recent_calibrations %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ calibration.device.name }}</strong><br>
+                                            <small class="text-muted">{{ calibration.device.serial_number }}</small>
+                                        </td>
+                                        <td>{{ calibration.calibration_date|date:"Y-m-d" }}</td>
+                                        <td>
+                                            {{ calibration.next_calibration_date|date:"Y-m-d" }}
+                                            {% if calibration.next_calibration_date < today %}
+                                                <span class="badge bg-danger ms-1">متأخرة</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ calibration.calibrated_by|default:"-" }}</td>
+                                        <td>{{ calibration.calibration_agency|default:"-" }}</td>
+                                        <td>{{ calibration.certificate_number|default:"-" }}</td>
+                                        <td>
+                                            {% if calibration.status == 'completed' %}
+                                                <span class="badge bg-success">مكتملة</span>
+                                            {% elif calibration.status == 'due' %}
+                                                <span class="badge bg-warning">مستحقة</span>
+                                            {% elif calibration.status == 'overdue' %}
+                                                <span class="badge bg-danger">متأخرة</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ calibration.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:maintenance_schedule' calibration.device.id %}" 
+                                               class="btn btn-sm btn-outline-primary" title="عرض جدول الصيانة">
+                                                <i class="mdi mdi-eye"></i>
+                                            </a>
+                                            {% if calibration.certificate_file %}
+                                                <a href="{{ calibration.certificate_file.url }}" 
+                                                   class="btn btn-sm btn-outline-success" 
+                                                   target="_blank" title="عرض الشهادة">
+                                                    <i class="mdi mdi-file-pdf-box"></i>
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="mdi mdi-calendar-blank text-muted" style="font-size: 4rem;"></i>
+                            <p class="text-muted mt-3">لا توجد معايرات مسجلة بعد</p>
+                            <a href="{% url 'maintenance:dashboard' %}" class="btn btn-primary">
+                                <i class="mdi mdi-plus"></i> إضافة معايرة جديدة
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // تحديث الصفحة كل 5 دقائق
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+});
+</script>
+{% endblock %}

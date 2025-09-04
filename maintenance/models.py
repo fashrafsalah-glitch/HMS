@@ -1860,6 +1860,7 @@ SR_TYPE_CHOICES = [
     ('breakdown', 'عطل'),
     ('preventive', 'صيانة وقائية'),
     ('inspection', 'فحص'),
+    ('calibration', 'معايرة'),
     ('upgrade', 'ترقية'),
     ('installation', 'تركيب'),
     ('other', 'أخرى'),
@@ -2250,6 +2251,13 @@ class CalibrationRecord(models.Model):
         verbose_name_plural = "سجلات المعايرة"
         ordering = ['-calibration_date']
         
+    def save(self, *args, **kwargs):
+        """حساب تاريخ المعايرة القادمة تلقائياً عند الحفظ"""
+        if self.calibration_date and self.calibration_interval_months:
+            from dateutil.relativedelta import relativedelta
+            self.next_calibration_date = self.calibration_date + relativedelta(months=self.calibration_interval_months)
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"{self.device.name} - {self.calibration_date}"
     

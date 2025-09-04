@@ -819,6 +819,78 @@ class PreventiveMaintenanceScheduleForm(forms.ModelForm):
         return cleaned_data
 
 
+class CalibrationRecordForm(forms.ModelForm):
+    """نموذج إضافة سجل معايرة جديد"""
+    
+    class Meta:
+        model = CalibrationRecord
+        fields = [
+            'calibration_date', 'calibration_interval_months',
+            'calibrated_by', 'certificate_number', 'calibration_agency', 
+            'status', 'notes', 'certificate_file'
+        ]
+        widgets = {
+            'calibration_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True
+            }),
+            'calibration_interval_months': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'max': '60',
+                'value': '12'
+            }),
+            'calibrated_by': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'certificate_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'رقم شهادة المعايرة'
+            }),
+            'calibration_agency': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'اسم جهة المعايرة'
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'ملاحظات إضافية'
+            }),
+            'certificate_file': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': '.pdf,.jpg,.jpeg,.png'
+            })
+        }
+        labels = {
+            'calibration_date': 'تاريخ المعايرة',
+            'calibration_interval_months': 'فترة المعايرة (بالشهور)',
+            'calibrated_by': 'تم المعايرة بواسطة',
+            'certificate_number': 'رقم الشهادة',
+            'calibration_agency': 'جهة المعايرة',
+            'status': 'حالة المعايرة',
+            'notes': 'ملاحظات',
+            'certificate_file': 'ملف الشهادة'
+        }
+
+    def __init__(self, *args, **kwargs):
+        device = kwargs.pop('device', None)
+        super().__init__(*args, **kwargs)
+        
+        # فلترة المستخدمين النشطين
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.fields['calibrated_by'].queryset = User.objects.filter(is_active=True)
+        self.fields['calibrated_by'].empty_label = "اختر الفني المسؤول"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data
+
+
 class OperationDefinitionForm(forms.ModelForm):
     """نموذج إدارة تعريفات العمليات"""
     

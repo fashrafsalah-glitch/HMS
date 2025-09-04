@@ -40,36 +40,91 @@ class MaintenanceTaskRunner:
     
     def _run_scheduler(self):
         """تشغيل الجدولة في الخلفية"""
-        # جدولة المهام - للإنتاج: فحص كل 30 دقيقة
-        schedule.every(30).minutes.do(self._check_pm_schedules)
-        print("DEBUG: PM schedule check scheduled every 30 minutes")
-        schedule.every(2).hours.do(self._check_sla_violations)
-        schedule.every().day.at("08:00").do(self._daily_maintenance_check)
-        schedule.every().day.at("18:00").do(self._send_daily_reports)
-        # فحص أوقات التوقف كل دقيقة للتطوير
+        # جدولة جميع المهام كل دقيقة للتطوير والمراقبة المكثفة
+        print("=" * 80)
+        print(f"DEBUG: Starting task scheduler at {timezone.now()}")
+        print("=" * 80)
+        
+        # جدولة جميع المهام كل دقيقة
+        schedule.every(1).minutes.do(self._check_pm_schedules)
+        print("DEBUG: ✓ PM schedule check scheduled every 1 minute")
+        
+        schedule.every(1).minutes.do(self._check_sla_violations)
+        print("DEBUG: ✓ SLA violations check scheduled every 1 minute")
+        
+        schedule.every(1).minutes.do(self._daily_maintenance_check)
+        print("DEBUG: ✓ Daily maintenance check scheduled every 1 minute")
+        
+        schedule.every(1).minutes.do(self._send_daily_reports)
+        print("DEBUG: ✓ Daily reports scheduled every 1 minute")
+        
         schedule.every(1).minutes.do(self._monitor_downtime_schedules)
-        print("DEBUG: Downtime monitoring scheduled every minute")
+        print("DEBUG: ✓ Downtime monitoring scheduled every 1 minute")
+        
+        schedule.every(1).minutes.do(self._check_calibration_schedules)
+        print("DEBUG: ✓ Calibration schedule check scheduled every 1 minute")
+        
+        print("=" * 80)
+        print("DEBUG: All tasks scheduled to run every minute!")
+        print("=" * 80)
         
         logger.info("تم إعداد جدولة المهام التلقائية")
         
         while self.running:
             try:
+                current_time = timezone.now()
+                print(f"\n🔄 SCHEDULER TICK: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print("-" * 60)
+                
+                # تشغيل المهام المجدولة
+                pending_jobs = schedule.get_jobs()
+                print(f"DEBUG: Found {len(pending_jobs)} scheduled jobs")
+                
                 schedule.run_pending()
-                time.sleep(60)  # فحص كل دقيقة بدلاً من 10 ثواني
+                
+                print(f"DEBUG: Scheduler cycle completed at {timezone.now().strftime('%H:%M:%S')}")
+                print("-" * 60)
+                
+                time.sleep(60)  # فحص كل دقيقة
             except Exception as e:
-                logger.error(f"خطأ في تشغيل المهام المجدولة: {str(e)}")
-                time.sleep(300)  # انتظار 5 دقائق عند حدوث خطأ
+                error_time = timezone.now()
+                logger.error(f"خطأ في تشغيل المهام المجدولة في {error_time}: {str(e)}")
+                print(f"❌ SCHEDULER ERROR at {error_time}: {str(e)}")
+                time.sleep(60)  # انتظار دقيقة واحدة عند حدوث خطأ
     
     def _check_pm_schedules(self):
         """فحص جداول الصيانة الوقائية وإنشاء أوامر الشغل"""
+        start_time = timezone.now()
+        print(f"\n🔧 PREVENTIVE MAINTENANCE CHECK Started at {start_time.strftime('%H:%M:%S')}")
         try:
             from .models import PreventiveMaintenanceSchedule
-            print(f"DEBUG: Running PM check at {timezone.now()}")
+            
+            # عد الجداول النشطة
+            active_schedules = PreventiveMaintenanceSchedule.objects.filter(is_active=True)
+            print(f"   📊 Found {active_schedules.count()} active PM schedules")
+            
+            # عد الجداول المستحقة
+            from datetime import date
+            today = date.today()
+            due_schedules = active_schedules.filter(next_due_date__lte=today)
+            print(f"   ⏰ Found {due_schedules.count()} schedules due today or overdue")
+            
+            if due_schedules.exists():
+                print(f"   🚀 Processing due schedules...")
+                for schedule in due_schedules:
+                    print(f"      - {schedule.device.name}: Due {schedule.next_due_date}")
+            
             result = PreventiveMaintenanceSchedule.check_and_generate_work_orders()
-            print(f"DEBUG: PM check completed, result: {result}")
+            
+            end_time = timezone.now()
+            duration = (end_time - start_time).total_seconds()
+            print(f"   ✅ PM check completed in {duration:.2f}s, result: {result}")
+            
         except Exception as e:
+            error_time = timezone.now()
+            duration = (error_time - start_time).total_seconds()
             logger.error(f"خطأ في فحص الصيانة الوقائية: {str(e)}")
-            print(f"DEBUG: PM check error: {str(e)}")
+            print(f"   ❌ PM check failed after {duration:.2f}s: {str(e)}")
     
     def _check_sla_violations(self):
         """فحص انتهاكات SLA وإرسال تنبيهات"""
@@ -452,6 +507,142 @@ class MaintenanceTaskRunner:
             
         except Exception as e:
             logger.error(f"خطأ في استخراج التكلفة الموجودة: {str(e)}")
+            return None
+
+    def _check_calibration_schedules(self):
+        """فحص المعايرات المستحقة وإنشاء Work Orders و Service Requests تلقائياً"""
+        start_time = timezone.now()
+        print(f"\n⚖️ CALIBRATION CHECK Started at {start_time.strftime('%H:%M:%S')}")
+        try:
+            from .models import CalibrationRecord, ServiceRequest, WorkOrder
+            from django.db import transaction
+            from datetime import date
+            
+            today = date.today()
+            print(f"   📅 Checking calibrations for {today}")
+            
+            # عد جميع المعايرات
+            all_calibrations = CalibrationRecord.objects.all()
+            print(f"   📊 Total calibration records: {all_calibrations.count()}")
+            
+            # المعايرات المستحقة اليوم أو متأخرة
+            due_calibrations = CalibrationRecord.objects.filter(
+                next_calibration_date__lte=today,
+                status__in=['due', 'overdue']
+            ).select_related('device', 'calibrated_by')
+            print(f"   ⏰ Found {due_calibrations.count()} calibrations due or overdue")
+            
+            # المعايرات القادمة خلال 30 يوم
+            from datetime import timedelta
+            upcoming_date = today + timedelta(days=30)
+            upcoming_calibrations = CalibrationRecord.objects.filter(
+                next_calibration_date__gt=today,
+                next_calibration_date__lte=upcoming_date
+            )
+            print(f"   📅 Found {upcoming_calibrations.count()} calibrations due within 30 days")
+            
+            created_count = 0
+            skipped_count = 0
+            
+            if due_calibrations.exists():
+                print(f"   🚀 Processing due calibrations...")
+                
+            for calibration in due_calibrations:
+                try:
+                    days_overdue = (today - calibration.next_calibration_date).days
+                    status_text = f"({days_overdue} days overdue)" if days_overdue > 0 else "(due today)"
+                    print(f"      📋 Processing: {calibration.device.name} {status_text}")
+                    
+                    with transaction.atomic():
+                        # التحقق من عدم وجود طلب معايرة مفتوح للجهاز
+                        existing_request = ServiceRequest.objects.filter(
+                            device=calibration.device,
+                            request_type='calibration',
+                            status__in=['new', 'assigned', 'in_progress']
+                        ).exists()
+                        
+                        if existing_request:
+                            print(f"         ⚠️ Skipped: Open calibration request already exists")
+                            logger.info(f"يوجد طلب معايرة مفتوح للجهاز {calibration.device.name}")
+                            skipped_count += 1
+                            continue
+                        
+                        # الحصول على مستخدم النظام
+                        system_user = self._get_system_user()
+                        
+                        # إنشاء طلب خدمة جديد للمعايرة
+                        service_request = ServiceRequest.objects.create(
+                            title=f"معايرة - {calibration.device.name}",
+                            description=f"معايرة مستحقة للجهاز {calibration.device.name} - كل {calibration.calibration_interval_months} شهر",
+                            device=calibration.device,
+                            request_type='calibration',
+                            priority='low',  # أولوية منخفضة
+                            reporter=calibration.calibrated_by or system_user,
+                            assigned_to=calibration.calibrated_by
+                        )
+                        print(f"         ✅ Created Service Request #{service_request.id}")
+                        
+                        # إنشاء أمر شغل للمعايرة
+                        work_order = WorkOrder.objects.create(
+                            service_request=service_request,
+                            assignee=calibration.calibrated_by or system_user,
+                            created_by=calibration.calibrated_by or system_user,
+                            description=f"تنفيذ معايرة للجهاز {calibration.device.name}",
+                            priority='low',
+                            wo_type='calibration'
+                        )
+                        print(f"         ✅ Created Work Order #{work_order.wo_number}")
+                        
+                        # تحديث حالة المعايرة
+                        old_status = calibration.status
+                        if calibration.next_calibration_date < today:
+                            calibration.status = 'overdue'
+                        else:
+                            calibration.status = 'due'
+                        calibration.save()
+                        print(f"         ✅ Updated calibration status: {old_status} → {calibration.status}")
+                        
+                        created_count += 1
+                        logger.info(f"تم إنشاء طلب معايرة للجهاز {calibration.device.name}")
+                        
+                except Exception as e:
+                    print(f"         ❌ Error processing {calibration.device.name}: {str(e)}")
+                    logger.error(f"خطأ في إنشاء طلب معايرة للجهاز {calibration.device.name}: {str(e)}")
+            
+            end_time = timezone.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            logger.info(f"تم إنشاء {created_count} طلب معايرة")
+            print(f"   ✅ Calibration check completed in {duration:.2f}s")
+            print(f"   📊 Results: {created_count} created, {skipped_count} skipped")
+            
+        except Exception as e:
+            error_time = timezone.now()
+            duration = (error_time - start_time).total_seconds()
+            logger.error(f"خطأ في فحص المعايرات المستحقة: {str(e)}")
+            print(f"   ❌ Calibration check failed after {duration:.2f}s: {str(e)}")
+    
+    def _get_system_user(self):
+        """الحصول على مستخدم النظام للعمليات التلقائية"""
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            # البحث عن مستخدم النظام
+            system_user = User.objects.filter(username='system').first()
+            if system_user:
+                return system_user
+                
+            # البحث عن أول مستخدم admin
+            admin_user = User.objects.filter(is_superuser=True).first()
+            if admin_user:
+                return admin_user
+                
+            # البحث عن أي مستخدم
+            return User.objects.first()
+            
+        except Exception as e:
+            logger.error(f"خطأ في الحصول على مستخدم النظام: {str(e)}")
             return None
 
 
