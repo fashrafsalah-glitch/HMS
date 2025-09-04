@@ -27,16 +27,16 @@
                         <a href="{% url 'maintenance:cmms:pm_schedule_delete' schedule.id %}" class="btn btn-danger btn-sm">
                             <i class="fas fa-trash"></i> حذف
                         </a>
-                        {% if schedule.status == 'active' %}
+                        {% if schedule.is_active %}
                         <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-pause"></i> إيقاف
                         </a>
-                        {% elif schedule.status == 'inactive' %}
+                        {% else %}
                         <a href="{% url 'maintenance:cmms:pm_schedule_toggle_status' schedule.id %}" class="btn btn-success btn-sm">
                             <i class="fas fa-play"></i> تنشيط
                         </a>
                         {% endif %}
-                        {% if schedule.status == 'active' %}
+                        {% if schedule.is_active %}
                         <a href="{% url 'maintenance:cmms:pm_schedule_generate_wo' schedule.id %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-tools"></i> إنشاء أمر شغل
                         </a>
@@ -91,18 +91,16 @@
                     
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">الفني المسؤول:</div>
-                        <div class="col-md-9">{{ schedule.assignee|default:"غير محدد" }}</div>
+                        <div class="col-md-9">{{ schedule.assigned_to|default:"غير محدد" }}</div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">الحالة:</div>
                         <div class="col-md-9">
-                            {% if schedule.status == 'active' %}
+                            {% if schedule.is_active %}
                             <span class="badge bg-success">نشط</span>
-                            {% elif schedule.status == 'inactive' %}
+                            {% else %}
                             <span class="badge bg-secondary">غير نشط</span>
-                            {% elif schedule.status == 'completed' %}
-                            <span class="badge bg-info">مكتمل</span>
                             {% endif %}
                         </div>
                     </div>
@@ -127,7 +125,7 @@
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">موعد الصيانة القادم:</div>
                         <div class="col-md-9">
-                            {% if schedule.status == 'active' and next_maintenance_date %}
+                            {% if schedule.is_active and next_maintenance_date %}
                             <span class="badge bg-primary">{{ next_maintenance_date|date:"Y-m-d" }}</span>
                             {% else %}
                             <span class="text-muted">غير متاح</span>

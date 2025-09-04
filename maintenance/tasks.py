@@ -108,8 +108,7 @@ class MaintenanceTaskRunner:
             
             # فحص الأجهزة التي تحتاج صيانة
             devices_need_maintenance = Device.objects.filter(
-                status__in=['needs_maintenance', 'needs_check'],
-                is_active=True
+                status__in=['needs_maintenance', 'needs_check']
             )
             
             if devices_need_maintenance.exists():
@@ -119,8 +118,7 @@ class MaintenanceTaskRunner:
             from .models import SparePart
             from django.db import models
             low_stock_parts = SparePart.objects.filter(
-                current_stock__lte=models.F('minimum_stock'),
-                is_active=True
+                current_stock__lte=models.F('minimum_stock')
             )
             
             if low_stock_parts.exists():

@@ -2264,7 +2264,7 @@ class CalibrationRecord(models.Model):
         return self.next_calibration_date < date.today()
 
 
-class vent(models.Model):
+class DowntimeEvent(models.Model):
     """
     أحداث التوقف للأجهزة
     هنا بنتتبع فترات توقف الأجهزة عن العمل
@@ -2943,22 +2943,50 @@ class PreventiveMaintenanceSchedule(models.Model):
             description=f"صيانة وقائية مجدولة للجهاز: {self.device.name}",
             device=self.device,
             reporter=self.created_by,
-            priority='medium',
+            priority='urgent',
             status='assigned',
             request_type='preventive'
         )
+        
+        # حساب مواعيد البدء والانتهاء بناءً على SLA Matrix
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        now = timezone.now()
+        scheduled_start = now
+        scheduled_end = self.next_due_date
+        
+        # البحث عن SLA Matrix مناسب للصيانة الوقائية
+        try:
+            sla_matrix = SLAMatrix.objects.filter(
+                device_category=self.device.category,
+                severity='high',    # عاجل للصيانة الوقائية
+                impact='significant',  # تأثير كبير للصيانة الوقائية
+                priority='urgent',  # أولوية عاجلة للصيانة الوقائية
+                is_active=True
+            ).first()
+            
+            if sla_matrix:
+                # حساب موعد البدء والانتهاء بناءً على SLA
+                scheduled_start = now
+                scheduled_end = now + timedelta(hours=sla_matrix.resolution_time_hours)
+        except:
+            # في حالة عدم وجود SLA Matrix، استخدم القيم الافتراضية
+            pass
         
         # إنشاء أمر عمل مرتبط بـ ServiceRequest
         work_order = WorkOrder.objects.create(
             service_request=service_request,
             title=f"صيانة وقائية - {self.name}",
             description=f"صيانة وقائية مجدولة للجهاز: {self.device.name}\nخطة العمل: {self.job_plan.name}",
-            priority='medium',
+            priority='urgent',
             wo_type='preventive',
             assignee=self.assigned_to,
             created_by=self.created_by,
             pm_schedule=self,
-            scheduled_end=self.next_due_date
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_end,
+            estimated_hours=self.job_plan.estimated_hours if self.job_plan else 2
         )
         
         # لا نحدث next_due_date هنا - سيتم تحديثه عند إكمال أمر العمل

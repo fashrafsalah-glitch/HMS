@@ -1395,7 +1395,7 @@ def job_plan_detail(request, plan_id):
     """
     job_plan = get_object_or_404(JobPlan, id=plan_id)
     steps = job_plan.steps.all().order_by('step_number')
-    pm_schedules = job_plan.pm_schedules.all().order_by('next_due_date')
+    pm_schedules = job_plan.pm_schedules.select_related('device', 'device__department', 'assigned_to').all().order_by('next_due_date')
     
     # نموذج إضافة خطوة جديدة
     if request.method == 'POST':
@@ -1414,11 +1414,27 @@ def job_plan_detail(request, plan_id):
     else:
         step_form = JobPlanStepForm()
     
+    # Debug information
+    debug_info = {
+        'job_plan_id': job_plan.id,
+        'job_plan_name': job_plan.name,
+        'pm_schedules_count': pm_schedules.count(),
+        'pm_schedules_list': [
+            {
+                'id': pm.id,
+                'name': pm.name,
+                'device_name': pm.device.name if pm.device else 'No Device',
+                'job_plan_id': pm.job_plan_id
+            } for pm in pm_schedules
+        ]
+    }
+    
     context = {
         'job_plan': job_plan,
         'steps': steps,
         'pm_schedules': pm_schedules,
         'step_form': step_form,
+        'debug_info': debug_info,
     }
     
     return render(request, 'maintenance/cmms/job_plan_detail.html', context)
@@ -1584,8 +1600,14 @@ def pm_schedule_list(request):
     #     messages.error(request, 'ليس لديك صلاحية لعرض جداول الصيانة الوقائية')
     #     return redirect('dashboard')
     
-    pm_schedules = PreventiveMaintenanceSchedule.objects.all().order_by('next_due_date')
-    
+    pm_schedules = PreventiveMaintenanceSchedule.objects.select_related(
+        'device', 
+        'device__department', 
+        'device__device_type',
+        'job_plan',
+        'assigned_to',
+        'created_by'
+    ).order_by('next_due_date')
     
     # فلترة حسب الحالة
     status_filter = request.GET.get('status', '')
@@ -1594,6 +1616,16 @@ def pm_schedule_list(request):
             pm_schedules = pm_schedules.filter(is_active=True)
         elif status_filter == 'inactive':
             pm_schedules = pm_schedules.filter(is_active=False)
+    
+    # فلترة حسب الجهاز
+    device_filter = request.GET.get('device', '')
+    if device_filter:
+        pm_schedules = pm_schedules.filter(device_id=device_filter)
+    
+    # فلترة حسب التكرار
+    frequency_filter = request.GET.get('frequency', '')
+    if frequency_filter:
+        pm_schedules = pm_schedules.filter(frequency=frequency_filter)
     
     # فلترة حسب القسم
     department_filter = request.GET.get('department', '')
@@ -1630,6 +1662,8 @@ def pm_schedule_list(request):
         'schedules': page_obj,  # Template expects 'schedules', not 'pm_schedules'
         'pm_schedules': page_obj,  # Keep both for compatibility
         'status_filter': status_filter,
+        'device_filter': device_filter,
+        'frequency_filter': frequency_filter,
         'department_filter': department_filter,
         'search_query': search_query,
         'status_choices': [('active', 'نشط'), ('inactive', 'غير نشط')],
@@ -1727,9 +1761,8 @@ def pm_schedule_detail(request, schedule_id):
     
     # حساب موعد الصيانة القادم
     next_maintenance_date = None
-    if hasattr(schedule, 'status') and schedule.status == 'active':
-        if hasattr(schedule, 'next_due_date'):
-            next_maintenance_date = schedule.next_due_date
+    if schedule.is_active and schedule.next_due_date:
+        next_maintenance_date = schedule.next_due_date
     
     # إحصائيات أوامر الشغل المرتبطة بجدول الصيانة الوقائية المحدد
     work_orders = WorkOrder.objects.filter(
@@ -1844,8 +1877,12 @@ def pm_schedule_generate_wo(request, schedule_id):
     try:
         # استخدام الطريقة الموجودة في النموذج
         work_order = pm_schedule.generate_work_order()
-        messages.success(request, f'تم إنشاء أمر العمل بنجاح - رقم الأمر: {work_order.wo_number}')
-        return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+        if work_order:
+            messages.success(request, f'تم إنشاء أمر العمل بنجاح - رقم الأمر: {work_order.wo_number}')
+            return redirect('maintenance:cmms:work_order_detail', wo_id=work_order.id)
+        else:
+            messages.warning(request, 'يوجد أمر عمل مفتوح بالفعل أو تم إكمال الصيانة اليوم')
+            return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
         
     except Exception as e:
         messages.error(request, f'حدث خطأ أثناء إنشاء أمر العمل: {str(e)}')
@@ -1916,15 +1953,15 @@ def pm_schedule_toggle_status(request, schedule_id):
         return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
     
     # تغيير الحالة
-    if pm_schedule.status == 'active':
-        pm_schedule.status = 'inactive'
+    if pm_schedule.is_active:
+        pm_schedule.is_active = False
         messages.success(request, 'تم تعطيل جدول الصيانة الوقائية بنجاح')
-    elif pm_schedule.status == 'inactive':
-        pm_schedule.status = 'active'
+    else:
+        pm_schedule.is_active = True
         messages.success(request, 'تم تفعيل جدول الصيانة الوقائية بنجاح')
     
     pm_schedule.save()
-    return redirect('pm_schedule_detail', schedule_id=pm_schedule.id)
+    return redirect('maintenance:cmms:pm_schedule_detail', schedule_id=pm_schedule.id)
 
 @login_required
 def work_order_update_status(request, wo_id):

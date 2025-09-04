@@ -2422,7 +2422,7 @@ try:
         .astype(str)
     )
 except Exception as exc:            # file missing or bad format
-    print(f"[ICD‑11] could not load {ICD11_PATH}: {exc}")
+    print(f"[ICD-11] could not load {ICD11_PATH}: {exc}")
     import pandas as pd
     _icd_df = pd.DataFrame(columns=["Code", "Title"])
 

@@ -64,31 +64,29 @@
                     جداول الصيانة المرتبطة
                 </div>
                 <div class="card-body">
-                    {% if schedules %}
+                    {% if pm_schedules %}
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover">
                             <thead>
                                 <tr>
                                     <th>الجهاز</th>
                                     <th>التكرار</th>
-                                    <th>تاريخ البدء</th>
+                                    <th>الاستحقاق التالي</th>
                                     <th>الحالة</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for schedule in schedules %}
+                                {% for schedule in pm_schedules %}
                                 <tr>
                                     <td>{{ schedule.device.name }}</td>
                                     <td>{{ schedule.get_frequency_display }}</td>
-                                    <td>{{ schedule.start_date|date:"Y-m-d" }}</td>
+                                    <td>{{ schedule.next_due_date|date:"Y-m-d" }}</td>
                                     <td>
-                                        {% if schedule.status == 'active' %}
+                                        {% if schedule.is_active %}
                                         <span class="badge bg-success">نشط</span>
-                                        {% elif schedule.status == 'inactive' %}
+                                        {% else %}
                                         <span class="badge bg-secondary">غير نشط</span>
-                                        {% elif schedule.status == 'completed' %}
-                                        <span class="badge bg-info">مكتمل</span>
                                         {% endif %}
                                     </td>
                                     <td>

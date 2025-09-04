@@ -54,11 +54,10 @@
 
 <div class="container-fluid mt-4" dir="rtl">
   <div class="header-gradient text-center">
-    <h1 class="mb-2">🏥 إدارة الأجهزة الطبية</h1>
-    <p class="mb-3">نظام شامل لإدارة ومتابعة الأجهزة الطبية</p>
+    <h1 class="mb-2 device-text-white"><p class="device-text-white">إدارة الأجهزة الطبية</p></h1>
+    <p class="mb-3 device-text-white">نظام شامل لإدارة ومتابعة الأجهزة الطبية</p>
     <div class="d-flex flex-wrap justify-content-center gap-2">
       <a href="{% url 'maintenance:add_device' %}" class="btn btn-light btn-lg action-btn">➕ إضافة جهاز جديد</a>
-      <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-info btn-lg action-btn">🔍 اختبار QR</a>
       <a href="{% url 'maintenance:add_device_category' %}" class="btn btn-outline-light action-btn">➕ تصنيف</a>
       <a href="{% url 'maintenance:add_device_subcategory' %}" class="btn btn-outline-light action-btn">➕ تصنيف فرعي</a>
       <a href="{% url 'maintenance:add_company' %}" class="btn btn-outline-light action-btn">➕ شركة</a>
@@ -69,10 +68,10 @@
 
   <div class="filter-card shadow-lg mb-4">
     <div class="card-body p-4">
-      <h4 class="text-white mb-3 text-center">🔍 فلترة وبحث الأجهزة</h4>
+      <h4 class="device-text-white mb-3 text-center"><p class="device-text-white">فلترة وبحث الأجهزة</p></h4>
       <form method="get" class="row g-3 align-items-end">
         <div class="col-lg-2 col-md-4">
-          <label class="form-label text-white fw-bold">التصنيف</label>
+          <label class="form-label device-text-white fw-bold"><p class="device-text-white">التصنيف</p></label>
           <select name="category" id="category-select" class="form-select">
             <option value="">الكل</option>
             {% for cat in categories %}
@@ -82,7 +81,7 @@
         </div>
 
         <div class="col-lg-2 col-md-4">
-          <label class="form-label text-white fw-bold">التصنيف الفرعي</label>
+          <label class="form-label device-text-white fw-bold"><p class="device-text-white">التصنيف الفرعي</p></label>
           <select name="subcategory" id="subcategory-select" class="form-select">
             <option value="">الكل</option>
             {% for sub in subcategories %}
@@ -92,7 +91,7 @@
         </div>
 
         <div class="col-lg-2 col-md-4">
-          <label class="form-label text-white fw-bold">القسم</label>
+          <label class="form-label device-text-white fw-bold"><p class="device-text-white">القسم</p></label>
           <select name="department" id="department-select" class="form-select">
             <option value="">الكل</option>
             {% for dept in departments %}
@@ -102,7 +101,7 @@
         </div>
 
         <div class="col-lg-2 col-md-4">
-          <label class="form-label text-white fw-bold">الغرفة</label>
+          <label class="form-label device-text-white fw-bold"><p class="device-text-white">الغرفة</p></label>
           <select name="room" id="room-select" class="form-select">
             <option value="">الكل</option>
             {% for room in rooms %}
@@ -112,11 +111,11 @@
         </div>
 
         <div class="col-lg-2 col-md-4">
-          <label class="form-label text-white fw-bold">البحث</label>
+          <label class="form-label device-text-white fw-bold"><p class="device-text-white">البحث</p></label>
           <input type="text" name="search" class="form-control" placeholder="اسم الجهاز..." value="{{ request.GET.search }}">
         </div>
 
-        <div class="col-lg-2 col-md-4">
+        <div class="col-lg-2 col-md-4" style="color:rgb(1, 148, 28);">
           <div class="d-flex gap-1">
             <button type="submit" class="btn btn-light fw-bold flex-fill">🔍 بحث</button>
             <a href="{% url 'maintenance:device_list' %}" class="btn btn-outline-light">⟲</a>
@@ -133,8 +132,8 @@
           <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-start mb-3">
               <div>
-                <h5 class="card-title mb-1 text-primary">{{ device.name }}</h5>
-                <small class="text-muted">ID: {{ device.id }} | {{ device.category.name }}</small>
+                <h5 class="card-title mb-1 device-text-primary"><p class="device-text-primary">{{ device.name }}</p></h5>
+                <small class="device-text-muted"><p class="device-text-muted">ID: {{ device.id }} | {{ device.category.name }}</p></small>
               </div>
               {% if device.qr_code %}
                 <a href="{{ device.qr_code.url }}" target="_blank" title="فتح الباركود">
@@ -146,20 +145,20 @@
             <div class="mb-3">
               <div class="row g-2 text-sm">
                 <div class="col-6">
-                  <strong>القسم:</strong><br>
-                  <span class="text-muted">{{ device.department.name }}</span>
+                  <strong class="device-text"><p class="device-text">القسم:</p></strong><br>
+                  <span class="device-text-muted"><p class="device-text-muted">{{ device.department.name }}</p></span>
                 </div>
                 <div class="col-6">
-                  <strong>الغرفة:</strong><br>
-                  <span class="text-muted">{{ device.room|default:"-" }}</span>
+                  <strong class="device-text"><p class="device-text">الغرفة:</p></strong><br>
+                  <span class="device-text-muted"><p class="device-text-muted">{{ device.room|default:"-" }}</p></span>
                 </div>
                 <div class="col-6">
-                  <strong>السرير:</strong><br>
-                  <span class="text-muted">{{ device.bed|default:"-" }}</span>
+                  <strong class="device-text"><p class="device-text">السرير:</p></strong><br>
+                  <span class="device-text-muted"><p class="device-text-muted">{{ device.bed|default:"-" }}</p></span>
                 </div>
                 <div class="col-6">
-                  <strong>المريض:</strong><br>
-                  <span class="text-muted">{{ device.current_patient|default:"-" }}</span>
+                  <strong class="device-text"><p class="device-text">المريض:</p></strong><br>
+                  <span class="device-text-muted"><p class="device-text-muted">{{ device.current_patient|default:"-" }}</p></span>
                 </div>
               </div>
             </div>
@@ -180,14 +179,14 @@
                 {% with estimated_time=device.get_estimated_repair_time %}
                   {% if estimated_time %}
                     <div class="mt-2">
-                      <small class="text-danger fw-bold">
-                        ⏰ الوقت المقدر للإصلاح: {{ estimated_time|date:"Y-m-d H:i" }}
+                      <small class="device-text-danger fw-bold">
+                        <p class="device-text-danger">⏰ الوقت المقدر للإصلاح: {{ estimated_time|date:"Y-m-d H:i" }}</p>
                       </small>
                     </div>
                   {% else %}
                     <div class="mt-2">
-                      <small class="text-warning">
-                        ⚠️ لا يوجد تقدير زمني متاح
+                      <small class="device-text-warning">
+                        <p class="device-text-warning">⚠️ لا يوجد تقدير زمني متاح</p>
                       </small>
                     </div>
                   {% endif %}
@@ -226,8 +225,8 @@
       <div class="col-12">
         <div class="text-center py-5">
           <div class="display-1 text-muted mb-3">🔍</div>
-          <h3 class="text-muted">لا توجد أجهزة مطابقة</h3>
-          <p class="text-muted">جرب تغيير معايير البحث أو إضافة أجهزة جديدة</p>
+          <h3 class="device-text-muted"><p class="device-text-muted">لا توجد أجهزة مطابقة</p></h3>
+          <p class="device-text-muted">جرب تغيير معايير البحث أو إضافة أجهزة جديدة</p>
           <a href="{% url 'maintenance:add_device' %}" class="btn btn-primary">➕ إضافة جهاز جديد</a>
         </div>
       </div>
