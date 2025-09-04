@@ -168,7 +168,7 @@ def operation_edit(request, pk):
         form = OperationDefinitionForm(request.POST, instance=operation)
         if form.is_valid():
             operation = form.save()
-            messages.success(request, f'تم تحديث العملية "{operation.name_en}" بنجاح')
+            messages.success(request, f'تم تحديث العملية "{operation.name}" بنجاح')
             return redirect('maintenance:operation_detail', operation.id)
         else:
             messages.error(request, 'يرجى تصحيح الأخطاء أدناه')
@@ -189,7 +189,7 @@ def operation_delete(request, pk):
     operation = get_object_or_404(OperationDefinition, pk=pk)
     
     if request.method == 'POST':
-        operation_name = operation.name_en
+        operation_name = operation.name
         operation.delete()
         messages.success(request, f'Operation "{operation_name}" deleted successfully!')
         return redirect('maintenance:operations_list')

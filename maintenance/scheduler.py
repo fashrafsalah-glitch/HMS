@@ -179,9 +179,9 @@ class CMMSScheduler:
         
         today = date.today()
         
-        # المعايرات المستحقة اليوم أو متأخرة
+        # المعايرات المستحقة اليوم فقط (وليس المتأخرة)
         due_calibrations = CalibrationRecord.objects.filter(
-            next_calibration_date__lte=today,
+            next_calibration_date=today,
             status__in=['due', 'overdue']
         ).select_related('device', 'calibrated_by')
         
@@ -190,6 +190,33 @@ class CMMSScheduler:
         for calibration in due_calibrations:
             try:
                 with transaction.atomic():
+                    # التحقق من وجود طلب معايرة للجهاز في نفس اليوم
+                    today_requests = ServiceRequest.objects.filter(
+                        device=calibration.device,
+                        request_type='calibration',
+                        created_at__date=today
+                    )
+                    
+                    if today_requests.exists():
+                        logger.info(f"تم إنشاء طلب معايرة اليوم للجهاز {calibration.device.name}")
+                        continue
+                    
+                    # التحقق من وجود طلب معايرة محلول - تحديث تاريخ المعايرة القادم فقط
+                    resolved_request = ServiceRequest.objects.filter(
+                        device=calibration.device,
+                        request_type='calibration',
+                        status__in=['resolved', 'closed', 'completed']
+                    ).order_by('-resolved_at', '-closed_at', '-updated_at').first()
+                    
+                    if resolved_request:
+                        logger.info(f"وجد طلب معايرة محلول - تحديث تاريخ المعايرة القادم للجهاز {calibration.device.name}")
+                        # تحديث تاريخ المعايرة القادم
+                        from dateutil.relativedelta import relativedelta
+                        calibration.next_calibration_date = today + relativedelta(months=calibration.calibration_interval_months)
+                        calibration.status = 'completed'
+                        calibration.save()
+                        continue
+                    
                     # التحقق من عدم وجود طلب معايرة مفتوح للجهاز
                     existing_request = ServiceRequest.objects.filter(
                         device=calibration.device,

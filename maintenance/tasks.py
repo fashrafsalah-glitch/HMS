@@ -351,12 +351,16 @@ class MaintenanceTaskRunner:
                         should_end = True
                         end_reason = f"تم إنهاء أمر الشغل {wo.wo_number} - الحالة: {wo.get_status_display()}"
                         # استخدام تاريخ الإكمال الفعلي من أمر الشغل
-                        if wo.completed_at:
+                        if hasattr(wo, 'completed_at') and wo.completed_at:
                             current_time = wo.completed_at
-                        elif wo.actual_end:
+                            print(f"DEBUG: Using WO completed_at: {current_time} for downtime {downtime.id}")
+                        elif hasattr(wo, 'actual_end') and wo.actual_end:
                             current_time = wo.actual_end
+                            print(f"DEBUG: Using WO actual_end: {current_time} for downtime {downtime.id}")
+                        elif wo.updated_at:
+                            current_time = wo.updated_at
+                            print(f"DEBUG: Using WO updated_at: {current_time} for downtime {downtime.id}")
                         # إذا لم يوجد تاريخ إكمال، استخدم الوقت الحالي
-                        print(f"DEBUG: Using WO completion time: {current_time} for downtime {downtime.id}")
                 
                 # فحص طلبات الخدمة المرتبطة بالجهاز
                 if not should_end:
@@ -386,12 +390,15 @@ class MaintenanceTaskRunner:
                             # استخدام تاريخ حل آخر طلب خدمة إذا وجد
                             if completed_srs.exists():
                                 latest_sr = completed_srs.first()
-                                if latest_sr.resolved_at:
+                                if hasattr(latest_sr, 'resolved_at') and latest_sr.resolved_at:
                                     current_time = latest_sr.resolved_at
-                                elif latest_sr.closed_at:
+                                    print(f"DEBUG: Using SR resolved_at: {current_time} for downtime {downtime.id}")
+                                elif hasattr(latest_sr, 'closed_at') and latest_sr.closed_at:
                                     current_time = latest_sr.closed_at
+                                    print(f"DEBUG: Using SR closed_at: {current_time} for downtime {downtime.id}")
                                 elif latest_sr.updated_at:
                                     current_time = latest_sr.updated_at
+                                    print(f"DEBUG: Using SR updated_at: {current_time} for downtime {downtime.id}")
                 
                 # إنهاء سجل التوقف إذا لزم الأمر
                 if should_end:
@@ -525,9 +532,9 @@ class MaintenanceTaskRunner:
             all_calibrations = CalibrationRecord.objects.all()
             print(f"   📊 Total calibration records: {all_calibrations.count()}")
             
-            # المعايرات المستحقة اليوم أو متأخرة
+            # المعايرات المستحقة اليوم فقط (وليس المتأخرة)
             due_calibrations = CalibrationRecord.objects.filter(
-                next_calibration_date__lte=today,
+                next_calibration_date=today,
                 status__in=['due', 'overdue']
             ).select_related('device', 'calibrated_by')
             print(f"   ⏰ Found {due_calibrations.count()} calibrations due or overdue")
@@ -554,6 +561,37 @@ class MaintenanceTaskRunner:
                     print(f"      📋 Processing: {calibration.device.name} {status_text}")
                     
                     with transaction.atomic():
+                        # التحقق من وجود طلب معايرة للجهاز في نفس اليوم
+                        today_requests = ServiceRequest.objects.filter(
+                            device=calibration.device,
+                            request_type='calibration',
+                            created_at__date=today
+                        )
+                        
+                        if today_requests.exists():
+                            print(f"         ⚠️ Skipped: Calibration request already created today")
+                            logger.info(f"تم إنشاء طلب معايرة اليوم للجهاز {calibration.device.name}")
+                            skipped_count += 1
+                            continue
+                        
+                        # التحقق من وجود طلب معايرة محلول - تحديث تاريخ المعايرة القادم فقط
+                        resolved_request = ServiceRequest.objects.filter(
+                            device=calibration.device,
+                            request_type='calibration',
+                            status__in=['resolved', 'closed', 'completed']
+                        ).order_by('-resolved_at', '-closed_at', '-updated_at').first()
+                        
+                        if resolved_request:
+                            print(f"         ✅ Found resolved calibration - updating next calibration date")
+                            # تحديث تاريخ المعايرة القادم
+                            from dateutil.relativedelta import relativedelta
+                            calibration.next_calibration_date = today + relativedelta(months=calibration.calibration_interval_months)
+                            calibration.status = 'completed'
+                            calibration.save()
+                            print(f"         ✅ Next calibration date updated to: {calibration.next_calibration_date}")
+                            skipped_count += 1
+                            continue
+                        
                         # التحقق من عدم وجود طلب معايرة مفتوح للجهاز
                         existing_request = ServiceRequest.objects.filter(
                             device=calibration.device,

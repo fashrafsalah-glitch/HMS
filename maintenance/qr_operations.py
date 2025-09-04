@@ -239,9 +239,93 @@ class QROperationsManager:
             result.update(self._handle_device_sterilization(entities, user))
         elif code == 'DEVICE_MAINTENANCE':
             result.update(self._handle_device_maintenance(entities, user))
+        elif code == 'INVENTORY_CHECK':
+            result.update(self._handle_inventory_check(entities, user))
+        elif code == 'QUALITY_CONTROL':
+            result.update(self._handle_quality_control(entities, user))
+        elif code == 'CALIBRATION':
+            result.update(self._handle_calibration(entities, user))
+        elif code == 'INSPECTION':
+            result.update(self._handle_inspection(entities, user))
+        elif code == 'CUSTOM':
+            result.update(self._handle_custom_operation(entities, user))
         else:
             # Generic operation - just record the scan sequence
             result['actions'].append(f"Recorded scan sequence for operation: {code}")
+        
+        return result
+    
+    def _handle_inventory_check(self, entities: List[Dict], user: User) -> Dict:
+        """Handle inventory check operation"""
+        result = {'actions': []}
+        
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            # Mark device as checked
+            device.last_inventory_check = timezone.now()
+            device.inventory_checked_by = user
+            device.save()
+            result['actions'].append(f"Inventory check completed for device {device.name}")
+        
+        return result
+    
+    def _handle_quality_control(self, entities: List[Dict], user: User) -> Dict:
+        """Handle quality control operation"""
+        result = {'actions': []}
+        
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            # Mark device as quality checked
+            device.last_quality_check = timezone.now()
+            device.quality_checked_by = user
+            device.save()
+            result['actions'].append(f"Quality control completed for device {device.name}")
+        
+        return result
+    
+    def _handle_calibration(self, entities: List[Dict], user: User) -> Dict:
+        """Handle calibration operation"""
+        result = {'actions': []}
+        
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            # Mark device as calibrated
+            device.last_calibration_date = timezone.now()
+            device.calibrated_by = user
+            device.save()
+            result['actions'].append(f"Calibration completed for device {device.name}")
+        
+        return result
+    
+    def _handle_inspection(self, entities: List[Dict], user: User) -> Dict:
+        """Handle inspection operation"""
+        result = {'actions': []}
+        
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            # Mark device as inspected
+            device.last_inspection_date = timezone.now()
+            device.inspected_by = user
+            device.save()
+            result['actions'].append(f"Inspection completed for device {device.name}")
+        
+        return result
+    
+    def _handle_custom_operation(self, entities: List[Dict], user: User) -> Dict:
+        """Handle custom operation"""
+        result = {'actions': []}
+        
+        # Generic handling for custom operations
+        entity_types = [e['type'] for e in entities]
+        result['actions'].append(f"Custom operation executed on entities: {', '.join(entity_types)}")
         
         return result
     

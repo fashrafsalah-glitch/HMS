@@ -3831,8 +3831,31 @@ class DeviceTransfer(DeviceTransferLog):
 
 class OperationDefinition(models.Model):
     """Define reusable operations that can be triggered by QR scan sequences"""
+    
+    # قائمة العمليات المتاحة للـ QR Code
+    OPERATION_CHOICES = [
+        ('DEVICE_USAGE', 'استخدام الجهاز - Device Usage'),
+        ('DEVICE_TRANSFER', 'نقل الجهاز - Device Transfer'),
+        ('PATIENT_TRANSFER', 'نقل المريض - Patient Transfer'),
+        ('DEVICE_HANDOVER', 'تسليم الجهاز - Device Handover'),
+        ('ACCESSORY_USAGE', 'استخدام الملحقات - Accessory Usage'),
+        ('DEVICE_CLEANING', 'تنظيف الجهاز - Device Cleaning'),
+        ('DEVICE_STERILIZATION', 'تعقيم الجهاز - Device Sterilization'),
+        ('DEVICE_MAINTENANCE', 'صيانة الجهاز - Device Maintenance'),
+        ('INVENTORY_CHECK', 'فحص المخزون - Inventory Check'),
+        ('QUALITY_CONTROL', 'مراقبة الجودة - Quality Control'),
+        ('CALIBRATION', 'معايرة الجهاز - Device Calibration'),
+        ('INSPECTION', 'فحص الجهاز - Device Inspection'),
+        ('CUSTOM', 'عملية مخصصة - Custom Operation'),
+    ]
+    
     name = models.CharField(max_length=100, unique=True, verbose_name="اسم العملية")
-    code = models.CharField(max_length=50, unique=True, verbose_name="رمز العملية")
+    code = models.CharField(
+        max_length=50, 
+        unique=True, 
+        choices=OPERATION_CHOICES,
+        verbose_name="رمز العملية"
+    )
     description = models.TextField(blank=True, verbose_name="الوصف")
     is_active = models.BooleanField(default=True, verbose_name="نشط")
     

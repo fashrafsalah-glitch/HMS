@@ -907,9 +907,8 @@ class OperationDefinitionForm(forms.ModelForm):
                 'placeholder': 'اسم العملية',
                 'required': True
             }),
-            'code': forms.TextInput(attrs={
+            'code': forms.Select(attrs={
                 'class': 'form-control',
-                'placeholder': 'رمز العملية (مثل: DEVICE_USAGE)',
                 'required': True
             }),
             'description': forms.Textarea(attrs={
