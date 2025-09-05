@@ -4,10 +4,7 @@
 {% block title %}قائمة البلاغات{% endblock %}
 
 {% block content %}
-<!-- Debug info -->
-<div class="alert alert-info">
-    Debug: {{ debug_message }} - Service Requests Count: {{ service_requests_count }}
-</div>
+
 
 <div class="container-fluid">
     <div class="row">
@@ -109,36 +106,36 @@
                                     <td>{{ sr.get_request_type_display }}</td>
                                     <td>
                                         {% if sr.severity == 'critical' %}
-                                            <span class="badge badge-danger">{{ sr.get_severity_display }}</span>
+                                            <span class="badge" style="background-color: #dc3545; color: white;">{{ sr.get_severity_display }}</span>
                                         {% elif sr.severity == 'high' %}
-                                            <span class="badge badge-warning">{{ sr.get_severity_display }}</span>
+                                            <span class="badge" style="background-color: #ffc107; color: black;">{{ sr.get_severity_display }}</span>
                                         {% elif sr.severity == 'medium' %}
-                                            <span class="badge badge-info">{{ sr.get_severity_display }}</span>
+                                            <span class="badge" style="background-color: #17a2b8; color: white;">{{ sr.get_severity_display }}</span>
                                         {% else %}
-                                            <span class="badge badge-secondary">{{ sr.get_severity_display }}</span>
+                                            <span class="badge" style="background-color: #6c757d; color: white;">{{ sr.get_severity_display }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if sr.status == 'new' %}
-                                            <span class="badge badge-primary">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #007bff; color: white;">{{ sr.get_status_display }}</span>
                                         {% elif sr.status == 'in_progress' %}
-                                            <span class="badge badge-info">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #17a2b8; color: white;">{{ sr.get_status_display }}</span>
                                         {% elif sr.status == 'on_hold' %}
-                                            <span class="badge badge-warning">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #ffc107; color: black;">{{ sr.get_status_display }}</span>
                                         {% elif sr.status == 'resolved' %}
-                                            <span class="badge badge-success">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #28a745; color: white;">{{ sr.get_status_display }}</span>
                                         {% elif sr.status == 'closed' %}
-                                            <span class="badge badge-secondary">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #6c757d; color: white;">{{ sr.get_status_display }}</span>
                                         {% elif sr.status == 'cancelled' %}
-                                            <span class="badge badge-danger">{{ sr.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #dc3545; color: white;">{{ sr.get_status_display }}</span>
                                         {% endif %}
                                         
                                         {% if sr.is_overdue_response %}
-                                            <span class="badge badge-danger">تأخر الاستجابة</span>
+                                            <span class="badge ml-1" style="background-color: #dc3545; color: white;">تأخر الاستجابة</span>
                                         {% endif %}
                                         
                                         {% if sr.is_overdue_resolution %}
-                                            <span class="badge badge-danger">تأخر الحل</span>
+                                            <span class="badge ml-1" style="background-color: #dc3545; color: white;">تأخر الحل</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ sr.created_at|date:"Y-m-d H:i" }}</td>

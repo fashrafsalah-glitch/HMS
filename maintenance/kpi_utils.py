@@ -726,7 +726,7 @@ def get_critical_alerts(department_id=None):
             'severity': 'high',
             'title': f'أمر شغل متأخر: {wo.service_request.title}',
             'description': f'الجهاز: {wo.service_request.device.name}',
-            'url': f'/maintenance/work-order/{wo.id}/',
+            'url': f'/maintenance/cmms/work-orders/{wo.id}/',
             'created_at': wo.service_request.resolution_due,
         })
     
@@ -738,7 +738,7 @@ def get_critical_alerts(department_id=None):
             'severity': 'medium',
             'title': f'قطعة غيار منتهية: {part.name}',
             'description': f'رقم القطعة: {part.part_number}',
-            'url': f'/maintenance/spare-part/{part.id}/',
+            'url': f'/maintenance/spare-parts/{part.id}/',
             'created_at': timezone.now(),
         })
     
@@ -750,7 +750,7 @@ def get_critical_alerts(department_id=None):
             'severity': 'low',
             'title': f'مخزون منخفض: {part.name}',
             'description': f'الكمية المتبقية: {part.current_stock}',
-            'url': f'/maintenance/spare-part/{part.id}/',
+            'url': f'/maintenance/spare-parts/{part.id}/',
             'created_at': timezone.now(),
         })
     
