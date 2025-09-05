@@ -1203,17 +1203,20 @@ def department_devices(request, department_id):
     # عرض جميع الأجهزة في القسم حتى لو كان لها طلبات نقل معلقة
     actual_devices = Device.objects.filter(department=department)
     
-    # حساب طلبات النقل للإحصائيات فقط
+    # طلبات النقل الواردة: طلبات من أقسام أخرى لأجهزة موجودة في هذا القسم
+    from django.db.models import Q
     pending_transfers = DeviceTransferRequest.objects.filter(
-        device__department=department,
+        device__department=department,  # الجهاز موجود في هذا القسم
         status__in=['pending', 'approved']
-    ).select_related('device')
+    ).select_related('device', 'from_department', 'to_department', 'requested_by')
     
-    # طلبات النقل الصادرة من هذا القسم (فقط المعلقة وغير المكتملة)
+    # طلبات النقل الصادرة: طلبات أرسلها هذا القسم لأجهزة في أقسام أخرى
     outgoing_transfers = DeviceTransferRequest.objects.filter(
-        from_department=department,
+        to_department=department,  # هذا القسم يطلب نقل جهاز إليه
         status__in=['pending', 'approved']
-    ).select_related('device', 'to_department')
+    ).exclude(
+        device__department=department  # استبعاد الأجهزة الموجودة في نفس القسم
+    ).select_related('device', 'from_department')
 
     # تجميع الأجهزة حسب الغرف
     devices_by_room = {}

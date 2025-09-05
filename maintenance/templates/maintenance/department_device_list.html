@@ -79,14 +79,14 @@
         </table>
 
         {% if pending_transfers %}
-        <h4 class="mt-5">🟡 الأجهزة المعلقة (بانتظار القبول)</h4>
+        <h4 class="mt-5">📥 طلبات النقل الواردة (بانتظار الموافقة)</h4>
         <table class="table table-striped table-bordered align-middle text-center">
             <thead class="table-warning">
                 <tr>
                      <th>Serial No.</th>
-                    <th>الاسم</th>
-                    <th>من قسم</th>
-                    <th>الغرفة المستهدفة</th>
+                    <th>اسم الجهاز</th>
+                    <th>القسم الطالب</th>
+                    <th>إلى القسم</th>
                     <th>طالب النقل</th>
                     <th>الحالة</th>
                     <th>الإجراءات</th>
@@ -98,14 +98,30 @@
                     <td>{{ transfer.device.id }}</td>
                     <td>{{ transfer.device.name }}</td>
                     <td>{{ transfer.from_department.name }}</td>
-                    <td>{{ transfer.to_room }}</td>
+                    <td>{{ transfer.to_department.name }}</td>
                     <td>{{ transfer.requested_by.username }}</td>
-                    <td><span class="text-warning">معلق</span></td>
                     <td>
-                        <form method="post" action="{% url 'maintenance:approve_transfer' transfer.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success">✔️ قبول</button>
-                        </form>
+                        {% if transfer.status == 'pending' %}
+                        <span class="badge badge-warning">بانتظار الموافقة</span>
+                        {% elif transfer.status == 'approved' %}
+                        <span class="badge badge-info">تمت الموافقة</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if transfer.status == 'pending' %}
+                        <div class="btn-group">
+                            <form method="post" action="{% url 'maintenance:approve_transfer_request' transfer.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-success">✔️ موافقة</button>
+                            </form>
+                            <form method="post" action="{% url 'maintenance:reject_transfer_request' transfer.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">❌ رفض</button>
+                            </form>
+                        </div>
+                        {% elif transfer.status == 'approved' %}
+                        <span class="text-info">تمت الموافقة - بانتظار القبول من القسم المستقبل</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
