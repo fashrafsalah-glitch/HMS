@@ -1203,19 +1203,25 @@ def department_devices(request, department_id):
     # عرض جميع الأجهزة في القسم حتى لو كان لها طلبات نقل معلقة
     actual_devices = Device.objects.filter(department=department)
     
-    # طلبات النقل الواردة: طلبات من أقسام أخرى لأجهزة موجودة في هذا القسم
+    # طلبات النقل الواردة: طلبات من أقسام أخرى لأجهزة موجودة في هذا القسم (للموافقة/الرفض)
     from django.db.models import Q
     pending_transfers = DeviceTransferRequest.objects.filter(
         device__department=department,  # الجهاز موجود في هذا القسم
         status__in=['pending', 'approved']
+    ).exclude(
+        to_department=department  # استبعاد الطلبات التي يكون هذا القسم هو المستقبل
     ).select_related('device', 'from_department', 'to_department', 'requested_by')
     
-    # طلبات النقل الصادرة: طلبات أرسلها هذا القسم لأجهزة في أقسام أخرى
-    outgoing_transfers = DeviceTransferRequest.objects.filter(
-        to_department=department,  # هذا القسم يطلب نقل جهاز إليه
+    # الأجهزة المطلوبة: الأجهزة التي طلبها هذا القسم من أقسام أخرى (تظهر كأجهزة معلقة)
+    requested_devices = DeviceTransferRequest.objects.filter(
+        to_department=department,  # هذا القسم طلب الجهاز
         status__in=['pending', 'approved']
-    ).exclude(
-        device__department=department  # استبعاد الأجهزة الموجودة في نفس القسم
+    ).select_related('device', 'from_department')
+    
+    # طلبات النقل الصادرة: طلبات أرسلها هذا القسم (للمتابعة فقط)
+    outgoing_transfers = DeviceTransferRequest.objects.filter(
+        to_department=department,  # هذا القسم طلب الجهاز (نفس requested_devices)
+        status__in=['pending', 'approved']
     ).select_related('device', 'from_department')
 
     # تجميع الأجهزة حسب الغرف
@@ -1246,6 +1252,7 @@ def department_devices(request, department_id):
         'actual_devices': actual_devices,
         'devices_by_room': devices_by_room,
         'pending_transfers': pending_transfers,
+        'requested_devices': requested_devices,
         'outgoing_transfers': outgoing_transfers,
         'stats': stats,
         'critical_devices': critical_devices,

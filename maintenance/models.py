@@ -690,7 +690,11 @@ class DeviceTransferRequest(models.Model):
         """Execute the actual device transfer"""
         # Update device location
         self.device.department = self.to_department
-        self.device.room = self.to_room
+        
+        # Only update room if to_room is specified, otherwise keep current room
+        if self.to_room:
+            self.device.room = self.to_room
+        
         if self.to_bed:
             self.device.bed = self.to_bed
         if self.patient:

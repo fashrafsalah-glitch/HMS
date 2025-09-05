@@ -17,7 +17,7 @@
     </div>
 
     
-    {% if actual_devices %}
+    {% if actual_devices or requested_devices %}
         <h4 class="mt-4">🟢 الأجهزة الفعلية ({{ actual_devices|length }})</h4>
         <table class="table table-striped table-bordered align-middle text-center">
             <thead class="table-success">
@@ -77,6 +77,41 @@
                 {% endfor %}
             </tbody>
         </table>
+        
+        <!-- إضافة الأجهزة المطلوبة إلى جدول الأجهزة الفعلية -->
+        
+
+        {% if false %}
+        <h4 class="mt-5">🟡 الأجهزة المطلوبة (بانتظار الموافقة)</h4>
+        <table class="table table-striped table-bordered align-middle text-center">
+            <thead class="table-warning">
+                <tr>
+                     <th>Serial No.</th>
+                    <th>اسم الجهاز</th>
+                    <th>من القسم</th>
+                    <th>تاريخ الطلب</th>
+                    <th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request in requested_devices %}
+                <tr>
+                    <td>{{ request.device.id }}</td>
+                    <td>{{ request.device.name }}</td>
+                    <td>{{ request.from_department.name }}</td>
+                    <td>{{ request.requested_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if request.status == 'pending' %}
+                        <span class="badge badge-warning">بانتظار الموافقة</span>
+                        {% elif request.status == 'approved' %}
+                        <span class="badge badge-success">تمت الموافقة - بانتظار القبول</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
 
         {% if pending_transfers %}
         <h4 class="mt-5">📥 طلبات النقل الواردة (بانتظار الموافقة)</h4>
@@ -148,7 +183,7 @@
                     <td>{{ transfer.device.id }}</td>
                     <td>{{ transfer.device.name }}</td>
                     <td>{{ transfer.to_department.name }}</td>
-                    <td>{{ transfer.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ transfer.requested_at|date:"Y-m-d H:i" }}</td>
                     <td>
                         {% if transfer.status == 'pending' %}
                         <span class="badge badge-warning">بانتظار الموافقة</span>

@@ -3491,9 +3491,9 @@ def department_transfer_requests(request, department_id):
     """
     department = get_object_or_404(Department, id=department_id)
     
-    # Get transfer requests where this department is involved (either as source or destination)
+    # Get transfer requests where this department is involved
     transfer_requests = DeviceTransferRequest.objects.filter(
-        Q(from_department=department) | Q(to_department=department)
+        Q(device__department=department) | Q(to_department=department)
     ).select_related(
         'device', 'from_department', 'to_department', 
         'requested_by', 'approved_by', 'accepted_by', 'rejected_by'
@@ -3509,25 +3509,28 @@ def department_transfer_requests(request, department_id):
     page_number = request.GET.get('page')
     transfer_requests = paginator.get_page(page_number)
     
-    # Statistics
+    # Statistics - using the same logic as the main queries
+    incoming_count = DeviceTransferRequest.objects.filter(device__department=department).count()
+    outgoing_count = DeviceTransferRequest.objects.filter(to_department=department).count()
+    
     stats = {
-        'total': DeviceTransferRequest.objects.filter(
-            Q(from_department=department) | Q(to_department=department)
-        ).count(),
+        'total': incoming_count + outgoing_count,
+        'incoming': incoming_count,
+        'outgoing': outgoing_count,
         'pending': DeviceTransferRequest.objects.filter(
-            Q(from_department=department) | Q(to_department=department),
+            Q(device__department=department) | Q(to_department=department),
             status='pending'
         ).count(),
         'approved': DeviceTransferRequest.objects.filter(
-            Q(from_department=department) | Q(to_department=department),
+            Q(device__department=department) | Q(to_department=department),
             status='approved'
         ).count(),
         'accepted': DeviceTransferRequest.objects.filter(
-            Q(from_department=department) | Q(to_department=department),
+            Q(device__department=department) | Q(to_department=department),
             status='accepted'
         ).count(),
         'rejected': DeviceTransferRequest.objects.filter(
-            Q(from_department=department) | Q(to_department=department),
+            Q(device__department=department) | Q(to_department=department),
             status='rejected'
         ).count(),
     }
