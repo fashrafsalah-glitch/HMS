@@ -47,6 +47,7 @@ urlpatterns = [
     path('transfer-requests/create/<int:device_id>/', views.transfer_request_create, name='device_transfer'),
     path('transfer-success/<int:pk>/', views.transfer_success, name='transfer_success'),
     path('transfer-requests/<int:pk>/approve/', views.approve_transfer_request, name='approve_transfer_request'),
+    path('transfer-requests/<int:pk>/pickup/', views.pickup_transfer_request, name='pickup_transfer_request'),
     path('transfer-requests/<int:pk>/accept/', views.accept_transfer_request, name='accept_transfer_request'),
     path('transfer-requests/<int:pk>/reject/', views.reject_transfer_request, name='reject_transfer_request'),
     

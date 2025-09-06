@@ -178,6 +178,25 @@
                             {% endif %}
                         </div>
 
+                        <!-- Include Accessories -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.include_accessories }}
+                                <label class="form-check-label" for="{{ form.include_accessories.id_for_label }}">
+                                    {{ form.include_accessories.label }}
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                إذا كان للجهاز إكسسوارات مرتبطة به، يمكن نقلها معه
+                            </small>
+                            {% if form.include_accessories.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.include_accessories.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
                         <!-- Device Readiness Status -->
                         <div class="card mb-3">
                             <div class="card-header bg-light">

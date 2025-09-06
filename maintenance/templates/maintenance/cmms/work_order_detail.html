@@ -5,6 +5,89 @@
 
 {% block content %}
 <style>
+/* Force all text elements to be white in dark mode with maximum specificity */
+body.dark-mode * {
+    color: #e5e7eb !important;
+}
+
+/* Preserve badge colors */
+body.dark-mode .badge {
+    color: inherit !important;
+}
+
+/* Preserve button colors */
+body.dark-mode .btn {
+    color: inherit !important;
+}
+
+/* Links should be blue-ish in dark mode */
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge) {
+    color: #93c5fd !important;
+}
+
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge):hover {
+    color: #bfdbfe !important;
+}
+
+/* Muted text in dark mode */
+body.dark-mode .text-muted {
+    color: #9ca3af !important;
+}
+
+/* Alert text colors */
+body.dark-mode .alert {
+    color: inherit !important;
+}
+
+/* Card titles and headers */
+body.dark-mode .card-title,
+body.dark-mode .card-header * {
+    color: #f3f4f6 !important;
+}
+
+/* Timeline and chat specific fixes */
+body.dark-mode .timeline-item {
+    background: #2d3748 !important;
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .direct-chat-text {
+    background: #2d3748 !important;
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .direct-chat-msg.right .direct-chat-text {
+    background: #3b82f6 !important;
+    color: white !important;
+}
+
+/* Comments section fixes */
+body.dark-mode .direct-chat-messages {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .comment-form {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .comment-form textarea,
+body.dark-mode .comment-form input {
+    background: #374151 !important;
+    color: #e5e7eb !important;
+    border-color: #4b5563 !important;
+}
+
+body.dark-mode .comment-form textarea::placeholder,
+body.dark-mode .comment-form input::placeholder {
+    color: #9ca3af !important;
+}
+
+body.dark-mode .comment-form label {
+    color: #e5e7eb !important;
+}
+
     .work-order-card {
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         border-radius: 10px;

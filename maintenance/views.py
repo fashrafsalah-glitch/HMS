@@ -832,6 +832,7 @@ def transfer_request_detail(request, pk):
     context = {
         'transfer_request': transfer_request,
         'can_approve': transfer_request.can_approve(request.user),
+        'can_pickup': transfer_request.can_pickup(request.user),
         'can_accept': transfer_request.can_accept(request.user),
     }
     
@@ -928,8 +929,46 @@ def approve_transfer_request(request, pk):
 
 
 @login_required
+def pickup_transfer_request(request, pk):
+    """Pickup a transfer request (Stage 3 - by requesting department)"""
+    from .forms import TransferPickupForm
+    
+    transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)
+    
+    if not transfer_request.can_pickup(request.user):
+        messages.error(request, "ليس لديك صلاحية استلام هذا الطلب")
+        return redirect('maintenance:transfer_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = TransferPickupForm(request.POST)
+        if form.is_valid():
+            # Device eligibility check
+            eligibility_errors = transfer_request.check_device_eligibility()
+            if eligibility_errors:
+                for error in eligibility_errors:
+                    messages.error(request, error)
+                return redirect('maintenance:transfer_request_detail', pk=pk)
+            
+            # Pickup the device
+            transfer_request.pickup(
+                user=request.user,
+                notes=form.cleaned_data.get('pickup_notes', '')
+            )
+            
+            messages.success(request, "تم استلام الجهاز بنجاح - في انتظار التأكيد النهائي")
+            return redirect('maintenance:transfer_request_detail', pk=pk)
+    else:
+        form = TransferPickupForm()
+    
+    return render(request, 'maintenance/transfer_pickup_form.html', {
+        'form': form,
+        'transfer_request': transfer_request
+    })
+
+
+@login_required
 def accept_transfer_request(request, pk):
-    """Accept a transfer request and execute it (Stage 3)"""
+    """Accept a transfer request and execute it (Stage 4 - final confirmation)"""
     from .forms import TransferAcceptanceForm
     
     transfer_request = get_object_or_404(DeviceTransferRequest, pk=pk)

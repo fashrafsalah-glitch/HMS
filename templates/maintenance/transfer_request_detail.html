@@ -4,6 +4,50 @@
 {% block title %}تفاصيل طلب النقل #{{ transfer_request.id }}{% endblock %}
 
 {% block content %}
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -25px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    }
+    
+    .timeline-item.completed .timeline-marker {
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+    }
+    
+    .timeline-item.rejected .timeline-marker {
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+    }
+    
+    .timeline-content {
+        padding-left: 10px;
+    }
+    </style>
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-8">
@@ -13,7 +57,7 @@
                     <h5 class="mb-0">
                         <i class="fas fa-exchange-alt"></i> طلب نقل جهاز #{{ transfer_request.id }}
                     </h5>
-                    <span class="badge badge-light badge-pill">
+                    <span class="badge badge-{% if transfer_request.status == 'pending' %}warning{% elif transfer_request.status == 'approved' %}info{% elif transfer_request.status == 'pending_pickup' %}success{% elif transfer_request.status == 'accepted' %}primary{% elif transfer_request.status == 'rejected' %}danger{% else %}secondary{% endif %} badge-pill">
                         {{ transfer_request.get_status_display }}
                     </span>
                 </div>
@@ -28,17 +72,17 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>الحالة:</strong> 
-                                <span class="badge badge-{% if transfer_request.device.status|default:'working' == 'working' %}success{% else %}danger{% endif %}">
+                                <span class="badge badge-{% if transfer_request.device.status|default:'working' == 'working' %}success{% else %}danger{% endif %} text-white">
                                     {{ transfer_request.device.get_status_display|default:"يعمل" }}
                                 </span>
                             </p>
                             <p><strong>النظافة:</strong> 
-                                <span class="badge badge-{% if transfer_request.device.clean_status == 'clean' %}success{% else %}warning{% endif %}">
+                                <span class="badge badge-{% if transfer_request.device.clean_status == 'clean' %}success{% else %}warning{% endif %} text-white">
                                     {{ transfer_request.device.get_clean_status_display }}
                                 </span>
                             </p>
                             <p><strong>التعقيم:</strong> 
-                                <span class="badge badge-{% if transfer_request.device.sterilization_status == 'sterilized' %}success{% else %}warning{% endif %}">
+                                <span class="badge badge-{% if transfer_request.device.sterilization_status == 'sterilized' %}success{% else %}warning{% endif %} text-white">
                                     {{ transfer_request.device.get_sterilization_status_display }}
                                 </span>
                             </p>
@@ -71,9 +115,20 @@
                             <p><strong>تفاصيل السبب:</strong> {{ transfer_request.reason_details }}</p>
                             {% endif %}
                             <p><strong>الأولوية:</strong> 
-                                <span class="badge badge-{% if transfer_request.priority == 'urgent' %}danger{% else %}warning{% endif %}">
+                                <span class="badge badge-{% if transfer_request.priority == 'urgent' %}danger{% else %}warning{% endif %} text-white">
                                     {{ transfer_request.get_priority_display }}
                                 </span>
+                            </p>
+                            <p><strong>الإكسسوارات:</strong> 
+                                {% if transfer_request.include_accessories %}
+                                <span class="badge badge-success text-white">
+                                    <i class="fas fa-check"></i> يشمل الإكسسوارات
+                                </span>
+                                {% else %}
+                                <span class="badge badge-secondary text-white">
+                                    <i class="fas fa-times"></i> بدون إكسسوارات
+                                </span>
+                                {% endif %}
                             </p>
                         </div>
                         <div class="col-md-6">
@@ -118,11 +173,19 @@
                             {% endif %}
                             {% endif %}
 
+                            {% if transfer_request.picked_up_by %}
+                            <p><strong>المستلم:</strong> {{ transfer_request.picked_up_by.get_full_name|default:transfer_request.picked_up_by.username }}</p>
+                            <p><strong>تاريخ الاستلام:</strong> {{ transfer_request.picked_up_at|date:"Y-m-d H:i" }}</p>
+                            {% if transfer_request.pickup_notes %}
+                            <p><strong>ملاحظات الاستلام:</strong> {{ transfer_request.pickup_notes }}</p>
+                            {% endif %}
+                            {% endif %}
+
                             {% if transfer_request.accepted_by %}
-                            <p><strong>القابل:</strong> {{ transfer_request.accepted_by.get_full_name|default:transfer_request.accepted_by.username }}</p>
-                            <p><strong>تاريخ القبول:</strong> {{ transfer_request.accepted_at|date:"Y-m-d H:i" }}</p>
+                            <p><strong>القابل النهائي:</strong> {{ transfer_request.accepted_by.get_full_name|default:transfer_request.accepted_by.username }}</p>
+                            <p><strong>تاريخ القبول النهائي:</strong> {{ transfer_request.accepted_at|date:"Y-m-d H:i" }}</p>
                             {% if transfer_request.acceptance_notes %}
-                            <p><strong>ملاحظات القبول:</strong> {{ transfer_request.acceptance_notes }}</p>
+                            <p><strong>ملاحظات القبول النهائي:</strong> {{ transfer_request.acceptance_notes }}</p>
                             {% endif %}
                             {% endif %}
 
@@ -155,11 +218,19 @@
                     </a>
                     {% endif %}
 
+                    <!-- Pickup Button -->
+                    {% if transfer_request.status == 'approved' and can_pickup %}
+                    <a href="{% url 'maintenance:pickup_transfer_request' transfer_request.id %}" 
+                       class="btn btn-warning btn-block mb-2">
+                        <i class="fas fa-hand-paper"></i> استلام الجهاز
+                    </a>
+                    {% endif %}
+
                     <!-- Accept Button -->
-                    {% if transfer_request.status == 'approved' and can_accept %}
+                    {% if transfer_request.status == 'pending_pickup' and can_accept %}
                     <a href="{% url 'maintenance:accept_transfer_request' transfer_request.id %}" 
                        class="btn btn-primary btn-block mb-2">
-                        <i class="fas fa-check-double"></i> قبول النقل وتنفيذه
+                        <i class="fas fa-check-double"></i> تأكيد النقل النهائي
                     </a>
                     {% endif %}
 
@@ -204,8 +275,8 @@
                         </div>
 
                         <!-- Approval Stage -->
-                        <div class="timeline-item {% if transfer_request.status in 'approved,accepted' %}completed{% elif transfer_request.status == 'rejected' %}rejected{% endif %}">
-                            <div class="timeline-marker {% if transfer_request.status in 'approved,accepted' %}bg-success{% elif transfer_request.status == 'rejected' %}bg-danger{% else %}bg-secondary{% endif %}"></div>
+                        <div class="timeline-item {% if transfer_request.status in 'approved,pending_pickup,accepted' %}completed{% elif transfer_request.status == 'rejected' %}rejected{% endif %}">
+                            <div class="timeline-marker {% if transfer_request.status in 'approved,pending_pickup,accepted' %}bg-success{% elif transfer_request.status == 'rejected' %}bg-danger{% else %}bg-secondary{% endif %}"></div>
                             <div class="timeline-content">
                                 <h6 class="mb-1">الموافقة</h6>
                                 {% if transfer_request.approved_at %}
@@ -218,11 +289,24 @@
                             </div>
                         </div>
 
-                        <!-- Acceptance Stage -->
+                        <!-- Pickup Stage -->
+                        <div class="timeline-item {% if transfer_request.status in 'pending_pickup,accepted' %}completed{% endif %}">
+                            <div class="timeline-marker {% if transfer_request.status in 'pending_pickup,accepted' %}bg-warning{% else %}bg-secondary{% endif %}"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">الاستلام</h6>
+                                {% if transfer_request.picked_up_at %}
+                                <small class="text-muted">{{ transfer_request.picked_up_at|date:"Y-m-d H:i" }}</small>
+                                {% else %}
+                                <small class="text-muted">في الانتظار</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Final Acceptance Stage -->
                         <div class="timeline-item {% if transfer_request.status == 'accepted' %}completed{% endif %}">
                             <div class="timeline-marker {% if transfer_request.status == 'accepted' %}bg-primary{% else %}bg-secondary{% endif %}"></div>
                             <div class="timeline-content">
-                                <h6 class="mb-1">القبول والتنفيذ</h6>
+                                <h6 class="mb-1">التأكيد النهائي</h6>
                                 {% if transfer_request.accepted_at %}
                                 <small class="text-muted">{{ transfer_request.accepted_at|date:"Y-m-d H:i" }}</small>
                                 {% else %}
@@ -237,47 +321,4 @@
     </div>
 </div>
 
-<style>
-.timeline {
-    position: relative;
-    padding-left: 30px;
-}
-
-.timeline::before {
-    content: '';
-    position: absolute;
-    left: 10px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #dee2e6;
-}
-
-.timeline-item {
-    position: relative;
-    padding-bottom: 20px;
-}
-
-.timeline-marker {
-    position: absolute;
-    left: -25px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
-}
-
-.timeline-item.completed .timeline-marker {
-    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
-}
-
-.timeline-item.rejected .timeline-marker {
-    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
-}
-
-.timeline-content {
-    padding-left: 10px;
-}
-</style>
 {% endblock %}

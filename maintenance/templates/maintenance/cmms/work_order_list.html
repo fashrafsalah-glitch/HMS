@@ -4,6 +4,47 @@
 {% block title %}قائمة أوامر الشغل{% endblock %}
 
 {% block content %}
+<style>
+/* Force all text elements to be white in dark mode with maximum specificity */
+body.dark-mode * {
+    color: #e5e7eb !important;
+}
+
+/* Preserve badge colors */
+body.dark-mode .badge {
+    color: inherit !important;
+}
+
+/* Preserve button colors */
+body.dark-mode .btn {
+    color: inherit !important;
+}
+
+/* Links should be blue-ish in dark mode */
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge) {
+    color: #93c5fd !important;
+}
+
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge):hover {
+    color: #bfdbfe !important;
+}
+
+/* Muted text in dark mode */
+body.dark-mode .text-muted {
+    color: #9ca3af !important;
+}
+
+/* Alert text colors */
+body.dark-mode .alert {
+    color: inherit !important;
+}
+
+/* Card titles and headers */
+body.dark-mode .card-title,
+body.dark-mode .card-header * {
+    color: #f3f4f6 !important;
+}
+</style>
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
@@ -109,19 +150,21 @@
                                     </td>
                                     <td>
                                         {% if wo.status == 'new' %}
-                                            <span class="badge badge-primary">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #007bff; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'assigned' %}
-                                            <span class="badge badge-info">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #17a2b8; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'in_progress' %}
-                                            <span class="badge badge-warning">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #ffc107; color: #212529; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'on_hold' or wo.status == 'wait_parts' %}
-                                            <span class="badge badge-secondary">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #6c757d; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'resolved' or wo.status == 'qa_verified' %}
-                                            <span class="badge badge-success">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #28a745; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'closed' %}
-                                            <span class="badge badge-dark">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #343a40; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% elif wo.status == 'cancelled' %}
-                                            <span class="badge badge-danger">{{ wo.get_status_display }}</span>
+                                            <span class="badge" style="background-color: #dc3545; color: white; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge" style="background-color: #e9ecef; color: #495057; padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                         {% endif %}
                                     </td>
                                     <td>

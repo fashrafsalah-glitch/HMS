@@ -61,7 +61,8 @@ class DeviceTransferRequestForm(forms.ModelForm):
         fields = [
             'to_department', 'to_room', 'to_bed', 'patient',
             'reason', 'reason_details', 'priority',
-            'device_checked', 'device_cleaned', 'device_sterilized'
+            'device_checked', 'device_cleaned', 'device_sterilized',
+            'include_accessories'
         ]
         widgets = {
             'to_department': forms.Select(attrs={'class': 'form-control', 'required': True}),
@@ -78,6 +79,7 @@ class DeviceTransferRequestForm(forms.ModelForm):
             'device_checked': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'device_cleaned': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'device_sterilized': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'include_accessories': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'to_department': 'القسم المستهدف',
@@ -90,6 +92,7 @@ class DeviceTransferRequestForm(forms.ModelForm):
             'device_checked': 'تم فحص الجهاز',
             'device_cleaned': 'تم تنظيف الجهاز',
             'device_sterilized': 'تم تعقيم الجهاز',
+            'include_accessories': 'نقل الإكسسوارات مع الجهاز',
         }
     
     def __init__(self, *args, **kwargs):
@@ -179,6 +182,19 @@ class TransferApprovalForm(forms.Form):
     )
 
 
+class TransferPickupForm(forms.Form):
+    """Form for picking up transfer request"""
+    pickup_notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'ملاحظات الاستلام (اختياري)'
+        }),
+        label='ملاحظات الاستلام'
+    )
+
+
 class TransferAcceptanceForm(forms.Form):
     """Form for accepting transfer request"""
     acceptance_notes = forms.CharField(
@@ -186,9 +202,9 @@ class TransferAcceptanceForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 3,
-            'placeholder': 'ملاحظات القبول (اختياري)'
+            'placeholder': 'ملاحظات القبول النهائي (اختياري)'
         }),
-        label='ملاحظات القبول'
+        label='ملاحظات القبول النهائي'
     )
 
 

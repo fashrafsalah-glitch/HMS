@@ -1207,7 +1207,7 @@ def department_devices(request, department_id):
     from django.db.models import Q
     pending_transfers = DeviceTransferRequest.objects.filter(
         device__department=department,  # الجهاز موجود في هذا القسم
-        status__in=['pending', 'approved']
+        status__in=['pending', 'approved', 'pending_pickup']
     ).exclude(
         to_department=department  # استبعاد الطلبات التي يكون هذا القسم هو المستقبل
     ).select_related('device', 'from_department', 'to_department', 'requested_by')
@@ -1215,13 +1215,13 @@ def department_devices(request, department_id):
     # الأجهزة المطلوبة: الأجهزة التي طلبها هذا القسم من أقسام أخرى (تظهر كأجهزة معلقة)
     requested_devices = DeviceTransferRequest.objects.filter(
         to_department=department,  # هذا القسم طلب الجهاز
-        status__in=['pending', 'approved']
+        status__in=['pending', 'approved', 'pending_pickup']
     ).select_related('device', 'from_department')
     
     # طلبات النقل الصادرة: طلبات أرسلها هذا القسم (للمتابعة فقط)
     outgoing_transfers = DeviceTransferRequest.objects.filter(
-        to_department=department,  # هذا القسم طلب الجهاز (نفس requested_devices)
-        status__in=['pending', 'approved']
+        to_department=department,  # هذا القسم طلب الجهاز
+        status__in=['pending', 'approved', 'pending_pickup']
     ).select_related('device', 'from_department')
 
     # تجميع الأجهزة حسب الغرف

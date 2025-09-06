@@ -4,6 +4,47 @@
 {% block title %}تفاصيل البلاغ{% endblock %}
 
 {% block content %}
+<style>
+/* Force all text elements to be white in dark mode with maximum specificity */
+body.dark-mode * {
+    color: #e5e7eb !important;
+}
+
+/* Preserve badge colors */
+body.dark-mode .badge {
+    color: inherit !important;
+}
+
+/* Preserve button colors */
+body.dark-mode .btn {
+    color: inherit !important;
+}
+
+/* Links should be blue-ish in dark mode */
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge) {
+    color: #93c5fd !important;
+}
+
+body.dark-mode a:not(.btn):not(.nav-link):not(.badge):hover {
+    color: #bfdbfe !important;
+}
+
+/* Muted text in dark mode */
+body.dark-mode .text-muted {
+    color: #9ca3af !important;
+}
+
+/* Alert text colors */
+body.dark-mode .alert {
+    color: inherit !important;
+}
+
+/* Card titles and headers */
+body.dark-mode .card-title,
+body.dark-mode .card-header * {
+    color: #f3f4f6 !important;
+}
+</style>
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-8">
@@ -56,24 +97,24 @@
                                 <dt class="col-sm-4">الشدة:</dt>
                                 <dd class="col-sm-8">
                                     {% if service_request.severity == 'critical' %}
-                                        <span class="badge badge-danger">{{ service_request.get_severity_display }}</span>
+                                        <span class="badge bg-danger text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_severity_display }}</span>
                                     {% elif service_request.severity == 'high' %}
-                                        <span class="badge badge-warning">{{ service_request.get_severity_display }}</span>
+                                        <span class="badge bg-warning text-dark" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_severity_display }}</span>
                                     {% elif service_request.severity == 'medium' %}
-                                        <span class="badge badge-info">{{ service_request.get_severity_display }}</span>
+                                        <span class="badge bg-info text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_severity_display }}</span>
                                     {% else %}
-                                        <span class="badge badge-secondary">{{ service_request.get_severity_display }}</span>
+                                        <span class="badge bg-secondary text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_severity_display }}</span>
                                     {% endif %}
                                 </dd>
                                 
                                 <dt class="col-sm-4">التأثير:</dt>
                                 <dd class="col-sm-8">
                                     {% if service_request.impact == 'high' %}
-                                        <span class="badge badge-danger">{{ service_request.get_impact_display }}</span>
+                                        <span class="badge bg-danger text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_impact_display }}</span>
                                     {% elif service_request.impact == 'medium' %}
-                                        <span class="badge badge-warning">{{ service_request.get_impact_display }}</span>
+                                        <span class="badge bg-warning text-dark" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_impact_display }}</span>
                                     {% else %}
-                                        <span class="badge badge-info">{{ service_request.get_impact_display }}</span>
+                                        <span class="badge bg-info text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_impact_display }}</span>
                                     {% endif %}
                                 </dd>
                             </dl>
@@ -83,25 +124,25 @@
                                 <dt class="col-sm-4">الحالة:</dt>
                                 <dd class="col-sm-8">
                                     {% if service_request.status == 'new' %}
-                                        <span class="badge badge-primary">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-primary text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% elif service_request.status == 'in_progress' %}
-                                        <span class="badge badge-info">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-info text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% elif service_request.status == 'on_hold' %}
-                                        <span class="badge badge-warning">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-warning text-dark" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% elif service_request.status == 'resolved' %}
-                                        <span class="badge badge-success">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-success text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% elif service_request.status == 'closed' %}
-                                        <span class="badge badge-secondary">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-secondary text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% elif service_request.status == 'cancelled' %}
-                                        <span class="badge badge-danger">{{ service_request.get_status_display }}</span>
+                                        <span class="badge bg-danger text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500;">{{ service_request.get_status_display }}</span>
                                     {% endif %}
                                     
                                     {% if service_request.is_overdue_response %}
-                                        <span class="badge badge-danger">تأخر الاستجابة</span>
+                                        <span class="badge bg-danger text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500; margin-left: 5px;">تأخر الاستجابة</span>
                                     {% endif %}
                                     
                                     {% if service_request.is_overdue_resolution %}
-                                        <span class="badge badge-danger">تأخر الحل</span>
+                                        <span class="badge bg-danger text-white" style="padding: 6px 12px; border-radius: 4px; font-weight: 500; margin-left: 5px;">تأخر الحل</span>
                                     {% endif %}
                                 </dd>
                                 
@@ -118,7 +159,7 @@
                                 <dd class="col-sm-8">
                                     {{ service_request.response_due|date:"Y-m-d H:i" }}
                                     {% if service_request.is_overdue_response %}
-                                        <span class="badge badge-danger">متأخر</span>
+                                        <span class="badge bg-danger text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500; margin-right: 5px;">متأخر</span>
                                     {% endif %}
                                 </dd>
                                 
@@ -126,7 +167,7 @@
                                 <dd class="col-sm-8">
                                     {{ service_request.resolution_due|date:"Y-m-d H:i" }}
                                     {% if service_request.is_overdue_resolution %}
-                                        <span class="badge badge-danger">متأخر</span>
+                                        <span class="badge bg-danger text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500; margin-right: 5px;">متأخر</span>
                                     {% endif %}
                                 </dd>
                             </dl>
@@ -136,7 +177,7 @@
                     <div class="row mt-3">
                         <div class="col-12">
                             <h5>وصف المشكلة:</h5>
-                            <div class="p-3 bg-light rounded">
+                            <div class="p-3 bg-light rounded border">
                                 {{ service_request.description|linebreaks }}
                             </div>
                         </div>
@@ -183,19 +224,19 @@
                                         <h5 class="mb-1">WO-{{ wo.id }}</h5>
                                         <small>
                                             {% if wo.status == 'new' %}
-                                                <span class="badge badge-primary">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-primary text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'assigned' %}
-                                                <span class="badge badge-info">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-info text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'in_progress' %}
-                                                <span class="badge badge-warning">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-warning text-dark" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'on_hold' or wo.status == 'wait_parts' %}
-                                                <span class="badge badge-secondary">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-secondary text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'resolved' or wo.status == 'qa_verified' %}
-                                                <span class="badge badge-success">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-success text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'closed' %}
-                                                <span class="badge badge-dark">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-dark text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% elif wo.status == 'cancelled' %}
-                                                <span class="badge badge-danger">{{ wo.get_status_display }}</span>
+                                                <span class="badge bg-danger text-white" style="padding: 4px 8px; border-radius: 4px; font-weight: 500;">{{ wo.get_status_display }}</span>
                                             {% endif %}
                                         </small>
                                     </div>

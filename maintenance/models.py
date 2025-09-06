@@ -465,8 +465,9 @@ class DeviceTransferRequest(models.Model):
     # Status choices for transfer workflow
     STATUS_CHOICES = [
         ('pending', 'معلق - في انتظار الموافقة'),
-        ('approved', 'موافق عليه - في انتظار القبول'),
-        ('accepted', 'مقبول - تم النقل'),
+        ('approved', 'موافق عليه - جاهز للاستلام'),
+        ('pending_pickup', 'في انتظار الاستلام'),
+        ('accepted', 'مستلم - تم النقل'),
         ('rejected', 'مرفوض'),
         ('cancelled', 'ملغي'),
     ]
@@ -593,7 +594,25 @@ class DeviceTransferRequest(models.Model):
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الموافقة")
     approval_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات الموافقة")
     
-    # Stage 3: Acceptance (by receiving department)
+    # Stage 3: Pickup (by requesting department)
+    picked_up_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='transfer_picked_up_by',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="المستلم"
+    )
+    picked_up_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الاستلام")
+    pickup_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات الاستلام")
+    
+    # Accessories transfer option
+    include_accessories = models.BooleanField(
+        default=False,
+        verbose_name="نقل الإكسسوارات مع الجهاز"
+    )
+    
+    # Stage 4: Final Acceptance (automatic after pickup)
     accepted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name='transfer_accepted_by',
@@ -602,8 +621,8 @@ class DeviceTransferRequest(models.Model):
         blank=True,
         verbose_name="القابل"
     )
-    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ القبول")
-    acceptance_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات القبول")
+    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ القبول النهائي")
+    acceptance_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات القبول النهائي")
     
     # Rejection tracking
     rejected_by = models.ForeignKey(
@@ -644,10 +663,18 @@ class DeviceTransferRequest(models.Model):
         # Check if user is department manager or has permission
         return user.groups.filter(name='Department Managers').exists() or user.is_superuser
     
+    def can_pickup(self, user):
+        """Check if user can pickup this transfer request"""
+        # Must be approved and user must be from requesting department
+        if self.status != 'approved':
+            return False
+        # Check if user is from requesting department
+        return user.groups.filter(name='Department Managers').exists() or user.is_superuser
+    
     def can_accept(self, user):
         """Check if user can accept this transfer request"""
-        # Must be approved and user must be from receiving department
-        if self.status != 'approved':
+        # Must be pending_pickup and user must be from receiving department
+        if self.status != 'pending_pickup':
             return False
         # Check if user is from receiving department
         return user.groups.filter(name='Department Managers').exists() or user.is_superuser
@@ -661,6 +688,16 @@ class DeviceTransferRequest(models.Model):
         self.save()
         # Send notification placeholder
         self.send_notification('approved')
+    
+    def pickup(self, user, notes=''):
+        """Pickup the device by requesting department"""
+        self.status = 'pending_pickup'
+        self.picked_up_by = user
+        self.picked_up_at = timezone.now()
+        self.pickup_notes = notes
+        self.save()
+        # Send notification placeholder
+        self.send_notification('picked_up')
     
     def accept(self, user, notes=''):
         """Accept the transfer and execute it"""

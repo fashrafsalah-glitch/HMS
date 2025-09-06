@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}استلام الجهاز - طلب النقل #{{ transfer_request.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <!-- Transfer Request Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-truck"></i> ملخص طلب النقل #{{ transfer_request.id }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>الجهاز:</strong> {{ transfer_request.device.name }}</p>
+                            <p><strong>من القسم:</strong> {{ transfer_request.from_department.name }}</p>
+                            <p><strong>إلى القسم:</strong> {{ transfer_request.to_department.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>السبب:</strong> {{ transfer_request.get_reason_display }}</p>
+                            <p><strong>الأولوية:</strong> 
+                                <span class="badge badge-{% if transfer_request.priority == 'urgent' %}danger{% else %}warning{% endif %}">
+                                    {{ transfer_request.get_priority_display }}
+                                </span>
+                            </p>
+                            <p><strong>مقدم الطلب:</strong> {{ transfer_request.requested_by.get_full_name|default:transfer_request.requested_by.username }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if transfer_request.approved_by %}
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>تمت الموافقة من:</strong> {{ transfer_request.approved_by.get_full_name|default:transfer_request.approved_by.username }}
+                        <br><small>{{ transfer_request.approved_at|date:"Y-m-d H:i" }}</small>
+                        {% if transfer_request.approval_notes %}
+                        <br><strong>ملاحظات الموافقة:</strong> {{ transfer_request.approval_notes }}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Pickup Form -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-hand-paper"></i> استلام الجهاز
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.pickup_notes.id_for_label }}" class="form-label">
+                                {{ form.pickup_notes.label }}
+                            </label>
+                            {{ form.pickup_notes }}
+                            <small class="form-text text-muted">أضف أي ملاحظات حول حالة الجهاز عند الاستلام</small>
+                            {% if form.pickup_notes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.pickup_notes.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            بتأكيد الاستلام، أنت تؤكد أن:
+                            <ul class="mb-0 mt-2">
+                                <li>تم استلام الجهاز من القسم المرسل</li>
+                                <li>الجهاز في حالة جيدة ويعمل بشكل طبيعي</li>
+                                <li>تم فحص جميع الملحقات والمكونات</li>
+                                <li>الجهاز جاهز للاستخدام في القسم الجديد</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'maintenance:transfer_request_detail' transfer_request.id %}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> رجوع
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-hand-paper"></i> تأكيد الاستلام
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
