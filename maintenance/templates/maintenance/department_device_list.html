@@ -46,9 +46,21 @@
                     
                     <td>{{ device.room }}</td>
                    
-                    <td>{{ device.get_status_display }}</td>
-                    <td>{{ device.get_clean_status_display }}</td>
-                    <td>{{ device.get_sterilization_status_display }}</td>
+                    <td>
+                        <span class="badge text-white" style="background-color: {% if device.status == 'working' %}#28a745{% elif device.status == 'needs_maintenance' %}#ffc107{% else %}#dc3545{% endif %} !important;">
+                            {{ device.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge text-white" style="background-color: {% if device.clean_status == 'clean' %}#28a745{% else %}#ffc107{% endif %} !important;">
+                            {{ device.get_clean_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge text-white" style="background-color: {% if device.sterilization_status == 'sterilized' %}#28a745{% else %}#ffc107{% endif %} !important;">
+                            {{ device.get_sterilization_status_display }}
+                        </span>
+                    </td>
                     <td>{{ device.current_patient }}</td>
                    
                     <td>
@@ -72,7 +84,11 @@
                     <a href="{% url 'maintenance:device_delete' device.id %}" class="btn btn-sm btn-danger" title="Delete">🗑️</a>
                     <a href="{% url 'maintenance:device_transfer' device.id %}" class="btn btn-sm btn-secondary" title="Transfer">🔄</a>
                    </td>
-                    <td><span class="text-success">✅ نشط</span></td>
+                    <td>
+                        <span class="badge text-white" style="background-color: #28a745 !important;">
+                            ✅ نشط
+                        </span>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -102,9 +118,9 @@
                     <td>{{ request.requested_at|date:"Y-m-d H:i" }}</td>
                     <td>
                         {% if request.status == 'pending' %}
-                        <span class="badge badge-warning">بانتظار الموافقة</span>
+                        <span class="badge text-white" style="background-color: #ffc107 !important;">بانتظار الموافقة</span>
                         {% elif request.status == 'approved' %}
-                        <span class="badge badge-success">تمت الموافقة - بانتظار القبول</span>
+                        <span class="badge text-white" style="background-color: #28a745 !important;">تمت الموافقة - بانتظار القبول</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -118,7 +134,7 @@
         <table class="table table-striped table-bordered align-middle text-center">
             <thead class="table-warning">
                 <tr>
-                     <th>Serial No.</th>
+                    <th>Serial No.</th>
                     <th>اسم الجهاز</th>
                     <th>القسم الطالب</th>
                     <th>إلى القسم</th>
@@ -137,11 +153,11 @@
                     <td>{{ transfer.requested_by.username }}</td>
                     <td>
                         {% if transfer.status == 'pending' %}
-                        <span class="badge badge-warning">بانتظار الموافقة</span>
+                        <span class="badge text-white" style="background-color: #ffc107 !important;">بانتظار الموافقة</span>
                         {% elif transfer.status == 'approved' %}
-                        <span class="badge badge-info">تمت الموافقة - جاهز للاستلام</span>
+                        <span class="badge text-white" style="background-color: #17a2b8 !important;">تمت الموافقة - جاهز للاستلام</span>
                         {% elif transfer.status == 'pending_pickup' %}
-                        <span class="badge badge-success">تم الاستلام - بانتظار التأكيد النهائي</span>
+                        <span class="badge text-white" style="background-color: #28a745 !important;">تم الاستلام - بانتظار التأكيد النهائي</span>
                         {% endif %}
                     </td>
                     <td>
@@ -157,9 +173,9 @@
                             </form>
                         </div>
                         {% elif transfer.status == 'approved' %}
-                        <span class="text-info">تمت الموافقة - بانتظار الاستلام من القسم المستقبل</span>
+                        <span class="badge text-white" style="background-color: #17a2b8 !important;">تمت الموافقة - بانتظار الاستلام من القسم المستقبل</span>
                         {% elif transfer.status == 'pending_pickup' %}
-                        <span class="text-success">تم الاستلام - بانتظار التأكيد النهائي</span>
+                        <span class="badge text-white" style="background-color: #28a745 !important;">تم الاستلام - بانتظار التأكيد النهائي</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -173,8 +189,9 @@
         <table class="table table-striped table-bordered align-middle text-center">
             <thead class="table-info">
                 <tr>
-                     <th>Serial No.</th>
+                    <th>Serial No.</th>
                     <th>اسم الجهاز</th>
+                    <th>من قسم</th>
                     <th>إلى قسم</th>
                     <th>تاريخ الطلب</th>
                     <th>الإكسسوارات</th>
@@ -187,28 +204,29 @@
                 <tr>
                     <td>{{ transfer.device.id }}</td>
                     <td>{{ transfer.device.name }}</td>
+                    <td>{{ transfer.from_department.name }}</td>
                     <td>{{ transfer.to_department.name }}</td>
                     <td>{{ transfer.requested_at|date:"Y-m-d H:i" }}</td>
                     <td>
                         {% if transfer.include_accessories %}
-                        <span class="badge badge-success text-white" style="border: 2px solid #28a745;">
+                        <span class="badge text-white" style="background-color: #28a745 !important;">
                             <i class="fas fa-check"></i> نعم
                         </span>
                         {% else %}
-                        <span class="badge badge-secondary text-white" style="border: 2px solid #6c757d;">
+                        <span class="badge text-white" style="background-color: #6c757d !important;">
                             <i class="fas fa-times"></i> لا
                         </span>
                         {% endif %}
                     </td>
                     <td>
                         {% if transfer.status == 'pending' %}
-                        <span class="badge badge-warning text-white" style="border: 2px solid #ffc107;">بانتظار الموافقة</span>
+                        <span class="badge text-white" style="background-color: #ffc107 !important;">بانتظار الموافقة</span>
                         {% elif transfer.status == 'approved' %}
-                        <span class="badge badge-info text-white" style="border: 2px solid #17a2b8;">تمت الموافقة - جاهز للاستلام</span>
+                        <span class="badge text-white" style="background-color: #17a2b8 !important;">تمت الموافقة - جاهز للاستلام</span>
                         {% elif transfer.status == 'pending_pickup' %}
-                        <span class="badge badge-success text-white" style="border: 2px solid #28a745;">تم الاستلام - بانتظار التأكيد النهائي</span>
+                        <span class="badge text-white" style="background-color: #28a745 !important;">تم الاستلام - بانتظار التأكيد النهائي</span>
                         {% else %}
-                        <span class="badge badge-secondary text-white" style="border: 2px solid #6c757d;">{{ transfer.get_status_display }}</span>
+                        <span class="badge text-white" style="background-color: #6c757d !important;">{{ transfer.get_status_display }}</span>
                         {% endif %}
                     </td>
                     <td>
