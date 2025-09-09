@@ -582,12 +582,17 @@
                     </a>
                     <div class="collapse" id="maintenanceSubmenu">
                         <nav class="nav flex-column" style="padding-left: 20px;">
-                            <a class="nav-link" href="{% url 'maintenance:maintenance_index' %}"><i class="fas fa-tachometer-alt me-2"></i><span>Dashboard</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:cmms:sla_list' %}"><i class="fas fa-handshake me-2"></i><span>Service Agreements</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:cmms:job_plan_list' %}"><i class="fas fa-clipboard-list me-2"></i><span>Job Plans</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:cmms:pm_schedule_list' %}"><i class="fas fa-calendar-check me-2"></i><span>Preventive Maintenance</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:calibration_tracking' %}"><i class="fas fa-balance-scale me-2"></i><span>Calibration</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:cmms:work_order_list' %}"><i class="fas fa-clock me-2"></i><span>Downtime</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:maintenance_index' %}"><i class="fas fa-tachometer-alt me-2"></i><span>لوحة التحكم</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:device_list' %}"><i class="fas fa-laptop-medical me-2"></i><span>إدارة الأجهزة</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:service_request_list' %}"><i class="fas fa-clipboard-list me-2"></i><span>طلبات الخدمة</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:work_order_list' %}"><i class="fas fa-tasks me-2"></i><span>أوامر العمل</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:pm_schedule_list' %}"><i class="fas fa-calendar-check me-2"></i><span>الصيانة الوقائية</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:job_plan_list' %}"><i class="fas fa-clipboard-list me-2"></i><span>خطط العمل</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:cmms:sla_list' %}"><i class="fas fa-handshake me-2"></i><span>اتفاقيات الخدمة</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:calibration_tracking' %}"><i class="fas fa-balance-scale me-2"></i><span>المعايرة</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:spare_parts:downtime_list' %}"><i class="fas fa-clock me-2"></i><span>سجلات التوقف</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:qr_links_page' %}"><i class="fas fa-qrcode me-2"></i><span>نظام QR</span></a>
+                            <a class="nav-link" href="{% url 'maintenance:spare_parts:spare_part_list' %}"><i class="fas fa-cogs me-2"></i><span>قطع الغيار</span></a>
                         </nav>
                     </div>
 

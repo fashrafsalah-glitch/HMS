@@ -9,7 +9,7 @@ import calendar
 
 def calculate_mtbf(device_id=None, department_id=None, days=30):
     """
-    حساب متوسط الوقت بين الأعطال (MTBF) بناءً على SLA والبيانات الفعلية
+    حساب متوسط الوقت بين الأعطال (MTBF) باستخدام الأوقات الفعلية من Work Orders
     """
     # تحديد الفترة الزمنية
     end_date = timezone.now()
@@ -26,69 +26,64 @@ def calculate_mtbf(device_id=None, department_id=None, days=30):
     device_count = 0
     
     for device in devices:
-        # البحث عن SLA مناسب للجهاز
-        applicable_sla = None
-        sla_definitions = SLADefinition.objects.filter(is_active=True)
-        
-        for sla in sla_definitions:
-            if sla.device_category and device.category == sla.device_category:
-                applicable_sla = sla
-                break
-        
-        # جلب أوامر الشغل المكتملة للأعطال التصحيحية
-        completed_work_orders = WorkOrder.objects.filter(
+        # جلب أوامر الشغل للأعطال التصحيحية والطارئة
+        work_orders = WorkOrder.objects.filter(
             service_request__device=device,
-            status__in=['closed', 'qa_verified'],
-            created_at__range=[start_date, end_date],
-            service_request__request_type='corrective'
+            service_request__request_type__in=['corrective', 'breakdown'],
+            created_at__range=[start_date, end_date]
         ).order_by('created_at')
         
-        failure_count = completed_work_orders.count()
+        failure_count = work_orders.count()
         
         if failure_count >= 2:
-            # حساب الفترات بين الأعطال
+            # حساب الفترات بين الأعطال باستخدام الأوقات الفعلية
             intervals = []
             for i in range(1, failure_count):
-                prev_failure = completed_work_orders[i-1].created_at
-                curr_failure = completed_work_orders[i].created_at
-                interval_hours = (curr_failure - prev_failure).total_seconds() / 3600
-                intervals.append(interval_hours)
+                prev_wo = work_orders[i-1]
+                curr_wo = work_orders[i]
+                
+                # استخدام actual_end إذا متوفر، وإلا استخدام created_at
+                prev_end = prev_wo.actual_end if prev_wo.actual_end else prev_wo.created_at
+                curr_start = curr_wo.actual_start if curr_wo.actual_start else curr_wo.created_at
+                
+                interval_hours = (curr_start - prev_end).total_seconds() / 3600
+                if interval_hours > 0:
+                    intervals.append(interval_hours)
             
             if intervals:
                 device_mtbf = sum(intervals) / len(intervals)
                 total_mtbf += device_mtbf
                 device_count += 1
         elif failure_count == 1:
-            # إذا كان هناك عطل واحد فقط، نحسب من بداية الفترة
-            first_failure = completed_work_orders.first().created_at
+            # عطل واحد فقط - نحسب من بداية الفترة
+            first_wo = work_orders.first()
+            first_failure = first_wo.actual_start if first_wo.actual_start else first_wo.created_at
             hours_to_failure = (first_failure - start_date).total_seconds() / 3600
             if hours_to_failure > 0:
                 total_mtbf += hours_to_failure
                 device_count += 1
         else:
-            # لا توجد أعطال - نستخدم SLA أو قيمة افتراضية بناءً على حالة الجهاز
-            if applicable_sla:
-                # نقدر MTBF بناءً على SLA (كلما قل وقت الحل، زاد MTBF المتوقع)
-                estimated_mtbf = applicable_sla.resolution_time_hours * 10  # تقدير: 10 أضعاف وقت الحل
-            else:
-                # تقدير بناءً على حالة الجهاز
-                if device.status == 'working':
-                    estimated_mtbf = days * 24  # كامل الفترة
-                elif device.status == 'needs_check':
-                    estimated_mtbf = days * 20  # 80% من الفترة
-                elif device.status == 'needs_maintenance':
-                    estimated_mtbf = days * 12  # 50% من الفترة
-                else:  # out_of_order
-                    estimated_mtbf = days * 4   # 20% من الفترة
-            
-            total_mtbf += estimated_mtbf
-            device_count += 1
+            # لا توجد أعطال - الجهاز يعمل بدون مشاكل
+            if device.status == 'working':
+                # نعتبر أن الجهاز عمل طوال الفترة
+                estimated_mtbf = days * 24
+                total_mtbf += estimated_mtbf
+                device_count += 1
+            elif device.status == 'needs_check':
+                estimated_mtbf = days * 20  # 80% من الفترة
+                total_mtbf += estimated_mtbf
+                device_count += 1
+            elif device.status == 'needs_maintenance':
+                estimated_mtbf = days * 12  # 50% من الفترة
+                total_mtbf += estimated_mtbf
+                device_count += 1
+            # نتجاهل الأجهزة المعطلة out_of_order
     
     return total_mtbf / device_count if device_count > 0 else 720  # متوسط شهر إذا لم توجد بيانات
 
 def calculate_mttr(device_id=None, department_id=None, days=30):
     """
-    حساب متوسط وقت الإصلاح (MTTR) بناءً على SLA وخطط العمل والبيانات الفعلية
+    حساب متوسط وقت الإصلاح (MTTR) باستخدام الأوقات الفعلية من Work Orders
     """
     from .models import SLADefinition, JobPlan
     
@@ -96,11 +91,10 @@ def calculate_mttr(device_id=None, department_id=None, days=30):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
-    # جلب أوامر الشغل المكتملة للأعطال التصحيحية
+    # جلب أوامر الشغل للأعطال التصحيحية والطارئة
     work_orders = WorkOrder.objects.filter(
-        status__in=['closed', 'qa_verified'],
         created_at__range=[start_date, end_date],
-        service_request__request_type='corrective'
+        service_request__request_type__in=['corrective', 'breakdown']
     )
     
     if device_id:
@@ -114,36 +108,35 @@ def calculate_mttr(device_id=None, department_id=None, days=30):
     for wo in work_orders:
         repair_time = 0
         
-        # أولاً نحاول نستخدم الأوقات الفعلية
-        if wo.actual_start and wo.actual_end:
+        # استخدام actual_hours إذا متوفرة
+        if hasattr(wo, 'actual_hours') and wo.actual_hours:
+            repair_time = float(wo.actual_hours)
+        # استخدام الفرق بين actual_start و actual_end
+        elif wo.actual_start and wo.actual_end:
             repair_time = (wo.actual_end - wo.actual_start).total_seconds() / 3600
-        # إذا مفيش أوقات فعلية، نقدر من تواريخ الإنشاء والتحديث
-        elif wo.updated_at and wo.created_at:
-            estimated_time = (wo.updated_at - wo.created_at).total_seconds() / 3600
-            repair_time = min(estimated_time, 72) if estimated_time > 0 else 4
+        # استخدام estimated_hours إذا متوفرة
+        elif hasattr(wo, 'estimated_hours') and wo.estimated_hours:
+            repair_time = float(wo.estimated_hours)
+        # تقدير من الفرق بين created_at و updated_at للأوامر المكتملة
+        elif wo.status in ['closed', 'qa_verified','resolved'] and wo.updated_at and wo.created_at:
+            repair_time = (wo.updated_at - wo.created_at).total_seconds() / 3600
+            # تحديد حد أقصى معقول
+            repair_time = min(repair_time, 72)  # حد أقصى 3 أيام
+        # للأوامر المفتوحة، نحسب الوقت المنقضي حتى الآن
+        elif wo.status in ['new', 'assigned', 'in_progress', 'wait_parts']:
+            repair_time = (timezone.now() - wo.created_at).total_seconds() / 3600
+            # تحديد حد أقصى معقول
+            repair_time = min(repair_time, 48)  # حد أقصى يومين للأوامر المفتوحة
         else:
-            # استخدام SLA إذا متوفر
-            applicable_sla = None
-            if wo.service_request.device.category:
-                sla_definitions = SLADefinition.objects.filter(
-                    is_active=True,
-                    device_category=wo.service_request.device.category
-                )
-                if sla_definitions.exists():
-                    applicable_sla = sla_definitions.first()
-            
-            if applicable_sla:
-                repair_time = applicable_sla.resolution_time_hours
+            # تقدير بناءً على الأولوية
+            if wo.service_request.priority == 'critical':
+                repair_time = 2
+            elif wo.service_request.priority == 'high':
+                repair_time = 4
+            elif wo.service_request.priority == 'medium':
+                repair_time = 8
             else:
-                # تقدير بناءً على الأولوية
-                if wo.service_request.priority == 'critical':
-                    repair_time = 2
-                elif wo.service_request.priority == 'high':
-                    repair_time = 4
-                elif wo.service_request.priority == 'medium':
-                    repair_time = 8
-                else:
-                    repair_time = 24
+                repair_time = 24
         
         if repair_time > 0:
             total_repair_time += repair_time
@@ -375,7 +368,7 @@ def calculate_pm_compliance(department_id=None, device_id=None, days=30):
             service_request__device=schedule.device,
             service_request__request_type='preventive',
             created_at__range=[start_date, end_date],
-            status__in=['closed', 'qa_verified']
+            status__in=['closed', 'qa_verified' ,'resolved']
         ).exists()
         
         if wo_exists:
@@ -419,7 +412,7 @@ def calculate_work_order_stats(department_id=None, days=30):
     
     # حساب النسب المئوية
     if stats['total'] > 0:
-        stats['completion_rate'] = ((stats['closed'] + stats['qa_verified']) / stats['total']) * 100
+        stats['completion_rate'] = ((stats['closed'] + stats['qa_verified'] + stats['resolved']) / stats['total']) * 100
         stats['in_progress_rate'] = ((stats['assigned'] + stats['in_progress'] + stats['wait_parts']) / stats['total']) * 100
         stats['overdue_rate'] = calculate_overdue_work_orders_rate(department_id, days)
     else:
@@ -515,7 +508,7 @@ def calculate_calibration_compliance(department_id=None, days=30):
         # آخر معايرة للجهاز
         from .models import CalibrationRecord
         last_calibration = device.calibration_records.filter(
-            status='closed'
+            status__in=['closed', 'completed', 'resolved']
         ).order_by('-calibration_date').first()
         
         if last_calibration and last_calibration.next_calibration_date:
@@ -566,7 +559,7 @@ def get_monthly_trends(department_id=None, months=6):
             )
         
         total_wo = work_orders_month.count()
-        completed_wo = work_orders_month.filter(status='closed').count()
+        completed_wo = work_orders_month.filter(status__in=['closed', 'qa_verified', 'resolved']).count()
         overdue_wo = work_orders_month.filter(
             actual_end__isnull=True,
             service_request__resolution_due__lt=timezone.now()
@@ -578,7 +571,7 @@ def get_monthly_trends(department_id=None, months=6):
         
         # حساب متوسط وقت الإصلاح للشهر
         completed_orders = work_orders_month.filter(
-            status='closed',
+            status__in=['closed', 'qa_verified', 'resolved'],
             actual_end__isnull=False,
             actual_start__isnull=False
         )
@@ -684,7 +677,7 @@ def get_device_performance_score(device_id):
     has_failures = WorkOrder.objects.filter(
         service_request__device_id=device_id,
         service_request__request_type='corrective',
-        status__in=['closed', 'qa_verified']
+        status__in=['closed', 'qa_verified','resolved']
     ).exists()
     
     if not has_failures:

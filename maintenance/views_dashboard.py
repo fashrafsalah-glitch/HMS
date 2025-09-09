@@ -907,7 +907,7 @@ def maintenance_trends(request):
     preventive_ratio = (preventive_requests / total_requests * 100) if total_requests > 0 else 0
     
         # حساب متوسط أوقات الاستجابة والإصلاح
-    completed_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified'])
+    completed_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified', 'resolved'])
     avg_response_time = 0
     avg_repair_time = 0
     
@@ -935,7 +935,7 @@ def maintenance_trends(request):
         avg_repair_time = sum(repair_times) / len(repair_times) if repair_times else 0
     else:
         # إذا لم توجد أوامر عمل مكتملة، نحسب تقديرات بناءً على البيانات المتاحة
-        all_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified'])
+        all_work_orders = work_orders.filter(status__in=['closed', 'completed', 'qa_verified', 'resolved'])
         response_times = []
         repair_times = []
         

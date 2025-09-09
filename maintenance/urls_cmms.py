@@ -48,6 +48,9 @@ urlpatterns = [
     # API
     path('api/sr/', views_cmms.api_service_request_create, name='api_service_request_create'),
     path('api/wo/<int:wo_id>/status/', views_cmms.api_work_order_status_update, name='api_work_order_status_update'),
+    
+    # AJAX endpoints
+    path('ajax/get-users-by-type/', views_cmms.get_users_by_type, name='get_users_by_type'),
     path('api/devices/<int:device_id>/profile/', views_cmms.api_device_profile, name='api_device_profile'),
     
     # خطط العمل (Job Plans)

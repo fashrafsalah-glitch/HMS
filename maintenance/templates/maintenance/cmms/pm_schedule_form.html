@@ -124,15 +124,29 @@
                             </div>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="{{ form.assigned_to.id_for_label }}" class="form-label">الفني المسؤول</label>
-                            {{ form.assigned_to }}
-                            {% if form.assigned_to.errors %}
-                            <div class="text-danger">
-                                {{ form.assigned_to.errors }}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="responsible_type" class="form-label">نوع المسؤول</label>
+                                <select id="responsible_type" class="form-select">
+                                    <option value="">اختر نوع المسؤول</option>
+                                    <option value="doctor">دكتور</option>
+                                    <option value="nurse">ممرض</option>
+                                    <option value="technician">فني</option>
+                                </select>
+                                <small class="form-text text-muted">حدد نوع المسؤول لعرض قائمة المستخدمين المناسبة</small>
                             </div>
-                            {% endif %}
-                            <small class="form-text text-muted">يمكن تعيين فني لاحقًا</small>
+                            <div class="col-md-6">
+                                <label for="{{ form.assigned_to.id_for_label }}" class="form-label">المسؤول</label>
+                                <select id="id_assigned_to" name="assigned_to" class="form-select">
+                                    <option value="">اختر المسؤول</option>
+                                </select>
+                                {% if form.assigned_to.errors %}
+                                <div class="text-danger">
+                                    {{ form.assigned_to.errors }}
+                                </div>
+                                {% endif %}
+                                <small class="form-text text-muted">سيتم تعيين الصيانة لهذا الشخص</small>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -187,39 +201,158 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-    $(document).ready(function() {
-        // Initialize select2 for dropdowns
-        $('#id_device, #id_job_plan, #id_assigned_to').select2({
-            width: '100%'
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('PM Schedule form loaded');
         
-        // Show/hide day fields based on frequency
-        function toggleDayFields() {
-            var frequency = $('#id_frequency').val();
+        // Handle responsible type change
+        const responsibleTypeSelect = document.getElementById('responsible_type');
+        const assignedToSelect = document.getElementById('id_assigned_to');
+        
+        if (responsibleTypeSelect && assignedToSelect) {
+            responsibleTypeSelect.addEventListener('change', function() {
+                const type = this.value;
+                console.log('Responsible type changed to:', type);
+                
+                // Clear current options
+                assignedToSelect.innerHTML = '<option value="">اختر المسؤول</option>';
+                
+                if (type) {
+                    // Show loading
+                    assignedToSelect.disabled = true;
+                    assignedToSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+                    
+                    console.log('Making fetch request for type:', type);
+                    
+                    // Fetch users based on type using vanilla JavaScript
+                    fetch('{% url "maintenance:cmms:get_users_by_type" %}?type=' + encodeURIComponent(type), {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin'
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Fetch success:', data);
+                        assignedToSelect.innerHTML = '<option value="">اختر المسؤول</option>';
+                        
+                        if (data.users && data.users.length > 0) {
+                            console.log('Found ' + data.users.length + ' users');
+                            data.users.forEach(user => {
+                                let displayName = user.name || user.username;
+                                
+                                // Add role and specialty
+                                if (user.role && user.role.trim() !== '') {
+                                    displayName += ' - ' + user.role;
+                                }
+                                if (user.specialty && user.specialty.trim() !== '') {
+                                    displayName += ' (' + user.specialty + ')';
+                                }
+                                
+                                // Add job number if available
+                                if (user.job_number && user.job_number.trim() !== '') {
+                                    displayName += ' [' + user.job_number + ']';
+                                }
+                                
+                                const option = document.createElement('option');
+                                option.value = user.id;
+                                option.textContent = displayName;
+                                assignedToSelect.appendChild(option);
+                            });
+                        } else {
+                            console.log('No users found for type:', type);
+                            assignedToSelect.innerHTML = '<option value="">لا يوجد مستخدمين من هذا النوع</option>';
+                        }
+                        
+                        assignedToSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        assignedToSelect.innerHTML = '<option value="">خطأ في تحميل البيانات</option>';
+                        assignedToSelect.disabled = false;
+                    });
+                } else {
+                    assignedToSelect.disabled = false;
+                }
+            });
+        }
+        
+        // Show/hide fields based on frequency
+        function toggleFrequencyFields() {
+            const frequencySelect = document.getElementById('id_frequency');
+            const intervalDaysField = document.getElementById('id_interval_days');
+            
+            if (!frequencySelect || !intervalDaysField) return;
+            
+            const frequency = frequencySelect.value;
+            const intervalContainer = intervalDaysField.closest('.col-md-6');
+            
+            // Hide interval days for after_use and after_shift
+            if (frequency === 'after_use' || frequency === 'after_shift') {
+                if (intervalContainer) {
+                    intervalContainer.style.display = 'none';
+                }
+                intervalDaysField.value = '0';
+                
+                // Show help text
+                const helpElement = document.getElementById('frequency-help');
+                if (frequency === 'after_use') {
+                    if (helpElement) {
+                        helpElement.innerHTML = '<small class="text-info">سيتم إنشاء أمر صيانة بعد كل استخدام للجهاز</small>';
+                    }
+                } else if (frequency === 'after_shift') {
+                    if (helpElement) {
+                        helpElement.innerHTML = '<small class="text-info">سيتم إنشاء أمر صيانة بعد انتهاء كل وردية</small>';
+                    }
+                }
+            } else {
+                if (intervalContainer) {
+                    intervalContainer.style.display = 'block';
+                }
+                const helpElement = document.getElementById('frequency-help');
+                if (helpElement) {
+                    helpElement.innerHTML = '';
+                }
+            }
+            
+            // Handle day containers (if they exist)
+            const dayOfWeekContainer = document.querySelector('.day-of-week-container');
+            const dayOfMonthContainer = document.querySelector('.day-of-month-container');
             
             if (frequency === 'weekly') {
-                $('.day-of-week-container').show();
-                $('.day-of-month-container').hide();
+                if (dayOfWeekContainer) dayOfWeekContainer.style.display = 'block';
+                if (dayOfMonthContainer) dayOfMonthContainer.style.display = 'none';
             } else if (frequency === 'monthly') {
-                $('.day-of-week-container').hide();
-                $('.day-of-month-container').show();
+                if (dayOfWeekContainer) dayOfWeekContainer.style.display = 'none';
+                if (dayOfMonthContainer) dayOfMonthContainer.style.display = 'block';
             } else {
-                $('.day-of-week-container').hide();
-                $('.day-of-month-container').hide();
+                if (dayOfWeekContainer) dayOfWeekContainer.style.display = 'none';
+                if (dayOfMonthContainer) dayOfMonthContainer.style.display = 'none';
             }
         }
         
         // Initial state
-        toggleDayFields();
+        toggleFrequencyFields();
         
         // On frequency change
-        $('#id_frequency').change(function() {
-            toggleDayFields();
-        });
+        const frequencySelect = document.getElementById('id_frequency');
+        if (frequencySelect) {
+            frequencySelect.addEventListener('change', toggleFrequencyFields);
+        }
+        
+        // If editing, set the current assigned user
+        {% if schedule and schedule.assigned_to %}
+        // Pre-select the responsible type based on the assigned user
+        // This would need to be done server-side or with additional logic
+        {% endif %}
     });
 </script>
 {% endblock %}

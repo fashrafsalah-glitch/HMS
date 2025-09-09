@@ -1266,7 +1266,7 @@ def api_device_profile(request, device_id):
         # حساب متوسط وقت الإصلاح (MTTR)
         completed_work_orders = WorkOrder.objects.filter(
             service_request__device=device,
-            status__in=['closed', 'qa_verified'],
+            status__in=['closed', 'qa_verified', 'resolved'],
             start_time__isnull=False,
             end_time__isnull=False
         )
@@ -2309,3 +2309,54 @@ def work_order_part_return(request, wo_id, part_id):
             messages.error(request, 'كمية الإرجاع غير صحيحة')
     
     return redirect('maintenance:cmms:work_order_parts_list', wo_id=work_order.id)
+
+
+# ========================================
+# AJAX Views
+# ========================================
+
+@login_required
+def get_users_by_type(request):
+    """
+    Get users based on their role from CustomUser model
+    Used in PM Schedule and Device forms
+    """
+    from django.contrib.auth import get_user_model
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    User = get_user_model()
+    
+    user_type = request.GET.get('type', '')
+    logger.info(f'AJAX request for user type: {user_type}')
+    
+    if not user_type:
+        return JsonResponse({'users': [], 'message': 'No type specified'})
+    
+    # Filter users based on their role field in CustomUser model
+    users = User.objects.filter(
+        role=user_type,
+        is_active=True
+    ).select_related('hospital').order_by('full_name', 'first_name', 'last_name')
+    
+    # Format users data
+    users_data = [{
+        'id': user.id,
+        'name': user.full_name or f"{user.first_name} {user.last_name}".strip() or user.username,
+        'username': user.username,
+        'role': user.get_role_display(),
+        'specialty': user.specialty or '',
+        'job_number': user.job_number or '',
+        'phone': user.phone_number or '',
+        'email': user.email or '',
+        'hospital': user.hospital.name if user.hospital else '',
+    } for user in users[:50]]  # Limit to 50 users for performance
+    
+    logger.info(f'Found {len(users_data)} users with role {user_type}')
+    
+    return JsonResponse({
+        'users': users_data,
+        'count': len(users_data),
+        'type': user_type,
+        'type_display': dict(User.ROLE_CHOICES).get(user_type, user_type)
+    })

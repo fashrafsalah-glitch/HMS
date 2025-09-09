@@ -1047,6 +1047,30 @@ class Device(QRCodeMixin, models.Model):
         blank=True,
         verbose_name="المريض الحالي"
     )
+    
+    # Responsible person fields
+    RESPONSIBLE_TYPE_CHOICES = [
+        ('doctor', 'دكتور'),
+        ('nurse', 'ممرض'),
+        ('technician', 'فني'),
+    ]
+    
+    responsible_type = models.CharField(
+        max_length=20,
+        choices=RESPONSIBLE_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="نوع المسؤول"
+    )
+    
+    responsible_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='responsible_devices',
+        verbose_name="المسؤول عن الجهاز"
+    )
 
     # Optional Details
     technical_specifications = models.TextField(blank=True, null=True)
@@ -1057,6 +1081,10 @@ class Device(QRCodeMixin, models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإضافة")
 
     def end_usage(self):
+        """End device usage and create maintenance work order if needed"""
+        from datetime import timedelta
+        
+        # Update device status
         self.in_use = False
         self.current_patient = None
         self.usage_start_time = None
@@ -1065,6 +1093,68 @@ class Device(QRCodeMixin, models.Model):
         self.sterilization_status = 'needs_sterilization'
         self.status = 'needs_check'
         self.save()
+        
+        # Check for after-use PM schedules
+        after_use_schedules = self.pm_schedules.filter(
+            frequency='after_use',
+            is_active=True
+        )
+        
+        for schedule in after_use_schedules:
+            # Create work order for after-use maintenance
+            self._create_maintenance_work_order(schedule, 'after_use')
+    
+    def end_shift(self):
+        """Handle end of shift maintenance"""
+        # Check for after-shift PM schedules
+        after_shift_schedules = self.pm_schedules.filter(
+            frequency='after_shift',
+            is_active=True
+        )
+        
+        for schedule in after_shift_schedules:
+            # Create work order for after-shift maintenance
+            self._create_maintenance_work_order(schedule, 'after_shift')
+    
+    def _create_maintenance_work_order(self, schedule, trigger_type):
+        """Create a maintenance work order based on PM schedule"""
+        from .models import ServiceRequest, WorkOrder
+        from django.utils import timezone
+        
+        # Create service request first
+        service_request = ServiceRequest.objects.create(
+            device=self,
+            reporter=schedule.assigned_to or self.responsible_user,
+            request_type='preventive',
+            severity='low',
+            impact='low',
+            priority='scheduled',
+            title=f'صيانة {trigger_type.replace("_", " ")} - {self.name}',
+            description=f'صيانة وقائية {trigger_type.replace("_", " ")} للجهاز {self.name} حسب الجدول {schedule.name}',
+            department=self.department,
+            room=self.room,
+            status='approved'
+        )
+        
+        # Create work order
+        work_order = WorkOrder.objects.create(
+            service_request=service_request,
+            wo_type='preventive',
+            pm_schedule=schedule,
+            job_plan=schedule.job_plan,
+            assignee=schedule.assigned_to or self.responsible_user,
+            priority='scheduled',
+            status='assigned' if (schedule.assigned_to or self.responsible_user) else 'new',
+            scheduled_start=timezone.now(),
+            scheduled_end=timezone.now() + timedelta(hours=2),
+            notes=f'أمر عمل تلقائي {trigger_type.replace("_", " ")}'
+        )
+        
+        # Update schedule last completed date
+        schedule.last_completed_date = timezone.now().date()
+        schedule.save()
+        
+        return work_order
 
     def __str__(self):
         return f"{self.id} - {self.model}"
@@ -1936,6 +2026,8 @@ FREQUENCY_CHOICES = [
     ('quarterly', 'ربع سنوي'),
     ('semi_annual', 'نصف سنوي'),
     ('annual', 'سنوي'),
+    ('after_use', 'بعد كل استخدام'),
+    ('after_shift', 'بعد كل وردية'),
     ('custom', 'مخصص'),
 ]
 
@@ -2848,6 +2940,10 @@ class PreventiveMaintenanceSchedule(models.Model):
             return 180
         elif self.frequency == 'annual':
             return 365
+        elif self.frequency == 'after_use':
+            return 0  # سيتم تشغيلها بعد كل استخدام
+        elif self.frequency == 'after_shift':
+            return 0  # سيتم تشغيلها بعد كل وردية
         return 1  # افتراضي يومي
     
     def calculate_next_due_date(self):
@@ -2887,6 +2983,12 @@ class PreventiveMaintenanceSchedule(models.Model):
             return base_date + timedelta(days=180)
         elif self.frequency == 'annual':
             return base_date + timedelta(days=365)
+        elif self.frequency == 'after_use':
+            # سيتم تحديدها عند انتهاء الاستخدام
+            return None
+        elif self.frequency == 'after_shift':
+            # سيتم تحديدها عند انتهاء الوردية
+            return None
         
         return base_date + timedelta(days=1)  # افتراضي يومي
     

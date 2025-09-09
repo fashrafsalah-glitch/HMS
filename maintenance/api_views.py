@@ -523,7 +523,7 @@ def maintenance_statistics(request):
         'total': WorkOrder.objects.filter(created_at__gte=start_date).count(),
         'completed': WorkOrder.objects.filter(
             created_at__gte=start_date,
-            status__in=['closed', 'qa_verified']
+            status__in=['closed', 'qa_verified', 'resolved']
         ).count(),
         'in_progress': WorkOrder.objects.filter(
             created_at__gte=start_date,

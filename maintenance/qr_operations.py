@@ -578,6 +578,20 @@ class QROperationsManager:
                 
                 for device_entity in device_entities:
                     device = self.Device.objects.get(id=device_entity['id'])
+                    
+                    # Update device status automatically
+                    device.in_use = True
+                    device.usage_start_time = timezone.now()
+                    device.availability = False
+                    
+                    # If previous user was responsible, end usage and create maintenance WO
+                    if from_user_obj == device.responsible_user:
+                        device.end_usage()  # This will trigger after_use maintenance if configured
+                    
+                    # Update responsible user to new user
+                    device.responsible_user = to_user_obj
+                    device.save()
+                    
                     log = self.DeviceHandoverLog.objects.create(
                         device=device,
                         from_user=from_user_obj,
