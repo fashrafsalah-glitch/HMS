@@ -4176,3 +4176,207 @@ if not hasattr(ScanSession, 'current_operation'):
         related_name='active_sessions',
         verbose_name="العملية الحالية"
     ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BADGE SYSTEM MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Badge(models.Model):
+    """نموذج الشارة للمستخدمين - Badge System for Users"""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='badge',
+        verbose_name="المستخدم"
+    )
+    badge_number = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name="رقم الشارة"
+    )
+    qr_code = models.CharField(
+        max_length=200, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="كود QR"
+    )
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name="نشط"
+    )
+    last_login = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        verbose_name="آخر دخول"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="تاريخ الإنشاء"
+    )
+    
+    class Meta:
+        verbose_name = "شارة"
+        verbose_name_plural = "الشارات"
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.badge_number}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STERILIZATION CYCLE MODEL
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SterilizationCycle(models.Model):
+    """دورة التعقيم - Sterilization Cycle for Devices"""
+    STERILIZATION_METHODS = [
+        ('autoclave', 'أوتوكلاف'),
+        ('chemical', 'كيميائي'),
+        ('gas', 'غاز'),
+        ('radiation', 'إشعاع'),
+        ('dry_heat', 'حرارة جافة'),
+        ('other', 'أخرى')
+    ]
+    
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='sterilization_cycles',
+        verbose_name="الجهاز"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="المستخدم"
+    )
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="الشارة"
+    )
+    method = models.CharField(
+        max_length=50,
+        choices=STERILIZATION_METHODS,
+        default='autoclave',
+        verbose_name="طريقة التعقيم"
+    )
+    lot_number = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="رقم الدفعة"
+    )
+    indicators = models.TextField(
+        blank=True,
+        verbose_name="المؤشرات"
+    )
+    before_image = models.ImageField(
+        upload_to='sterilization/before/',
+        null=True,
+        blank=True,
+        verbose_name="صورة قبل التعقيم"
+    )
+    after_image = models.ImageField(
+        upload_to='sterilization/after/',
+        null=True,
+        blank=True,
+        verbose_name="صورة بعد التعقيم"
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name="ملاحظات"
+    )
+    start_time = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="وقت البدء"
+    )
+    end_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="وقت الانتهاء"
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name="مكتمل"
+    )
+    
+    class Meta:
+        verbose_name = "دورة تعقيم"
+        verbose_name_plural = "دورات التعقيم"
+        ordering = ['-start_time']
+    
+    def __str__(self):
+        return f"{self.device.name} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"
+    
+    @property
+    def duration(self):
+        if self.end_time:
+            return self.end_time - self.start_time
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CLEANING CYCLE MODEL  
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CleaningCycle(models.Model):
+    """دورة التنظيف - Cleaning Cycle for Devices"""
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='cleaning_cycles',
+        verbose_name="الجهاز"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="المستخدم"
+    )
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="الشارة"
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name="ملاحظات"
+    )
+    image = models.ImageField(
+        upload_to='cleaning/',
+        null=True,
+        blank=True,
+        verbose_name="صورة التنظيف"
+    )
+    start_time = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="وقت البدء"
+    )
+    end_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="وقت الانتهاء"
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name="مكتمل"
+    )
+    
+    class Meta:
+        verbose_name = "دورة تنظيف"
+        verbose_name_plural = "دورات التنظيف"
+        ordering = ['-start_time']
+    
+    def __str__(self):
+        return f"{self.device.name} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"
+    
+    @property
+    def duration(self):
+        if self.end_time:
+            return self.end_time - self.start_time
+        return None

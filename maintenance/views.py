@@ -663,9 +663,22 @@ def add_device_subcategory(request):
 
 def device_detail(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    # Keep device detail page focused on device info only
+    
+    # Get sterilization and cleaning cycles
+    sterilization_cycles = device.sterilization_cycles.all().order_by('-start_time')[:10]
+    cleaning_cycles = device.cleaning_cycles.all().order_by('-start_time')[:10]
+    
+    # Check for active cycles
+    active_sterilization = device.sterilization_cycles.filter(is_completed=False).first()
+    active_cleaning = device.cleaning_cycles.filter(is_completed=False).first()
+    
     context = {
         'device': device,
+        'sterilization_cycles': sterilization_cycles,
+        'cleaning_cycles': cleaning_cycles,
+        'active_sterilization': active_sterilization,
+        'active_cleaning': active_cleaning,
+        'has_badge': hasattr(request.user, 'badge') if request.user.is_authenticated else False,
     }
     return render(request, 'maintenance/device_detail.html', context)
 
@@ -3276,15 +3289,6 @@ def get_session_status(request, session_id):
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
-def scan_session_page(request):
-    """
-    QR Scan session page for scanning workflow
-    """
-    return render(request, 'maintenance/scan_session.html', {
-        'title': 'جلسة مسح QR/Barcode'
-    })
-
-
 @login_required
 @require_http_methods(["POST"])
 def end_scan_session(request):
@@ -3446,21 +3450,6 @@ def test_links(request):
     return render(request, "maintenance/test_links.html")
 
 
-@login_required
-def qr_links_page(request):
-    """
-    صفحة شاملة تحتوي على جميع روابط ووظائف نظام QR Code
-    Comprehensive page containing all QR Code system links and functionality
-    """
-    from django.conf import settings
-    
-    context = {
-        'title': 'QR Code System Links',
-        'qr_domain': getattr(settings, 'QR_DOMAIN', 'https://hms.my-domain.com'),
-    }
-    
-    return render(request, 'maintenance/qr_links.html', context)
-
 
 @login_required
 def all_devices_transfer(request):
@@ -3508,19 +3497,6 @@ def all_devices_transfer(request):
     return render(request, 'maintenance/all_devices_transfer.html', context)
 
 
-@login_required
-def transfer_test_page(request):
-    """
-    Test page to show all transfer-related links
-    """
-    return render(request, 'maintenance/transfer_test_page.html')
-
-
-def mobile_qr_scan(request):
-    """
-    Mobile-optimized QR scanning page
-    """
-    return render(request, 'maintenance/mobile_qr_scan.html')
 
 
 @login_required
@@ -3582,3 +3558,261 @@ def department_transfer_requests(request, department_id):
     }
     
     return render(request, 'maintenance/department_transfer_requests.html', context)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STERILIZATION & CLEANING CYCLE VIEWS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+@require_http_methods(["POST"])
+def start_sterilization(request, device_id):
+    """بدء دورة التعقيم - Start Sterilization Cycle"""
+    from .models import Device, SterilizationCycle, Badge
+    
+    device = get_object_or_404(Device, pk=device_id)
+    
+    # Check for active cycle
+    active_cycle = device.sterilization_cycles.filter(is_completed=False).first()
+    if active_cycle:
+        messages.warning(request, 'يوجد دورة تعقيم نشطة بالفعل لهذا الجهاز')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Get user badge if exists
+    badge = None
+    if hasattr(request.user, 'badge'):
+        badge = request.user.badge
+    
+    # Create new sterilization cycle
+    cycle = SterilizationCycle.objects.create(
+        device=device,
+        user=request.user,
+        badge=badge,
+        method=request.POST.get('method', 'autoclave'),
+        lot_number=request.POST.get('lot_number', ''),
+        indicators=request.POST.get('indicators', ''),
+        notes=request.POST.get('notes', ''),
+    )
+    
+    # Handle before image
+    if 'before_image' in request.FILES:
+        cycle.before_image = request.FILES['before_image']
+        cycle.save()
+    
+    # Update device sterilization status
+    device.sterilization_status = 'in_progress'
+    device.save()
+    
+    messages.success(request, f'تم بدء دورة التعقيم للجهاز {device.name}')
+    return redirect('maintenance:device_detail', pk=device_id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def end_sterilization(request, device_id):
+    """إنهاء دورة التعقيم - End Sterilization Cycle"""
+    from .models import Device, SterilizationCycle
+    
+    device = get_object_or_404(Device, pk=device_id)
+    
+    # Get active cycle
+    cycle = device.sterilization_cycles.filter(is_completed=False).first()
+    if not cycle:
+        messages.error(request, 'لا توجد دورة تعقيم نشطة لهذا الجهاز')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Update cycle
+    cycle.end_time = timezone.now()
+    cycle.is_completed = True
+    
+    # Handle after image
+    if 'after_image' in request.FILES:
+        cycle.after_image = request.FILES['after_image']
+    
+    # Update notes if provided
+    if request.POST.get('final_notes'):
+        cycle.notes += f"\n\nملاحظات نهائية: {request.POST.get('final_notes')}"
+    
+    cycle.save()
+    
+    # Update device sterilization status
+    device.sterilization_status = 'sterilized'
+    device.last_sterilized_at = timezone.now()
+    device.last_sterilized_by = request.user
+    device.save()
+    
+    messages.success(request, f'تم إنهاء دورة التعقيم للجهاز {device.name}')
+    return redirect('maintenance:device_detail', pk=device_id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def start_cleaning(request, device_id):
+    """بدء دورة التنظيف - Start Cleaning Cycle"""
+    from .models import Device, CleaningCycle, Badge
+    
+    device = get_object_or_404(Device, pk=device_id)
+    
+    # Check for active cycle
+    active_cycle = device.cleaning_cycles.filter(is_completed=False).first()
+    if active_cycle:
+        messages.warning(request, 'يوجد دورة تنظيف نشطة بالفعل لهذا الجهاز')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Get user badge if exists
+    badge = None
+    if hasattr(request.user, 'badge'):
+        badge = request.user.badge
+    
+    # Create new cleaning cycle
+    cycle = CleaningCycle.objects.create(
+        device=device,
+        user=request.user,
+        badge=badge,
+        notes=request.POST.get('notes', ''),
+    )
+    
+    # Handle image
+    if 'image' in request.FILES:
+        cycle.image = request.FILES['image']
+        cycle.save()
+    
+    # Update device clean status
+    device.clean_status = 'in_progress'
+    device.save()
+    
+    messages.success(request, f'تم بدء دورة التنظيف للجهاز {device.name}')
+    return redirect('maintenance:device_detail', pk=device_id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def end_cleaning(request, device_id):
+    """إنهاء دورة التنظيف - End Cleaning Cycle"""
+    from .models import Device, CleaningCycle
+    
+    device = get_object_or_404(Device, pk=device_id)
+    
+    # Get active cycle
+    cycle = device.cleaning_cycles.filter(is_completed=False).first()
+    if not cycle:
+        messages.error(request, 'لا توجد دورة تنظيف نشطة لهذا الجهاز')
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Update cycle
+    cycle.end_time = timezone.now()
+    cycle.is_completed = True
+    
+    # Update notes if provided
+    if request.POST.get('final_notes'):
+        cycle.notes += f"\n\nملاحظات نهائية: {request.POST.get('final_notes')}"
+    
+    # Handle final image
+    if 'final_image' in request.FILES:
+        cycle.image = request.FILES['final_image']
+    
+    cycle.save()
+    
+    # Update device clean status
+    device.clean_status = 'clean'
+    device.last_cleaned_at = timezone.now()
+    device.last_cleaned_by = request.user
+    device.save()
+    
+    messages.success(request, f'تم إنهاء دورة التنظيف للجهاز {device.name}')
+    return redirect('maintenance:device_detail', pk=device_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BADGE MANAGEMENT VIEWS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def badge_login(request):
+    """تسجيل دخول بالشارة - Badge Login"""
+    from .models import Badge
+    from django.contrib.auth import login
+    import json
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+        badge_number = data.get('badge_number') or request.POST.get('badge_number')
+        qr_code = data.get('qr_code') or request.POST.get('qr_code')
+        
+        # Find badge by number or QR
+        badge = None
+        if badge_number:
+            badge = Badge.objects.filter(badge_number=badge_number, is_active=True).first()
+        elif qr_code:
+            badge = Badge.objects.filter(qr_code=qr_code, is_active=True).first()
+        
+        if not badge:
+            return JsonResponse({'success': False, 'error': 'شارة غير صالحة أو غير نشطة'}, status=401)
+        
+        # Update last login
+        badge.last_login = timezone.now()
+        badge.save()
+        
+        # Login the user
+        if badge.user:
+            login(request, badge.user)
+            
+            return JsonResponse({
+                'success': True,
+                'user': {
+                    'id': badge.user.id,
+                    'name': badge.user.get_full_name(),
+                    'badge_number': badge.badge_number,
+                }
+            })
+        
+        return JsonResponse({'success': False, 'error': 'مستخدم غير موجود'}, status=404)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def badge_logout(request):
+    """تسجيل خروج بالشارة - Badge Logout"""
+    from django.contrib.auth import logout
+    
+    logout(request)
+    messages.success(request, 'تم تسجيل الخروج بنجاح')
+    return redirect('maintenance:device_list')
+
+
+@login_required
+def manage_badge(request, user_id=None):
+    """إدارة الشارات - Manage Badges"""
+    from .models import Badge
+    from hr.models import CustomUser
+    
+    if request.method == 'POST':
+        user = get_object_or_404(CustomUser, pk=user_id or request.POST.get('user_id'))
+        
+        # Create or update badge
+        badge, created = Badge.objects.get_or_create(
+            user=user,
+            defaults={
+                'badge_number': request.POST.get('badge_number', f'BADGE-{user.id:04d}'),
+                'qr_code': request.POST.get('qr_code', f'QR-{user.id}-{uuid.uuid4().hex[:8]}'),
+            }
+        )
+        
+        if not created:
+            # Update existing badge
+            if request.POST.get('badge_number'):
+                badge.badge_number = request.POST.get('badge_number')
+            if request.POST.get('qr_code'):
+                badge.qr_code = request.POST.get('qr_code')
+            badge.is_active = request.POST.get('is_active', 'true').lower() == 'true'
+            badge.save()
+        
+        messages.success(request, f'تم {"إنشاء" if created else "تحديث"} الشارة بنجاح')
+        return redirect('hr:staff_detail', pk=user.id)
+    
+    # GET: Show badge management page
+    badges = Badge.objects.select_related('user').all()
+    return render(request, 'maintenance/badge_management.html', {'badges': badges})

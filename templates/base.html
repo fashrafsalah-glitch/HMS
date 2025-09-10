@@ -591,7 +591,32 @@
                             <a class="nav-link" href="{% url 'maintenance:cmms:sla_list' %}"><i class="fas fa-handshake me-2"></i><span>اتفاقيات الخدمة</span></a>
                             <a class="nav-link" href="{% url 'maintenance:calibration_tracking' %}"><i class="fas fa-balance-scale me-2"></i><span>المعايرة</span></a>
                             <a class="nav-link" href="{% url 'maintenance:spare_parts:downtime_list' %}"><i class="fas fa-clock me-2"></i><span>سجلات التوقف</span></a>
-                            <a class="nav-link" href="{% url 'maintenance:qr_links_page' %}"><i class="fas fa-qrcode me-2"></i><span>نظام QR</span></a>
+                            <!-- QR Code System Submenu -->
+                            <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#qrSystemSubmenu" aria-expanded="false" aria-controls="qrSystemSubmenu">
+                                <i class="fas fa-qrcode me-2"></i><span>نظام QR/Barcode</span>
+                            </a>
+                            <div class="collapse" id="qrSystemSubmenu">
+                                <nav class="nav flex-column" style="padding-left: 40px;">
+                                    <!-- QR Dashboard & Main Pages -->
+                                    <a class="nav-link" href="{% url 'maintenance:scan_session_page' %}"><i class="fas fa-camera me-2"></i><span>جلسة المسح</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:qr_test_page' %}"><i class="fas fa-vial me-2"></i><span>اختبار النظام</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:device_usage_logs' %}"><i class="fas fa-history me-2"></i><span>سجلات الاستخدام</span></a>
+                                    
+                                    <!-- Operations Management -->
+                                    <div class="nav-divider my-2" style="border-top: 1px solid rgba(255,255,255,0.1);"></div>
+                                    <small class="text-white-50 px-3 mb-1" style="font-size: 0.75rem;">إدارة العمليات</small>
+                                    <a class="nav-link" href="{% url 'maintenance:operations_list' %}"><i class="fas fa-cogs me-2"></i><span>قائمة العمليات</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:operation_create' %}"><i class="fas fa-plus me-2"></i><span>إنشاء عملية</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:sessions_list' %}"><i class="fas fa-list me-2"></i><span>جلسات المسح</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:executions_list' %}"><i class="fas fa-play me-2"></i><span>تنفيذ العمليات</span></a>
+                                    
+                                    <!-- Device Operations -->
+                                    <div class="nav-divider my-2" style="border-top: 1px solid rgba(255,255,255,0.1);"></div>
+                                    <small class="text-white-50 px-3 mb-1" style="font-size: 0.75rem;">عمليات الأجهزة</small>
+                                    <a class="nav-link" href="{% url 'maintenance:all_devices_transfer' %}"><i class="fas fa-exchange-alt me-2"></i><span>نقل الأجهزة</span></a>
+                                    <a class="nav-link" href="{% url 'maintenance:transfer_requests_list' %}"><i class="fas fa-clipboard-list me-2"></i><span>طلبات النقل</span></a>
+                                </nav>
+                            </div>
                             <a class="nav-link" href="{% url 'maintenance:spare_parts:spare_part_list' %}"><i class="fas fa-cogs me-2"></i><span>قطع الغيار</span></a>
                         </nav>
                     </div>

@@ -11,8 +11,6 @@ urlpatterns = [
     path('', views.maintenance_dashboard_qr, name='maintenance_dashboard'),
     path('dashboard_qr/', views.maintenance_dashboard_qr, name='dashboard_qr'),
     
-    # QR Code System
-    path('qr-links/', views.qr_links_page, name='qr_links_page'),
     
     # Operations Management
     path('operations/', views.operations_list, name='operations_list'),
@@ -42,6 +40,7 @@ urlpatterns = [
     path('transfers/<int:transfer_id>/approve/', views.approve_transfer, name='approve_transfer'),
     
     # Enhanced Device Transfer Workflow URLs
+    path('device-transfers/', views.transfer_requests_list, name='device_transfer_list'),
     path('transfer-requests/', views.transfer_requests_list, name='transfer_requests_list'),
     path('transfer-requests/<int:pk>/', views.transfer_request_detail, name='transfer_request_detail'),
     path('transfer-requests/create/<int:device_id>/', views.transfer_request_create, name='device_transfer'),
@@ -137,8 +136,6 @@ urlpatterns = [
     path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
     path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
     path('qr-test/', views.qr_test_page, name='qr_test_page'),
-    path('mobile-qr/', views.mobile_qr_scan, name='mobile_qr_scan'),
-
     # Device Accessories URLs
     path('devices/<int:device_id>/accessories/', views_accessory.DeviceAccessoryListView.as_view(), name='device_accessories'),
     path('devices/<int:device_id>/accessories/add/', views_accessory.DeviceAccessoryCreateView.as_view(), name='accessory_create'),
@@ -154,8 +151,6 @@ urlpatterns = [
     path('accessories/<int:pk>/transfer/', views_accessory.transfer_accessory, name='accessory_transfer'),
     path('accessories/<int:pk>/transfer-history/', views_accessory.accessory_transfer_history, name='accessory_transfer_history'),
     path('accessory-transfers/<int:transfer_id>/approve/', views_accessory.approve_accessory_transfer, name='approve_accessory_transfer'),
-    # Test Page
-    path('transfer-test/', views.transfer_test_page, name='transfer_test_page'),
     
     # CMMS URLs
     path('cmms/', include('maintenance.urls_cmms', namespace='cmms')),
@@ -169,5 +164,17 @@ urlpatterns = [
     
     # Reports URLs
     path('department/<int:department_id>/export-report/', views_reports.export_department_devices_report, name='export_department_report'),
+    
+    # Sterilization & Cleaning URLs
+    path('devices/<int:device_id>/sterilization/start/', views.start_sterilization, name='start_sterilization'),
+    path('devices/<int:device_id>/sterilization/end/', views.end_sterilization, name='end_sterilization'),
+    path('devices/<int:device_id>/cleaning/start/', views.start_cleaning, name='start_cleaning'),
+    path('devices/<int:device_id>/cleaning/end/', views.end_cleaning, name='end_cleaning'),
+    
+    # Badge Management URLs
+    path('badges/login/', views.badge_login, name='badge_login'),
+    path('badges/logout/', views.badge_logout, name='badge_logout'),
+    path('badges/manage/', views.manage_badge, name='manage_badge'),
+    path('badges/manage/<int:user_id>/', views.manage_badge, name='manage_badge_user'),
 
 ]

@@ -169,31 +169,48 @@
                         </div>
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-md-4">
-                                    <button type="button" class="btn btn-warning operation-btn w-100 ajax-action-btn" 
-                                            data-action="clean" 
-                                            data-url="{% url 'maintenance:ajax_clean_device' device.id %}"
-                                            data-device-id="{{ device.id }}">
-                                        <i class="fas fa-soap me-1"></i>
-                                        <span class="btn-text">{% trans "تنظيف الجهاز" %}</span>
-                                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-                                    </button>
+                                <div class="col-md-3">
+                                    {% if not active_cleaning %}
+                                        <button type="button" class="btn btn-warning operation-btn w-100" 
+                                                data-bs-toggle="modal" data-bs-target="#startCleaningModal">
+                                            <i class="fas fa-soap me-1"></i>
+                                            {% trans "بدء التنظيف" %}
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-success operation-btn w-100" 
+                                                data-bs-toggle="modal" data-bs-target="#endCleaningModal">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            {% trans "إنهاء التنظيف" %}
+                                        </button>
+                                    {% endif %}
                                 </div>
-                                <div class="col-md-4">
-                                    <button type="button" class="btn btn-info operation-btn w-100 ajax-action-btn" 
-                                            data-action="sterilize" 
-                                            data-url="{% url 'maintenance:ajax_sterilize_device' device.id %}"
-                                            data-device-id="{{ device.id }}">
-                                        <i class="fas fa-shield-alt me-1"></i>
-                                        <span class="btn-text">{% trans "تعقيم الجهاز" %}</span>
-                                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-                                    </button>
+                                <div class="col-md-3">
+                                    {% if not active_sterilization %}
+                                        <button type="button" class="btn btn-info operation-btn w-100" 
+                                                data-bs-toggle="modal" data-bs-target="#startSterilizationModal">
+                                            <i class="fas fa-shield-alt me-1"></i>
+                                            {% trans "بدء التعقيم" %}
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-success operation-btn w-100" 
+                                                data-bs-toggle="modal" data-bs-target="#endSterilizationModal">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            {% trans "إنهاء التعقيم" %}
+                                        </button>
+                                    {% endif %}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <a href="{% url 'maintenance:device_maintain' device.id %}" class="btn btn-success operation-btn w-100">
                                         <i class="fas fa-wrench me-1"></i>
                                         {% trans "تسجيل صيانة" %}
                                     </a>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-primary operation-btn w-100" 
+                                            data-bs-toggle="modal" data-bs-target="#cycleHistoryModal">
+                                        <i class="fas fa-history me-1"></i>
+                                        {% trans "سجل العمليات" %}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -504,5 +521,318 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Modals -->
+
+<!-- Start Sterilization Modal -->
+<div class="modal fade" id="startSterilizationModal" tabindex="-1" aria-labelledby="startSterilizationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="startSterilizationModalLabel">
+                    <i class="fas fa-shield-virus me-2"></i>
+                    بدء دورة التعقيم - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:start_sterilization' device.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="method" class="form-label">طريقة التعقيم</label>
+                        <select class="form-select" id="method" name="method" required>
+                            <option value="autoclave">أوتوكلاف</option>
+                            <option value="chemical">كيميائي</option>
+                            <option value="gas">غاز</option>
+                            <option value="radiation">إشعاع</option>
+                            <option value="dry_heat">حرارة جافة</option>
+                            <option value="other">أخرى</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lot_number" class="form-label">رقم الدفعة</label>
+                        <input type="text" class="form-control" id="lot_number" name="lot_number">
+                    </div>
+                    <div class="mb-3">
+                        <label for="indicators" class="form-label">المؤشرات</label>
+                        <textarea class="form-control" id="indicators" name="indicators" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="before_image" class="form-label">صورة قبل التعقيم</label>
+                        <input type="file" class="form-control" id="before_image" name="before_image" accept="image/*">
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">ملاحظات</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-play me-1"></i>
+                        بدء التعقيم
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- End Sterilization Modal -->
+<div class="modal fade" id="endSterilizationModal" tabindex="-1" aria-labelledby="endSterilizationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="endSterilizationModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    إنهاء دورة التعقيم - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:end_sterilization' device.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% if active_sterilization %}
+                    <div class="alert alert-info">
+                        <strong>دورة التعقيم النشطة:</strong><br>
+                        بدأت: {{ active_sterilization.start_time|date:"Y-m-d H:i" }}<br>
+                        الطريقة: {{ active_sterilization.get_method_display }}<br>
+                        رقم الدفعة: {{ active_sterilization.lot_number|default:"-" }}
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="after_image" class="form-label">صورة بعد التعقيم</label>
+                        <input type="file" class="form-control" id="after_image" name="after_image" accept="image/*">
+                    </div>
+                    <div class="mb-3">
+                        <label for="final_notes" class="form-label">ملاحظات نهائية</label>
+                        <textarea class="form-control" id="final_notes" name="final_notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i>
+                        إنهاء التعقيم
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Start Cleaning Modal -->
+<div class="modal fade" id="startCleaningModal" tabindex="-1" aria-labelledby="startCleaningModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="startCleaningModalLabel">
+                    <i class="fas fa-broom me-2"></i>
+                    بدء دورة التنظيف - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:start_cleaning' device.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="cleaning_image" class="form-label">صورة التنظيف</label>
+                        <input type="file" class="form-control" id="cleaning_image" name="image" accept="image/*">
+                    </div>
+                    <div class="mb-3">
+                        <label for="cleaning_notes" class="form-label">ملاحظات</label>
+                        <textarea class="form-control" id="cleaning_notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-play me-1"></i>
+                        بدء التنظيف
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- End Cleaning Modal -->
+<div class="modal fade" id="endCleaningModal" tabindex="-1" aria-labelledby="endCleaningModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="endCleaningModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    إنهاء دورة التنظيف - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance:end_cleaning' device.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% if active_cleaning %}
+                    <div class="alert alert-info">
+                        <strong>دورة التنظيف النشطة:</strong><br>
+                        بدأت: {{ active_cleaning.start_time|date:"Y-m-d H:i" }}
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="final_image" class="form-label">صورة نهائية</label>
+                        <input type="file" class="form-control" id="final_image" name="final_image" accept="image/*">
+                    </div>
+                    <div class="mb-3">
+                        <label for="cleaning_final_notes" class="form-label">ملاحظات نهائية</label>
+                        <textarea class="form-control" id="cleaning_final_notes" name="final_notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i>
+                        إنهاء التنظيف
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Cycle History Modal -->
+<div class="modal fade" id="cycleHistoryModal" tabindex="-1" aria-labelledby="cycleHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="cycleHistoryModalLabel">
+                    <i class="fas fa-history me-2"></i>
+                    سجل العمليات - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Tabs -->
+                <ul class="nav nav-tabs" id="historyTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="sterilization-history-tab" data-bs-toggle="tab" data-bs-target="#sterilization-history" type="button" role="tab">
+                            <i class="fas fa-shield-virus me-1"></i>
+                            التعقيم
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cleaning-history-tab" data-bs-toggle="tab" data-bs-target="#cleaning-history" type="button" role="tab">
+                            <i class="fas fa-broom me-1"></i>
+                            التنظيف
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content mt-3" id="historyTabsContent">
+                    <!-- Sterilization History -->
+                    <div class="tab-pane fade show active" id="sterilization-history" role="tabpanel">
+                        {% if sterilization_cycles %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>الطريقة</th>
+                                        <th>رقم الدفعة</th>
+                                        <th>المستخدم</th>
+                                        <th>المدة</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cycle in sterilization_cycles %}
+                                    <tr>
+                                        <td>{{ cycle.start_time|date:"Y-m-d H:i" }}</td>
+                                        <td>{{ cycle.get_method_display }}</td>
+                                        <td>{{ cycle.lot_number|default:"-" }}</td>
+                                        <td>{{ cycle.user.get_full_name|default:cycle.user.username }}</td>
+                                        <td>
+                                            {% if cycle.duration %}
+                                                {{ cycle.duration }}
+                                            {% elif not cycle.is_completed %}
+                                                <span class="badge bg-warning">جاري...</span>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if cycle.is_completed %}
+                                                <span class="badge bg-success">مكتمل</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">نشط</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-shield-virus fa-3x mb-3"></i>
+                            <p>لا توجد دورات تعقيم مسجلة</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Cleaning History -->
+                    <div class="tab-pane fade" id="cleaning-history" role="tabpanel">
+                        {% if cleaning_cycles %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>المستخدم</th>
+                                        <th>المدة</th>
+                                        <th>الحالة</th>
+                                        <th>ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cycle in cleaning_cycles %}
+                                    <tr>
+                                        <td>{{ cycle.start_time|date:"Y-m-d H:i" }}</td>
+                                        <td>{{ cycle.user.get_full_name|default:cycle.user.username }}</td>
+                                        <td>
+                                            {% if cycle.duration %}
+                                                {{ cycle.duration }}
+                                            {% elif not cycle.is_completed %}
+                                                <span class="badge bg-warning">جاري...</span>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if cycle.is_completed %}
+                                                <span class="badge bg-success">مكتمل</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">نشط</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ cycle.notes|truncatechars:50|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-broom fa-3x mb-3"></i>
+                            <p>لا توجد دورات تنظيف مسجلة</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

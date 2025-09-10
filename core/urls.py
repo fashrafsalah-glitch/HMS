@@ -50,8 +50,6 @@ urlpatterns = [
     # maintenance namespace
     path("maintenance/", include(("maintenance.urls", "maintenance"), namespace="maintenance")),
     
-    # API endpoints (accessible at root level)
-    path("api/", include("maintenance.urls_api")),
 ]
 
 if settings.DEBUG:

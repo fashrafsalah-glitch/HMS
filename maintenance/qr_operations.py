@@ -439,18 +439,57 @@ class QROperationsManager:
         return result
     
     def _handle_device_cleaning(self, entities: List[Dict], user: User) -> Dict:
-        """Handle device cleaning operation"""
+        """Handle device cleaning operation - Start or End cleaning cycle"""
+        from .models import CleaningCycle, Badge
         result = {'actions': []}
         
         device_entities = [e for e in entities if e['type'] == 'device']
+        user_entities = [e for e in entities if e['type'] == 'user']
+        
+        # Get user's badge if available
+        badge = None
+        try:
+            badge = Badge.objects.get(user=user)
+        except Badge.DoesNotExist:
+            pass
         
         for device_entity in device_entities:
             device = self.Device.objects.get(id=device_entity['id'])
-            device.clean_status = 'clean'
-            device.last_cleaned_at = timezone.now()
-            device.last_cleaned_by = user
-            device.save()
-            result['actions'].append(f"Device {device.name} marked as cleaned")
+            
+            # Check if there's an active cleaning cycle
+            active_cycle = CleaningCycle.objects.filter(
+                device=device,
+                is_completed=False
+            ).first()
+            
+            if active_cycle:
+                # End the cleaning cycle
+                active_cycle.end_time = timezone.now()
+                active_cycle.is_completed = True
+                active_cycle.notes += f"\n\nإنهاء عبر QR في: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                active_cycle.save()
+                
+                # Update device status
+                device.clean_status = 'clean'
+                device.last_cleaned_at = timezone.now()
+                device.last_cleaned_by = user
+                device.save()
+                
+                result['actions'].append(f"تم إنهاء دورة التنظيف للجهاز {device.name}")
+            else:
+                # Start new cleaning cycle
+                cycle = CleaningCycle.objects.create(
+                    device=device,
+                    user=user,
+                    badge=badge,
+                    notes=f"بدء عبر QR في: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                
+                # Update device status
+                device.clean_status = 'in_progress'
+                device.save()
+                
+                result['actions'].append(f"تم بدء دورة التنظيف للجهاز {device.name}")
         
         return result
     
