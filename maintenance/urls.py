@@ -18,6 +18,16 @@ urlpatterns = [
     path('operations/<int:pk>/edit/', views.operation_edit, name='operation_edit'),
     path('operations/<int:pk>/delete/', views.operation_delete, name='operation_delete'),
     path('operations/<int:pk>/detail/', views.operation_detail, name='operation_detail'),
+    path('operations/<int:operation_id>/add-step/', views.add_operation_step, name='add_operation_step'),
+    path('operations/step/<int:step_id>/delete/', views.delete_operation_step, name='delete_operation_step'),
+    
+    # Badge Management
+    path('badges/', views.badges_management, name='badges_management'),
+    path('badges/create/', views.create_badge, name='create_badge'),
+    path('badges/<int:badge_id>/', views.badge_detail, name='badge_detail'),
+    path('badges/<int:badge_id>/edit/', views.edit_badge, name='edit_badge'),
+    path('badges/<int:badge_id>/activate/', views.activate_badge, name='activate_badge'),
+    path('badges/<int:badge_id>/deactivate/', views.deactivate_badge, name='deactivate_badge'),
     
     # Sessions Management
     path('sessions/', views.sessions_list, name='sessions_list'),

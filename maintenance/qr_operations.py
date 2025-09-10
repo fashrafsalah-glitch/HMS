@@ -494,18 +494,58 @@ class QROperationsManager:
         return result
     
     def _handle_device_sterilization(self, entities: List[Dict], user: User) -> Dict:
-        """Handle device sterilization operation"""
+        """Handle device sterilization operation - Start or End sterilization cycle"""
+        from .models import SterilizationCycle, Badge
         result = {'actions': []}
         
         device_entities = [e for e in entities if e['type'] == 'device']
+        user_entities = [e for e in entities if e['type'] == 'user']
+        
+        # Get user's badge if available
+        badge = None
+        try:
+            badge = Badge.objects.get(user=user)
+        except Badge.DoesNotExist:
+            pass
         
         for device_entity in device_entities:
             device = self.Device.objects.get(id=device_entity['id'])
-            device.sterilization_status = 'sterile'
-            device.last_sterilized_at = timezone.now()
-            device.last_sterilized_by = user
-            device.save()
-            result['actions'].append(f"Device {device.name} marked as sterilized")
+            
+            # Check if there's an active sterilization cycle
+            active_cycle = SterilizationCycle.objects.filter(
+                device=device,
+                is_completed=False
+            ).first()
+            
+            if active_cycle:
+                # End the sterilization cycle
+                active_cycle.end_time = timezone.now()
+                active_cycle.is_completed = True
+                active_cycle.notes += f"\n\nإنهاء عبر QR في: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                active_cycle.save()
+                
+                # Update device status
+                device.sterilization_status = 'sterilized'
+                device.last_sterilized_at = timezone.now()
+                device.last_sterilized_by = user
+                device.save()
+                
+                result['actions'].append(f"تم إنهاء دورة التعقيم للجهاز {device.name}")
+            else:
+                # Start new sterilization cycle
+                cycle = SterilizationCycle.objects.create(
+                    device=device,
+                    user=user,
+                    badge=badge,
+                    method='autoclave',  # Default method
+                    notes=f"بدء عبر QR في: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                
+                # Update device status
+                device.sterilization_status = 'in_progress'
+                device.save()
+                
+                result['actions'].append(f"تم بدء دورة التعقيم للجهاز {device.name}")
         
         return result
     

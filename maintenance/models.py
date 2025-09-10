@@ -4002,6 +4002,15 @@ class OperationDefinition(models.Model):
     description = models.TextField(blank=True, verbose_name="الوصف")
     is_active = models.BooleanField(default=True, verbose_name="نشط")
     
+    # Badge requirement
+    requires_badge = models.BooleanField(default=False, verbose_name="يتطلب بطاقة")
+    allowed_badges = models.ManyToManyField(
+        'Badge',
+        blank=True,
+        related_name='allowed_operations',
+        verbose_name="البطاقات المسموح لها"
+    )
+    
     # Operation behavior
     auto_execute = models.BooleanField(default=True, verbose_name="تنفيذ تلقائي")
     requires_confirmation = models.BooleanField(default=False, verbose_name="يتطلب تأكيد")

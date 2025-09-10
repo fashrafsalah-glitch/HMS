@@ -915,6 +915,7 @@ class OperationDefinitionForm(forms.ModelForm):
         fields = [
             'name', 'code', 'description', 'auto_execute', 'requires_confirmation', 
             'session_timeout_minutes', 'allow_multiple_executions',
+            'requires_badge', 'allowed_badges',
             'log_to_usage', 'log_to_transfer', 'log_to_handover', 'is_active'
         ]
         widgets = {
@@ -947,6 +948,13 @@ class OperationDefinitionForm(forms.ModelForm):
             'allow_multiple_executions': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
+            'requires_badge': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'allowed_badges': forms.SelectMultiple(attrs={
+                'class': 'form-control select2',
+                'multiple': 'multiple'
+            }),
             'log_to_usage': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
@@ -968,6 +976,8 @@ class OperationDefinitionForm(forms.ModelForm):
             'requires_confirmation': _('Requires Confirmation'),
             'session_timeout_minutes': _('Session Timeout (minutes)'),
             'allow_multiple_executions': _('Allow Multiple Executions'),
+            'requires_badge': _('Requires Badge'),
+            'allowed_badges': _('Allowed Badges'),
             'log_to_usage': _('Log to Usage'),
             'log_to_transfer': _('Log to Transfer'),
             'log_to_handover': _('Log to Handover'),

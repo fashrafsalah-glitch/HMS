@@ -19,8 +19,11 @@ class QRCodeMixin(models.Model):
     
     def generate_qr_token(self, ephemeral=False, metadata=None):
         """
-        Generate secure QR token for this entity
+        Generate simple permanent QR token for this entity
+        Format: entity_type:hash_of_id
         """
+        import hashlib
+        
         entity_type = self.__class__.__name__.lower()
         
         # Handle special cases for entity type mapping
@@ -29,12 +32,12 @@ class QRCodeMixin(models.Model):
         elif entity_type == 'deviceaccessory':
             entity_type = 'accessory'
         
-        return SecureQRToken.generate_token(
-            entity_type=entity_type,
-            entity_id=str(self.pk),
-            ephemeral=ephemeral,
-            metadata=metadata or {}
-        )
+        # Create simple hash of the ID
+        hash_input = f"{entity_type}_{self.pk}_{settings.SECRET_KEY}"
+        hash_value = hashlib.sha256(hash_input.encode()).hexdigest()[:12]  # First 12 chars
+        
+        # Simple format: entity_type:hash
+        return f"{entity_type}:{hash_value}"
     
     def generate_qr_url(self, token: str) -> str:
         """
@@ -45,26 +48,23 @@ class QRCodeMixin(models.Model):
     
     def generate_qr_code(self, ephemeral=False, metadata=None):
         """
-        Generate QR code image for this entity using secure tokens and full URLs
+        Generate QR code image with simple permanent token (no domain, no expiry)
         """
-        # Generate secure token
+        # Generate simple token
         token = self.generate_qr_token(ephemeral=ephemeral, metadata=metadata)
         
-        # Generate full URL for mobile devices
-        qr_url = self.generate_qr_url(token)
-        
-        # Update the qr_token field if not ephemeral
-        if not ephemeral and hasattr(self, 'qr_token'):
+        # Update the qr_token field (always permanent now)
+        if hasattr(self, 'qr_token'):
             self.qr_token = token
         
-        # Generate QR code image with full URL
+        # Generate QR code image with just the token (no URL)
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=10,
             border=4,
         )
-        qr.add_data(qr_url)  # Use full URL instead of raw token
+        qr.add_data(token)  # Just the token: entity_type:hash
         qr.make(fit=True)
         
         img = qr.make_image(fill_color="black", back_color="white")
@@ -74,7 +74,7 @@ class QRCodeMixin(models.Model):
         img.save(buffer, format='PNG')
         buffer.seek(0)
         
-        # Generate filename based on entity type and ID (avoid sensitive data)
+        # Generate filename based on entity type and ID
         entity_type = self.__class__.__name__.lower()
         filename = f"{entity_type}_{self.pk}_qr.png"
         

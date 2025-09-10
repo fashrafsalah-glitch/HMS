@@ -2,15 +2,18 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{{ operation.name_en }} | HMS{% endblock %}
+{% block title %}{{ operation.name }} | HMS{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2>{{ operation.name_en }} / {{ operation.name_ar }}</h2>
-            <p class="text-muted">{{ operation.description_en }}</p>
+            <h2>
+                <i class="fas fa-cogs"></i> {{ operation.name }}
+                <span class="badge badge-secondary">{{ operation.get_code_display }}</span>
+            </h2>
+            <p class="text-muted">{{ operation.description|default:"No description available" }}</p>
         </div>
         <div class="col-md-4 text-right">
             <a href="{% url 'maintenance:operation_edit' operation.id %}" class="btn btn-warning">
@@ -63,15 +66,42 @@
                         </tr>
                         <tr>
                             <th>{% trans "Session Timeout" %}:</th>
-                            <td>{{ operation.session_timeout }} {% trans "seconds" %}</td>
+                            <td>{{ operation.session_timeout_minutes }} {% trans "minutes" %}</td>
                         </tr>
                         <tr>
-                            <th>{% trans "Create Log" %}:</th>
+                            <th>{% trans "Requires Badge" %}:</th>
                             <td>
-                                {% if operation.create_log %}
-                                    <span class="badge badge-primary">{{ operation.log_type|upper }}</span>
+                                {% if operation.requires_badge %}
+                                    <span class="badge badge-warning">{% trans "Yes" %}</span>
                                 {% else %}
-                                    <span class="text-muted">{% trans "No" %}</span>
+                                    <span class="badge badge-secondary">{% trans "No" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Multiple Executions" %}:</th>
+                            <td>
+                                {% if operation.allow_multiple_executions %}
+                                    <span class="badge badge-success">{% trans "Allowed" %}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{% trans "Not Allowed" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Logging Settings" %}:</th>
+                            <td>
+                                {% if operation.log_to_usage %}
+                                    <span class="badge badge-info">Usage</span>
+                                {% endif %}
+                                {% if operation.log_to_transfer %}
+                                    <span class="badge badge-info">Transfer</span>
+                                {% endif %}
+                                {% if operation.log_to_handover %}
+                                    <span class="badge badge-info">Handover</span>
+                                {% endif %}
+                                {% if not operation.log_to_usage and not operation.log_to_transfer and not operation.log_to_handover %}
+                                    <span class="text-muted">{% trans "No logging" %}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -91,8 +121,11 @@
         <!-- Operation Steps -->
         <div class="col-md-6">
             <div class="card shadow mb-4">
-                <div class="card-header bg-info text-white">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-list-ol"></i> {% trans "Operation Steps" %}</h5>
+                    <button type="button" class="btn btn-sm btn-light" data-toggle="modal" data-target="#addStepModal">
+                        <i class="fas fa-plus"></i> {% trans "Add Step" %}
+                    </button>
                 </div>
                 <div class="card-body">
                     {% if steps %}
@@ -100,10 +133,11 @@
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th>#</th>
+                                    <th>{% trans "Order" %}</th>
                                     <th>{% trans "Entity Type" %}</th>
                                     <th>{% trans "Required" %}</th>
                                     <th>{% trans "Description" %}</th>
+                                    <th>{% trans "Actions" %}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -111,7 +145,7 @@
                                 <tr>
                                     <td>{{ step.order }}</td>
                                     <td>
-                                        <span class="badge badge-secondary">{{ step.entity_type }}</span>
+                                        <span class="badge badge-secondary">{{ step.get_entity_type_display }}</span>
                                     </td>
                                     <td>
                                         {% if step.is_required %}
@@ -121,7 +155,14 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <small>{{ step.description_en }}</small>
+                                        <small>{{ step.description|default:"-" }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'maintenance:delete_operation_step' step.id %}" 
+                                           class="btn btn-sm btn-danger" 
+                                           onclick="return confirm('Are you sure you want to delete this step?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -194,5 +235,99 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Add Allowed Badges Section -->
+{% if operation.requires_badge %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-id-badge"></i> {% trans "Allowed Badges" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if operation.allowed_badges.exists %}
+                <div class="row">
+                    {% for badge in operation.allowed_badges.all %}
+                    <div class="col-md-3 mb-2">
+                        <div class="badge-item p-2 border rounded">
+                            <strong>{{ badge.badge_id }}</strong><br>
+                            <small class="text-muted">
+                                {% if badge.user %}
+                                    <i class="fas fa-user"></i> {{ badge.user.get_full_name|default:badge.user.username }}
+                                {% else %}
+                                    {% trans "Unassigned" %}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">{% trans "No badges assigned yet" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Step Modal -->
+<div class="modal fade" id="addStepModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'maintenance:add_operation_step' operation.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">{% trans "Add Operation Step" %}</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>{% trans "Order" %}</label>
+                        <input type="number" name="order" class="form-control" min="1" value="{{ steps.count|add:1 }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "Entity Type" %}</label>
+                        <select name="entity_type" class="form-control" required>
+                            <option value="">{% trans "Select Entity Type" %}</option>
+                            <option value="user">{% trans "User" %}</option>
+                            <option value="patient">{% trans "Patient" %}</option>
+                            <option value="device">{% trans "Device" %}</option>
+                            <option value="accessory">{% trans "Accessory" %}</option>
+                            <option value="bed">{% trans "Bed" %}</option>
+                            <option value="department">{% trans "Department" %}</option>
+                            <option value="room">{% trans "Room" %}</option>
+                            <option value="lab_tube">{% trans "Lab Tube" %}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>{% trans "Description" %}</label>
+                        <input type="text" name="description" class="form-control" placeholder="{% trans 'Optional description' %}">
+                    </div>
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" name="is_required" class="custom-control-input" id="isRequired" checked>
+                            <label class="custom-control-label" for="isRequired">
+                                {% trans "Required Step" %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        {% trans "Cancel" %}
+                    </button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-plus"></i> {% trans "Add Step" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 </div>
 {% endblock %}

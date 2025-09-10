@@ -114,6 +114,35 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        {{ form.requires_badge }}
+                                        <label class="custom-control-label" for="{{ form.requires_badge.id_for_label }}">
+                                            {{ form.requires_badge.label }}
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        {% trans "Require badge authentication for this operation" %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Badge Selection -->
+                        <div class="row" id="badgeSelectionRow" style="display: none;">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    {{ form.allowed_badges.label_tag }}
+                                    {{ form.allowed_badges }}
+                                    <small class="form-text text-muted">
+                                        {% trans "Select badges that are allowed to execute this operation" %}
+                                    </small>
+                                    {% if form.allowed_badges.errors %}
+                                        <div class="text-danger">{{ form.allowed_badges.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Logging Settings -->
@@ -187,30 +216,36 @@
                 </div>
             </div>
 
-            {% if action == 'edit' and operation.steps.exists %}
+            {% if action == 'edit' %}
             <!-- Operation Steps -->
             <div class="card shadow mt-4">
-                <div class="card-header bg-info text-white">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-list-ol"></i> {% trans "Operation Steps" %}
                     </h5>
+                    <button type="button" class="btn btn-sm btn-light" data-toggle="modal" data-target="#addStepModal">
+                        <i class="fas fa-plus"></i> {% trans "Add Step" %}
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-sm" id="stepsTable">
                             <thead>
                                 <tr>
                                     <th>{% trans "Order" %}</th>
                                     <th>{% trans "Entity Type" %}</th>
                                     <th>{% trans "Required" %}</th>
                                     <th>{% trans "Description" %}</th>
+                                    <th>{% trans "Actions" %}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for step in operation.steps.all %}
-                                <tr>
+                                <tr data-step-id="{{ step.id }}">
                                     <td>{{ step.order }}</td>
-                                    <td>{{ step.entity_type }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">{{ step.get_entity_type_display }}</span>
+                                    </td>
                                     <td>
                                         {% if step.is_required %}
                                             <span class="badge badge-danger">{% trans "Required" %}</span>
@@ -218,16 +253,80 @@
                                             <span class="badge badge-secondary">{% trans "Optional" %}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ step.description_en }}</td>
+                                    <td>{{ step.description }}</td>
+                                    <td>
+                                        <a href="{% url 'maintenance:delete_operation_step' step.id %}" class="btn btn-sm btn-danger" 
+                                           onclick="return confirm('Are you sure?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr id="noStepsRow">
+                                    <td colspan="5" class="text-center text-muted">
+                                        {% trans "No steps defined yet. Click 'Add Step' to create one." %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <p class="text-muted mt-3">
-                        <i class="fas fa-info-circle"></i> 
-                        {% trans "To manage steps, please use the Django Admin interface" %}
-                    </p>
+                </div>
+            </div>
+
+            <!-- Add Step Modal -->
+            <div class="modal fade" id="addStepModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="post" action="{% url 'maintenance:add_operation_step' operation.id %}">
+                            {% csrf_token %}
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title">{% trans "Add Operation Step" %}</h5>
+                                <button type="button" class="close" data-dismiss="modal">
+                                    <span>&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label>{% trans "Order" %}</label>
+                                    <input type="number" name="order" class="form-control" min="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>{% trans "Entity Type" %}</label>
+                                    <select name="entity_type" class="form-control" required>
+                                        <option value="user">{% trans "User" %}</option>
+                                        <option value="patient">{% trans "Patient" %}</option>
+                                        <option value="device">{% trans "Device" %}</option>
+                                        <option value="accessory">{% trans "Accessory" %}</option>
+                                        <option value="bed">{% trans "Bed" %}</option>
+                                        <option value="department">{% trans "Department" %}</option>
+                                        <option value="room">{% trans "Room" %}</option>
+                                        <option value="badge">{% trans "Badge" %}</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>{% trans "Description" %}</label>
+                                    <input type="text" name="description" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" name="is_required" class="custom-control-input" id="isRequired" checked>
+                                        <label class="custom-control-label" for="isRequired">
+                                            {% trans "Required Step" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                                    {% trans "Cancel" %}
+                                </button>
+                                <button type="submit" class="btn btn-info">
+                                    <i class="fas fa-plus"></i> {% trans "Add Step" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -236,17 +335,24 @@
 </div>
 
 <script>
-function toggleLogType() {
-    const createLog = document.getElementById('create_log').checked;
-    const logTypeGroup = document.getElementById('logTypeGroup');
-    
-    if (createLog) {
-        logTypeGroup.style.display = 'block';
-    } else {
-        logTypeGroup.style.display = 'none';
-        document.getElementById('log_type').value = '';
+// Toggle badge selection based on requires_badge checkbox
+document.addEventListener('DOMContentLoaded', function() {
+    const requiresBadgeCheckbox = document.querySelector('[name="requires_badge"]');
+    if (requiresBadgeCheckbox) {
+        requiresBadgeCheckbox.addEventListener('change', function() {
+            const badgeSelectionRow = document.getElementById('badgeSelectionRow');
+            if (this.checked) {
+                badgeSelectionRow.style.display = 'block';
+            } else {
+                badgeSelectionRow.style.display = 'none';
+            }
+        });
+        // Initial check
+        if (requiresBadgeCheckbox.checked) {
+            document.getElementById('badgeSelectionRow').style.display = 'block';
+        }
     }
-}
+});
 
 // Validate form
 document.getElementById('operationForm').addEventListener('submit', function(e) {

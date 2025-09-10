@@ -5,6 +5,24 @@
 {% block title %}{% trans "Operations Management" %} | HMS{% endblock %}
 
 {% block content %}
+<style>
+    /* Force badge colors to be visible */
+    .badge-success { background-color: #28a745 !important; color: white !important; }
+    .badge-danger { background-color: #dc3545 !important; color: white !important; }
+    .badge-warning { background-color: #ffc107 !important; color: #212529 !important; }
+    .badge-info { background-color: #17a2b8 !important; color: white !important; }
+    .badge-primary { background-color: #007bff !important; color: white !important; }
+    .badge-secondary { background-color: #6c757d !important; color: white !important; }
+    
+    /* Dark mode overrides */
+    body.dark-mode .badge-success { background-color: #28a745 !important; color: white !important; }
+    body.dark-mode .badge-danger { background-color: #dc3545 !important; color: white !important; }
+    body.dark-mode .badge-warning { background-color: #ffc107 !important; color: #212529 !important; }
+    body.dark-mode .badge-info { background-color: #17a2b8 !important; color: white !important; }
+    body.dark-mode .badge-primary { background-color: #007bff !important; color: white !important; }
+    body.dark-mode .badge-secondary { background-color: #6c757d !important; color: white !important; }
+</style>
+
 <div class="container-fluid mt-4">
     <!-- Header -->
     <div class="row mb-4">
@@ -74,32 +92,32 @@
                                     <td><code>{{ operation.code }}</code></td>
                                     <td>
                                         {% if operation.auto_execute %}
-                                            <span class="badge badge-success">{% trans "Yes" %}</span>
+                                            <span class="badge badge-success text-white">{% trans "Yes" %}</span>
                                         {% else %}
-                                            <span class="badge badge-secondary">{% trans "No" %}</span>
+                                            <span class="badge badge-secondary text-white">{% trans "No" %}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if operation.requires_confirmation %}
-                                            <span class="badge badge-warning">{% trans "Required" %}</span>
+                                            <span class="badge badge-warning text-white">{% trans "Required" %}</span>
                                         {% else %}
-                                            <span class="badge badge-info">{% trans "Not Required" %}</span>
+                                            <span class="badge badge-info text-white">{% trans "Not Required" %}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if operation.log_to_usage or operation.log_to_transfer or operation.log_to_handover %}
-                                            {% if operation.log_to_usage %}<span class="badge badge-primary">Usage</span>{% endif %}
-                                            {% if operation.log_to_transfer %}<span class="badge badge-info">Transfer</span>{% endif %}
-                                            {% if operation.log_to_handover %}<span class="badge badge-success">Handover</span>{% endif %}
+                                            {% if operation.log_to_usage %}<span class="badge badge-primary text-white">Usage</span>{% endif %}
+                                            {% if operation.log_to_transfer %}<span class="badge badge-info text-white">Transfer</span>{% endif %}
+                                            {% if operation.log_to_handover %}<span class="badge badge-success text-white">Handover</span>{% endif %}
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if operation.is_active %}
-                                            <span class="badge badge-success">{% trans "Active" %}</span>
+                                            <span class="badge badge-success text-white">{% trans "Active" %}</span>
                                         {% else %}
-                                            <span class="badge badge-danger">{% trans "Inactive" %}</span>
+                                            <span class="badge badge-danger text-white">{% trans "Inactive" %}</span>
                                         {% endif %}
                                     </td>
                                     <td>

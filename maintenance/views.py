@@ -213,6 +213,144 @@ def operation_detail(request, pk):
     return render(request, 'maintenance/operation_detail.html', context)
 
 @login_required
+@require_http_methods(["POST"])
+def add_operation_step(request, operation_id):
+    """Add a step to an operation"""
+    operation = get_object_or_404(OperationDefinition, pk=operation_id)
+    
+    # Create the step
+    step = OperationStep.objects.create(
+        operation=operation,
+        order=request.POST.get('order', 1),
+        entity_type=request.POST.get('entity_type'),
+        is_required=request.POST.get('is_required') == 'on',
+        description=request.POST.get('description', '')
+    )
+    
+    messages.success(request, f'تم إضافة الخطوة بنجاح')
+    return redirect('maintenance:operation_detail', pk=operation_id)
+
+@login_required
+def delete_operation_step(request, step_id):
+    """Delete an operation step"""
+    step = get_object_or_404(OperationStep, pk=step_id)
+    operation_id = step.operation.id
+    step.delete()
+    
+    messages.success(request, 'تم حذف الخطوة بنجاح')
+    return redirect('maintenance:operation_detail', pk=operation_id)
+
+@login_required
+def badges_management(request):
+    """Badge management view"""
+    from .models import Badge
+    from hr.models import Department
+    
+    badges = Badge.objects.all().select_related('user', 'department').order_by('-created_at')
+    
+    # Statistics
+    total_badges = badges.count()
+    active_badges = badges.filter(is_active=True).count()
+    assigned_badges = badges.filter(user__isnull=False).count()
+    used_today = badges.filter(last_used__date=timezone.now().date()).count()
+    
+    # Get data for create form
+    users = User.objects.filter(is_active=True)
+    departments = Department.objects.all()
+    operations = OperationDefinition.objects.filter(is_active=True)
+    
+    context = {
+        'badges': badges,
+        'total_badges': total_badges,
+        'active_badges': active_badges,
+        'assigned_badges': assigned_badges,
+        'used_today': used_today,
+        'users': users,
+        'departments': departments,
+        'operations': operations,
+    }
+    return render(request, 'maintenance/badges_management.html', context)
+
+@login_required
+@require_POST
+def create_badge(request):
+    """Create new badge"""
+    from .models import Badge
+    from hr.models import Department
+    import hashlib
+    
+    badge = Badge.objects.create(
+        badge_type=request.POST.get('badge_type', 'permanent'),
+        user_id=request.POST.get('user') if request.POST.get('user') else None,
+        department_id=request.POST.get('department') if request.POST.get('department') else None,
+        expiry_date=request.POST.get('expiry_date') if request.POST.get('expiry_date') else None,
+        is_active=True
+    )
+    
+    # Generate unique badge ID and QR token
+    badge.badge_id = f"BADGE-{badge.id:06d}"
+    badge.qr_token = hashlib.sha256(f"{badge.badge_id}{timezone.now()}".encode()).hexdigest()[:32]
+    badge.save()
+    
+    # Add allowed operations
+    operation_ids = request.POST.getlist('allowed_operations')
+    if operation_ids:
+        badge.allowed_operations.set(operation_ids)
+    
+    messages.success(request, f'تم إنشاء البطاقة {badge.badge_id} بنجاح')
+    return redirect('maintenance:badges_management')
+
+@login_required
+def badge_detail(request, badge_id):
+    """View badge details"""
+    from .models import Badge
+    badge = get_object_or_404(Badge, pk=badge_id)
+    return render(request, 'maintenance/badge_detail.html', {'badge': badge})
+
+@login_required
+def edit_badge(request, badge_id):
+    """Edit badge"""
+    from .models import Badge
+    badge = get_object_or_404(Badge, pk=badge_id)
+    
+    if request.method == 'POST':
+        badge.badge_type = request.POST.get('badge_type', badge.badge_type)
+        badge.user_id = request.POST.get('user') if request.POST.get('user') else None
+        badge.department_id = request.POST.get('department') if request.POST.get('department') else None
+        badge.expiry_date = request.POST.get('expiry_date') if request.POST.get('expiry_date') else None
+        badge.save()
+        
+        # Update allowed operations
+        operation_ids = request.POST.getlist('allowed_operations')
+        if operation_ids:
+            badge.allowed_operations.set(operation_ids)
+        
+        messages.success(request, f'تم تحديث البطاقة {badge.badge_id} بنجاح')
+        return redirect('maintenance:badges_management')
+    
+    return render(request, 'maintenance/badge_edit.html', {'badge': badge})
+
+@login_required
+def activate_badge(request, badge_id):
+    """Activate badge"""
+    from .models import Badge
+    badge = get_object_or_404(Badge, pk=badge_id)
+    badge.is_active = True
+    badge.save()
+    messages.success(request, f'تم تفعيل البطاقة {badge.badge_id}')
+    return redirect('maintenance:badges_management')
+
+@login_required
+def deactivate_badge(request, badge_id):
+    """Deactivate badge"""
+    from .models import Badge
+    badge = get_object_or_404(Badge, pk=badge_id)
+    badge.is_active = False
+    badge.save()
+    messages.success(request, f'تم إلغاء تفعيل البطاقة {badge.badge_id}')
+    return redirect('maintenance:badges_management')
+
+@login_required
 def sessions_list(request):
     """
     List all scan sessions
@@ -1853,6 +1991,49 @@ def get_entity_detail_url(entity_type, entity_id):
         return None
 
 
+def find_entity_by_hash(entity_type, hash_value):
+    """
+    Find entity ID by reverse-engineering the hash
+    """
+    import hashlib
+    from django.apps import apps
+    from django.conf import settings
+    
+    # Map entity types to models
+    model_mapping = {
+        'device': ('maintenance', 'Device'),
+        'patient': ('manager', 'Patient'),
+        'bed': ('manager', 'Bed'),
+        'user': ('hr', 'CustomUser'),
+        'customuser': ('hr', 'CustomUser'),
+        'accessory': ('maintenance', 'DeviceAccessory'),
+        'deviceaccessory': ('maintenance', 'DeviceAccessory'),
+        'department': ('manager', 'Department'),
+        'doctor': ('manager', 'Doctor'),
+    }
+    
+    if entity_type not in model_mapping:
+        return None
+    
+    app_label, model_name = model_mapping[entity_type]
+    
+    try:
+        model_class = apps.get_model(app_label, model_name)
+        
+        # Try to find the entity by checking all IDs
+        # This is not the most efficient but works for the hash system
+        for entity in model_class.objects.all():
+            hash_input = f"{entity_type}_{entity.pk}_{settings.SECRET_KEY}"
+            calculated_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+            
+            if calculated_hash == hash_value:
+                return entity.pk
+                
+        return None
+    except:
+        return None
+
+
 def parse_qr_code(raw_value):
     """
     Parse QR code and return entity type, ID, entity data, and error
@@ -1889,8 +2070,57 @@ def parse_qr_code(raw_value):
         qr_code = raw_value
     
     try:
-        # Check if it's a secure token with signature
-        if '|sig=' in qr_code:
+        # Parse QR code based on format
+        entity_type = None
+        entity_id = None
+        
+        # Check if it's a simple hash token (new format: entity_type:hash)
+        if ':' in qr_code and '|' not in qr_code and len(qr_code.split(':')) == 2:
+            entity_type, potential_hash = qr_code.split(':', 1)
+            
+            # Check if it's numeric (legacy format)
+            try:
+                entity_id = int(potential_hash)
+                # This is legacy format, continue with normal processing
+            except ValueError:
+                # This is hash format - find entity by reverse-engineering
+                import hashlib
+                from django.conf import settings
+                
+                # Map entity types to models
+                model_mapping = {
+                    'device': ('maintenance', 'Device'),
+                    'patient': ('manager', 'Patient'),
+                    'bed': ('manager', 'Bed'),
+                    'user': ('hr', 'CustomUser'),
+                    'customuser': ('hr', 'CustomUser'),
+                    'accessory': ('maintenance', 'DeviceAccessory'),
+                    'deviceaccessory': ('maintenance', 'DeviceAccessory'),
+                    'department': ('manager', 'Department'),
+                    'doctor': ('manager', 'Doctor'),
+                }
+                
+                if entity_type in model_mapping:
+                    app_label, model_name = model_mapping[entity_type]
+                    try:
+                        model_class = apps.get_model(app_label, model_name)
+                        
+                        # Try to find the entity by checking all IDs
+                        for entity in model_class.objects.all():
+                            hash_input = f"{entity_type}_{entity.pk}_{settings.SECRET_KEY}"
+                            calculated_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+                            
+                            if calculated_hash == potential_hash:
+                                entity_id = entity.pk
+                                break
+                    except:
+                        pass
+                
+                if not entity_id:
+                    return None, None, None, f"Entity not found for hash: {potential_hash}"
+                
+        # Check if it's a secure token with signature (legacy)
+        elif '|sig=' in qr_code:
             # Parse secure token
             token_result = SecureQRToken.parse_token(qr_code)
             
@@ -2066,10 +2296,17 @@ def parse_qr_code(raw_value):
                 except (ValueError, IndexError):
                     return None, None, None, "Invalid patient QR code format"
         
-        # Standard format parsing (legacy)
-        if ':' in qr_code and '|' not in qr_code:
-            entity_type, entity_id = qr_code.split(':', 1)
-            entity_id = int(entity_id)
+        # Standard format parsing (legacy) - only if not already processed above
+        if ':' in qr_code and '|' not in qr_code and len(qr_code.split(':')) == 2:
+            entity_type, potential_id = qr_code.split(':', 1)
+            
+            # Try to parse as integer (legacy format only)
+            try:
+                entity_id = int(potential_id)
+            except ValueError:
+                # If not integer, it should have been processed as hash above
+                # If we reach here, it means the hash wasn't found
+                return None, None, None, f"Entity not found for hash: {potential_id}"
         
         # Map entity types to models
         model_mapping = {
@@ -2734,8 +2971,10 @@ def scan_qr_code(request):
 @login_required
 def scan_session_page(request):
     """
-    Main scanning session page - Step 3 Enhanced
+    Main scanning session page with Operations support
     """
+    from .models import QRScanLog
+    
     # Get or create active session for user
     active_session = ScanSession.objects.filter(
         user=request.user, 
@@ -2745,27 +2984,33 @@ def scan_session_page(request):
     if not active_session:
         active_session = ScanSession.objects.create(user=request.user)
     
-    # Get recent scan history
-    recent_scans = ScanHistory.objects.filter(
-        session__user=request.user
-    ).order_by('-scanned_at')[:20]
+    # Get pending executions for this session
+    pending_executions = OperationExecution.objects.filter(
+        session=active_session,
+        status='pending'
+    ).select_related('operation')
     
-    # Get operation choices for dropdown
-    operation_choices = [
-        ('usage', 'استخدام الأجهزة'),
-        ('transfer', 'نقل جهاز'),
-        ('patient_transfer', 'نقل مريض'),
-        ('handover', 'تسليم جهاز'),
-        ('clean', 'تنظيف'),
-        ('sterilize', 'تعقيم'),
-        ('maintenance', 'صيانة'),
-    ]
+    # Get completed executions for this session
+    completed_executions = OperationExecution.objects.filter(
+        session=active_session,
+        status='completed'
+    ).select_related('operation').order_by('-completed_at')[:10]
+    
+    # Get available operations
+    operations = OperationDefinition.objects.filter(is_active=True)
+    
+    # Get recent QR scan logs
+    recent_scans = QRScanLog.objects.filter(
+        session_id=active_session.session_id
+    ).order_by('-scanned_at')[:20]
     
     context = {
         'session': active_session,
+        'operations': operations,
+        'pending_executions': pending_executions,
+        'completed_executions': completed_executions,
         'recent_scans': recent_scans,
-        'operation_choices': operation_choices,
-        'title': 'جلسة المسح المتكاملة - Step 3'
+        'title': 'QR Scanner Session'
     }
     
     return render(request, 'maintenance/scan_session.html', context)
