@@ -2836,6 +2836,9 @@ def scan_qr_code(request):
         qr_code = data.get('qr_code', '').strip()
         sample_token = data.get('sample_token', '').strip()
         session_id = data.get('session_id')
+        operation_code = data.get('operation_code')
+        
+        print(f"[DEBUG] Extracted: qr_code={qr_code}, session_id={session_id}, operation_code={operation_code}")
         print(f"[DEBUG] QR Code: {qr_code}, Session ID: {session_id}")
         
         # Initialize operations manager
@@ -2858,11 +2861,14 @@ def scan_qr_code(request):
                 'qr_code': qr_code
             })
         
-        # Check if this is a direct entity scan that should redirect
+        # Check if this is from scan-session page - don't redirect, process operations
         redirect_to_page = data.get('redirect_to_page', True)  # Default to redirect
+        is_scan_session = session_id or 'scan-session' in request.META.get('HTTP_REFERER', '')
         
-        if redirect_to_page and entity_type == 'device':
-            # Return redirect URL for device detail page
+        print(f"[DEBUG] redirect_to_page={redirect_to_page}, is_scan_session={is_scan_session}, session_id={session_id}")
+        
+        if redirect_to_page and entity_type == 'device' and not is_scan_session:
+            # Return redirect URL for device detail page (only if not from scan-session)
             device_url = reverse('maintenance:device_detail', kwargs={'pk': entity_id})
             return JsonResponse({
                 'success': True,
@@ -2874,8 +2880,8 @@ def scan_qr_code(request):
                 'message': f'تم توجيهك إلى صفحة الجهاز: {entity_data.get("name", entity_id)}'
             })
         
-        elif redirect_to_page and entity_type == 'patient':
-            # Return redirect URL for patient detail page (if exists)
+        elif redirect_to_page and entity_type == 'patient' and not is_scan_session:
+            # Return redirect URL for patient detail page (only if not from scan-session)
             try:
                 patient_url = reverse('manager:patient_detail', kwargs={'pk': entity_id})
                 return JsonResponse({
@@ -2908,36 +2914,76 @@ def scan_qr_code(request):
                 # If bed detail URL doesn't exist, continue with normal flow
                 pass
         
-        # Get or create scan session
+        # Special handling for first user scan - create new session
         scan_session = None
-        if session_id:
-            try:
-                scan_session = ScanSession.objects.get(session_id=session_id, status='active')
-                # Check session timeout
-                if ops_manager.check_session_timeout(scan_session):
-                    scan_session.status = 'expired'
-                    scan_session.save()
-                    scan_session = None
-            except ScanSession.DoesNotExist:
-                pass
         
-        # Create new session if none exists
-        if not scan_session:
-            scan_session = ScanSession.objects.create()
+        # If scanning a user (Badge) and no session_id provided, create new session
+        if entity_type == 'user' and not session_id:
+            # Create new session for this user
+            scan_session = ScanSession.objects.create(
+                user=request.user,  # Set the user who initiated the session
+                status='active',
+                session_id=str(uuid.uuid4())
+            )
             # Initialize context_json if not exists
             if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
                 scan_session.context_json = {}
                 scan_session.save()
+            
+            # Record the user scan in history with user details
+            user_data = {
+                'username': request.user.username,
+                'role': getattr(request.user, 'role', 'staff'),
+                'full_name': request.user.get_full_name() if hasattr(request.user, 'get_full_name') else str(request.user),
+                'user_id': request.user.id
+            }
+            scan_history = ScanHistory.objects.create(
+                session=scan_session,
+                scanned_code=qr_code,
+                entity_type='user',
+                entity_id=request.user.id,
+                entity_data=json.dumps(user_data),
+                is_valid=True
+            )
+        else:
+            # For non-user scans or if session_id exists, try to get existing session
+            if session_id:
+                try:
+                    scan_session = ScanSession.objects.get(session_id=session_id, status='active')
+                    # Check session timeout
+                    if ops_manager.check_session_timeout(scan_session):
+                        scan_session.status = 'expired'
+                        scan_session.save()
+                        scan_session = None
+                except ScanSession.DoesNotExist:
+                    pass
+            
+            # If no session found and it's not a user scan, return error
+            if not scan_session and entity_type != 'user':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'لا توجد جلسة نشطة. يرجى البدء بمسح بطاقة المستخدم أولاً'
+                })
+            
+            # Add scan to history for non-user entities
+            if scan_session and entity_type != 'user':
+                scan_history = ScanHistory.objects.create(
+                    session=scan_session,
+                    scanned_code=qr_code,
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                    entity_data=json.dumps(entity_data) if entity_data else None,
+                    is_valid=True
+                )
         
-        # Add to scan history
-        scan_history = ScanHistory.objects.create(
-            session=scan_session,
-            scanned_code=qr_code,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            entity_data=json.dumps(entity_data) if entity_data else None,  # Convert dict to JSON string
-            is_valid=True
-        )
+        # Return session_id in response for JavaScript to use
+        response_data = {
+            'success': True,
+            'entity_type': entity_type,
+            'entity_id': entity_id,
+            'entity_data': entity_data,
+            'session_id': str(scan_session.session_id) if scan_session else None
+        }
         
         # Update session with basic entity tracking (backward compatibility)
         session_updated = False
@@ -3220,34 +3266,46 @@ def scan_session_page(request):
     """
     from .models import QRScanLog
     
-    # Get or create active session for user
+    # Don't create session automatically - wait for user badge scan
+    # This allows the new flow: scan user badge → create session → scan device → scan patient
     active_session = ScanSession.objects.filter(
         user=request.user, 
         status='active'
     ).first()
     
+    # Create a temporary session object for template rendering only
     if not active_session:
-        active_session = ScanSession.objects.create(user=request.user)
+        active_session = type('TempSession', (), {
+            'session_id': 'pending',
+            'user': request.user,
+            'status': 'pending'
+        })()
     
-    # Get pending executions for this session
-    pending_executions = OperationExecution.objects.filter(
-        session=active_session,
-        status='pending'
-    ).select_related('operation')
-    
-    # Get completed executions for this session
-    completed_executions = OperationExecution.objects.filter(
-        session=active_session,
-        status='completed'
-    ).select_related('operation').order_by('-completed_at')[:10]
+    # Get pending executions for this session (only if real session exists)
+    if hasattr(active_session, 'id'):
+        pending_executions = OperationExecution.objects.filter(
+            session=active_session,
+            status='pending'
+        ).select_related('operation')
+        
+        # Get completed executions for this session
+        completed_executions = OperationExecution.objects.filter(
+            session=active_session,
+            status='completed'
+        ).select_related('operation').order_by('-completed_at')[:10]
+        
+        # Get recent QR scan logs
+        recent_scans = QRScanLog.objects.filter(
+            session_id=active_session.session_id
+        ).order_by('-scanned_at')[:20]
+    else:
+        # No real session yet - empty lists
+        pending_executions = []
+        completed_executions = []
+        recent_scans = []
     
     # Get available operations
     operations = OperationDefinition.objects.filter(is_active=True)
-    
-    # Get recent QR scan logs
-    recent_scans = QRScanLog.objects.filter(
-        session_id=active_session.session_id
-    ).order_by('-scanned_at')[:20]
     
     context = {
         'session': active_session,

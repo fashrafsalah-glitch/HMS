@@ -325,7 +325,11 @@ def auto_create_maintenance_request(sender, instance, created, **kwargs):
     إنشاء بلاغ صيانة تلقائي عند اكتشاف مشاكل في التفقد اليومي
     هنا لو الفني لاقى مشكلة في الجهاز، بنعمل بلاغ تلقائي
     """
-    if created and instance.maintenance_needed and instance.issues_found:
+    # Skip for DeviceUsageLog - only for DeviceUsageLogDaily
+    if sender.__name__ == 'DeviceUsageLog':
+        return
+    
+    if created and hasattr(instance, 'maintenance_needed') and instance.maintenance_needed and hasattr(instance, 'issues_found') and instance.issues_found:
         try:
             # التحقق من عدم وجود بلاغ مفتوح للجهاز
             existing_request = ServiceRequest.objects.filter(

@@ -931,7 +931,7 @@
             },
             body: JSON.stringify({
                 qr_code: code,
-                session_id: '{{ session.session_id }}',
+                session_id: window.currentSessionId || ('{{ session.session_id }}' === 'pending' ? null : '{{ session.session_id }}'),
                 operation_code: selectedOperation ? selectedOperation.code : null
             })
         })
@@ -941,6 +941,13 @@
             
             if (data.success) {
                 addToHistory(data);
+                
+                // If new session created (first user scan), update session_id
+                if (data.session_id && '{{ session.session_id }}' === 'pending') {
+                    // Update the current session_id for future scans
+                    window.currentSessionId = data.session_id;
+                    showNotification('New session started! Continue scanning device and patient.', 'success');
+                }
                 
                 // Show notifications
                 if (data.notifications) {

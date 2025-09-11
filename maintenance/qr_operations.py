@@ -76,7 +76,7 @@ class QROperationsManager:
                 'type': scan.entity_type,
                 'id': scan.entity_id,
                 'data': data,
-                'scanned_at': scan.scanned_at
+                'scanned_at': scan.scanned_at.isoformat() if scan.scanned_at else None
             })
         return entities
     
@@ -88,8 +88,8 @@ class QROperationsManager:
         if not scanned_entities:
             return None
         
-        # Get active operations
-        active_operations = self.OperationDefinition.objects.filter(is_active=True)
+        # Get active operations - ORDER BY ID to ensure DEVICE_USAGE comes before END_DEVICE_USAGE
+        active_operations = self.OperationDefinition.objects.filter(is_active=True).order_by('id')
         print(f"[DEBUG match_operation] Found {active_operations.count()} active operations")
         
         for operation in active_operations:
@@ -109,9 +109,9 @@ class QROperationsManager:
         print(f"[DEBUG _sequence_matches_steps] Step types: {[s.entity_type for s in required_steps]}")
         print(f"[DEBUG _sequence_matches_steps] Entity types: {[e['type'] for e in entities]}")
         
-        # Must have at least the required steps
-        if len(entities) < len(required_steps):
-            print(f"[DEBUG] Not enough entities: {len(entities)} < {len(required_steps)}")
+        # EXACT MATCH: Must have exactly the same number of entities as required steps
+        if len(entities) != len(required_steps):
+            print(f"[DEBUG] Entity count mismatch: {len(entities)} != {len(required_steps)}")
             return False
         
         # Check each required step
@@ -140,7 +140,7 @@ class QROperationsManager:
                     print(f"[DEBUG] Step {i} - entity ID not in allowed list")
                     return False
         
-        print(f"[DEBUG] All steps matched!")
+        print(f"[DEBUG] All steps matched exactly!")
         return True
     
     def _validate_entity(self, entity: Dict, rule: str) -> bool:
@@ -427,15 +427,26 @@ class QROperationsManager:
                     print(f"[DEBUG] Device {device.name} already in use")
                     continue
                     
-                # Create usage log
+                # Create usage log with correct fields
                 usage_log = self.DeviceUsageLog.objects.create(
-                    device=device,
+                    user=user,  # الحقل الصحيح
                     patient=patient,
-                    used_by=user,
-                    start_time=timezone.now(),
-                    notes=f"ربط عبر QR - المريض: {patient.first_name} {patient.last_name}"
+                    started_at=timezone.now(),  # الحقل الصحيح
+                    operation_type='procedure',
+                    notes=f"ربط عبر QR - الجهاز: {device.name} - المريض: {patient.first_name} {patient.last_name}"
                 )
                 print(f"[DEBUG] Created usage log: {usage_log.id}")
+                
+                # Create DeviceUsageLogItem for the specific device
+                from maintenance.models import DeviceUsageLogItem
+                device_item = DeviceUsageLogItem.objects.create(
+                    usage_log=usage_log,
+                    device=device,
+                    status='in_use',
+                    usage_start=timezone.now(),  # الحقل الصحيح
+                    used_by=user
+                )
+                print(f"[DEBUG] Created device item: {device_item.id}")
                 
                 # Update device status
                 device.status = 'in_use'
@@ -897,10 +908,10 @@ class QROperationsManager:
                 for device_entity in device_entities:
                     device = self.Device.objects.get(id=device_entity['id'])
                     log = self.DeviceUsageLog.objects.create(
-                        device=device,
+                        user=user,  # الحقل الصحيح
                         patient=patient,
-                        used_by=user,
-                        start_time=timezone.now(),
+                        started_at=timezone.now(),  # الحقل الصحيح
+                        operation_type='procedure',
                         notes=f"Via QR Operation: {operation.name}"
                     )
                     logs_created.append({
