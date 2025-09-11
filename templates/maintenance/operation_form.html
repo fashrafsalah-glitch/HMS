@@ -223,7 +223,7 @@
                     <h5 class="mb-0">
                         <i class="fas fa-list-ol"></i> {% trans "Operation Steps" %}
                     </h5>
-                    <button type="button" class="btn btn-sm btn-light" data-toggle="modal" data-target="#addStepModal">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#addStepModal">
                         <i class="fas fa-plus"></i> {% trans "Add Step" %}
                     </button>
                 </div>
@@ -282,9 +282,7 @@
                             {% csrf_token %}
                             <div class="modal-header bg-info text-white">
                                 <h5 class="modal-title">{% trans "Add Operation Step" %}</h5>
-                                <button type="button" class="close" data-dismiss="modal">
-                                    <span>&times;</span>
-                                </button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <div class="form-group">
@@ -293,15 +291,9 @@
                                 </div>
                                 <div class="form-group">
                                     <label>{% trans "Entity Type" %}</label>
-                                    <select name="entity_type" class="form-control" required>
-                                        <option value="user">{% trans "User" %}</option>
-                                        <option value="patient">{% trans "Patient" %}</option>
-                                        <option value="device">{% trans "Device" %}</option>
-                                        <option value="accessory">{% trans "Accessory" %}</option>
-                                        <option value="bed">{% trans "Bed" %}</option>
-                                        <option value="department">{% trans "Department" %}</option>
-                                        <option value="room">{% trans "Room" %}</option>
-                                        <option value="badge">{% trans "Badge" %}</option>
+                                    <select name="entity_type" id="entityTypeSelect" class="form-control" required>
+                                        <option value="">{% trans "Select Entity Type" %}</option>
+                                        <!-- Options will be populated dynamically based on operation type -->
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -318,7 +310,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                                     {% trans "Cancel" %}
                                 </button>
                                 <button type="submit" class="btn btn-info">
@@ -372,6 +364,101 @@ document.getElementById('operationForm').addEventListener('submit', function(e) 
         e.preventDefault();
         alert('{% trans "An operation cannot be both auto-execute and require confirmation" %}');
         return false;
+    }
+});
+
+// Smart entity type selection based on operation code
+const operationCode = '{{ operation.code }}';
+
+// Define which entity types are relevant for each operation
+const operationEntityTypes = {
+    'BADGE_AUTH': ['user'],
+    'DEVICE_USAGE': ['user', 'device', 'patient'],
+    'END_DEVICE_USAGE': ['user', 'device', 'patient'],
+    'DEVICE_TRANSFER': ['user', 'device', 'department'],
+    'PATIENT_TRANSFER': ['user', 'patient', 'bed', 'room'],
+    'DEVICE_HANDOVER': ['user', 'device'], // Two users for from/to
+    'ACCESSORY_USAGE': ['user', 'accessory', 'patient'],
+    'DEVICE_CLEANING': ['user', 'device'],
+    'DEVICE_STERILIZATION': ['user', 'device'],
+    'MAINTENANCE_OPEN': ['user', 'device'],
+    'MAINTENANCE_CLOSE': ['user', 'device'],
+    'DEVICE_LENDING': ['user', 'device', 'department'],
+    'OUT_OF_SERVICE': ['user', 'device'], // Two users for double auth
+    'INVENTORY_CHECK': ['user', 'device', 'accessory'],
+    'QUALITY_CONTROL': ['user', 'device'],
+    'CALIBRATION': ['user', 'device'],
+    'INSPECTION': ['user', 'device'],
+    'AUDIT_REPORT': ['user', 'device'],
+    'CUSTOM': ['user', 'patient', 'device', 'accessory', 'bed', 'department', 'room', 'lab_tube']
+};
+
+// Entity type labels
+const entityTypeLabels = {
+    'user': '{% trans "User/Badge" %}',
+    'patient': '{% trans "Patient" %}',
+    'device': '{% trans "Device" %}',
+    'accessory': '{% trans "Accessory" %}',
+    'bed': '{% trans "Bed" %}',
+    'department': '{% trans "Department" %}',
+    'room': '{% trans "Room" %}',
+    'lab_tube': '{% trans "Lab Tube" %}'
+};
+
+// Use Bootstrap 5 native events
+document.addEventListener('DOMContentLoaded', function() {
+    const addStepModal = document.getElementById('addStepModal');
+    if (addStepModal) {
+        addStepModal.addEventListener('show.bs.modal', function (event) {
+            const entitySelect = document.getElementById('entityTypeSelect');
+            
+            // Clear existing options
+            entitySelect.innerHTML = '<option value="">{% trans "Select Entity Type" %}</option>';
+            
+            // Get relevant entity types for this operation
+            const relevantTypes = operationEntityTypes[operationCode] || [];
+            
+            // Add relevant options
+            relevantTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = entityTypeLabels[type];
+                
+                // Add helpful hints for specific operations
+                if (operationCode === 'DEVICE_HANDOVER' && type === 'user') {
+                    option.textContent += ' ({% trans "From/To User" %})';
+                } else if (operationCode === 'OUT_OF_SERVICE' && type === 'user') {
+                    option.textContent += ' ({% trans "Supervisor + Employee" %})';
+                } else if (operationCode === 'DEVICE_LENDING' && type === 'department') {
+                    option.textContent += ' ({% trans "Optional - Can be User or Dept" %})';
+                }
+                
+                entitySelect.appendChild(option);
+            });
+            
+            // Show hint based on operation
+            const hints = {
+                'DEVICE_HANDOVER': '{% trans "Tip: Add 2 User steps for handover (from and to)" %}',
+                'OUT_OF_SERVICE': '{% trans "Tip: Add 2 User steps for double authentication" %}',
+                'DEVICE_USAGE': '{% trans "Tip: User → Device → Patient sequence" %}',
+                'END_DEVICE_USAGE': '{% trans "Tip: User → Device → Patient (same patient to end)" %}',
+                'DEVICE_TRANSFER': '{% trans "Tip: User → Device → Department sequence" %}'
+            };
+            
+            if (hints[operationCode]) {
+                const hintDiv = document.createElement('div');
+                hintDiv.className = 'alert alert-info mt-2';
+                hintDiv.innerHTML = '<i class="fas fa-lightbulb"></i> ' + hints[operationCode];
+                
+                const existingHint = document.getElementById('operationHint');
+                if (existingHint) {
+                    existingHint.remove();
+                }
+                
+                hintDiv.id = 'operationHint';
+                entitySelect.parentElement.appendChild(hintDiv);
+            }
+        });
     }
 });
 </script>

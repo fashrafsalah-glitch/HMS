@@ -3977,18 +3977,24 @@ class OperationDefinition(models.Model):
     
     # قائمة العمليات المتاحة للـ QR Code
     OPERATION_CHOICES = [
-        ('DEVICE_USAGE', 'استخدام الجهاز - Device Usage'),
+        ('BADGE_AUTH', 'مصادقة البطاقة - Badge Authentication'),
+        ('DEVICE_USAGE', 'استخدام الجهاز مع مريض - Patient Association'),
+        ('END_DEVICE_USAGE', 'إنهاء استخدام الجهاز - End Patient Usage'),
         ('DEVICE_TRANSFER', 'نقل الجهاز - Device Transfer'),
         ('PATIENT_TRANSFER', 'نقل المريض - Patient Transfer'),
-        ('DEVICE_HANDOVER', 'تسليم الجهاز - Device Handover'),
+        ('DEVICE_HANDOVER', 'تسليم واستلام - Handover'),
         ('ACCESSORY_USAGE', 'استخدام الملحقات - Accessory Usage'),
-        ('DEVICE_CLEANING', 'تنظيف الجهاز - Device Cleaning'),
-        ('DEVICE_STERILIZATION', 'تعقيم الجهاز - Device Sterilization'),
-        ('DEVICE_MAINTENANCE', 'صيانة الجهاز - Device Maintenance'),
+        ('DEVICE_CLEANING', 'بدء/إنهاء التنظيف - Cleaning Start/End'),
+        ('DEVICE_STERILIZATION', 'بدء/إنهاء التعقيم - Sterilization Start/End'),
+        ('MAINTENANCE_OPEN', 'فتح أمر صيانة - Open Maintenance WO'),
+        ('MAINTENANCE_CLOSE', 'إغلاق أمر صيانة - Close Maintenance WO'),
+        ('DEVICE_LENDING', 'إعارة الجهاز - Device Lending'),
+        ('OUT_OF_SERVICE', 'إخراج من الخدمة - Out of Service'),
         ('INVENTORY_CHECK', 'فحص المخزون - Inventory Check'),
         ('QUALITY_CONTROL', 'مراقبة الجودة - Quality Control'),
         ('CALIBRATION', 'معايرة الجهاز - Device Calibration'),
-        ('INSPECTION', 'فحص الجهاز - Device Inspection'),
+        ('INSPECTION', 'تفقد الجهاز - Device Inspection'),
+        ('AUDIT_REPORT', 'تدقيق وتقرير - Auditing & Reporting'),
         ('CUSTOM', 'عملية مخصصة - Custom Operation'),
     ]
     

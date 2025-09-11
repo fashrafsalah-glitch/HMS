@@ -223,8 +223,12 @@ class QROperationsManager:
         result = {'success': True, 'actions': []}
         
         # Map operation codes to specific logic
-        if code == 'DEVICE_USAGE':
+        if code == 'BADGE_AUTH':
+            result.update(self._handle_badge_auth(entities, user))
+        elif code == 'DEVICE_USAGE':
             result.update(self._handle_device_usage(entities, user))
+        elif code == 'END_DEVICE_USAGE':
+            result.update(self._handle_end_device_usage(entities, user))
         elif code == 'DEVICE_TRANSFER':
             result.update(self._handle_device_transfer(entities, user))
         elif code == 'PATIENT_TRANSFER':
@@ -237,8 +241,14 @@ class QROperationsManager:
             result.update(self._handle_device_cleaning(entities, user))
         elif code == 'DEVICE_STERILIZATION':
             result.update(self._handle_device_sterilization(entities, user))
-        elif code == 'DEVICE_MAINTENANCE':
-            result.update(self._handle_device_maintenance(entities, user))
+        elif code == 'MAINTENANCE_OPEN':
+            result.update(self._handle_maintenance_open(entities, user))
+        elif code == 'MAINTENANCE_CLOSE':
+            result.update(self._handle_maintenance_close(entities, user))
+        elif code == 'DEVICE_LENDING':
+            result.update(self._handle_device_lending(entities, user))
+        elif code == 'OUT_OF_SERVICE':
+            result.update(self._handle_out_of_service(entities, user))
         elif code == 'INVENTORY_CHECK':
             result.update(self._handle_inventory_check(entities, user))
         elif code == 'QUALITY_CONTROL':
@@ -247,6 +257,8 @@ class QROperationsManager:
             result.update(self._handle_calibration(entities, user))
         elif code == 'INSPECTION':
             result.update(self._handle_inspection(entities, user))
+        elif code == 'AUDIT_REPORT':
+            result.update(self._handle_audit_report(entities, user))
         elif code == 'CUSTOM':
             result.update(self._handle_custom_operation(entities, user))
         else:
@@ -329,11 +341,33 @@ class QROperationsManager:
         
         return result
     
-    def _handle_device_usage(self, entities: List[Dict], user: User) -> Dict:
-        """Handle device usage operation"""
+    def _handle_badge_auth(self, entities: List[Dict], user: User) -> Dict:
+        """Handle badge authentication - Start of any operation"""
+        from .models import Badge
         result = {'actions': []}
         
-        # Find patient and devices
+        badge_entity = next((e for e in entities if e['type'] == 'user'), None)
+        
+        if badge_entity:
+            try:
+                badge = Badge.objects.get(user_id=badge_entity['id'])
+                badge.last_login = timezone.now()
+                badge.save()
+                result['actions'].append(f"تم مصادقة البطاقة للمستخدم {user.get_full_name()}")
+                result['authenticated'] = True
+            except Badge.DoesNotExist:
+                result['actions'].append(f"لا توجد بطاقة مسجلة للمستخدم")
+                result['authenticated'] = False
+        
+        return result
+    
+    def _handle_device_usage(self, entities: List[Dict], user: User) -> Dict:
+        """Handle device usage operation - Patient Association"""
+        from .models import Badge
+        result = {'actions': []}
+        
+        # Find badge, patient and devices
+        badge_entity = next((e for e in entities if e['type'] == 'user'), None)
         patient_entity = next((e for e in entities if e['type'] == 'patient'), None)
         device_entities = [e for e in entities if e['type'] == 'device']
         
@@ -343,10 +377,72 @@ class QROperationsManager:
             
             for device_entity in device_entities:
                 device = self.Device.objects.get(id=device_entity['id'])
+                
+                # Check if device is available
+                if device.status == 'in_use':
+                    result['actions'].append(f"⚠️ الجهاز {device.name} قيد الاستخدام بالفعل")
+                    continue
+                    
+                # Create usage log
+                usage_log = self.DeviceUsageLog.objects.create(
+                    device=device,
+                    patient=patient,
+                    used_by=user,
+                    start_time=timezone.now(),
+                    notes=f"ربط عبر QR - المريض: {patient.first_name} {patient.last_name}"
+                )
+                
+                # Update device status
                 device.status = 'in_use'
+                device.in_use = True
                 device.current_patient = patient
+                device.usage_start_time = timezone.now()
                 device.save()
-                result['actions'].append(f"Device {device.name} marked as in use by patient {patient.full_name}")
+                
+                result['actions'].append(f"✅ تم ربط الجهاز {device.name} بالمريض {patient.first_name} {patient.last_name}")
+        
+        return result
+    
+    def _handle_end_device_usage(self, entities: List[Dict], user: User) -> Dict:
+        """Handle end device usage operation"""
+        result = {'actions': []}
+        
+        # Find badge, patient and devices
+        badge_entity = next((e for e in entities if e['type'] == 'user'), None)
+        patient_entity = next((e for e in entities if e['type'] == 'patient'), None)
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        if patient_entity and device_entities:
+            from manager.models import Patient
+            patient = Patient.objects.get(id=patient_entity['id'])
+            
+            for device_entity in device_entities:
+                device = self.Device.objects.get(id=device_entity['id'])
+                
+                # Check if device is actually in use by this patient
+                if device.current_patient != patient:
+                    result['actions'].append(f"⚠️ الجهاز {device.name} غير مرتبط بالمريض {patient.first_name}")
+                    continue
+                
+                # Find and end usage log
+                usage_logs = self.DeviceUsageLog.objects.filter(
+                    device=device,
+                    patient=patient,
+                    end_time__isnull=True
+                )
+                
+                for log in usage_logs:
+                    log.end_time = timezone.now()
+                    log.save()
+                
+                # Update device status
+                device.status = 'available'
+                device.in_use = False
+                device.current_patient = None
+                device.usage_start_time = None
+                device.save()
+                
+                result['actions'].append(f"✅ تم إنهاء استخدام الجهاز {device.name} من المريض {patient.first_name} {patient.last_name}")
         
         return result
     
@@ -562,6 +658,170 @@ class QROperationsManager:
             device.last_maintained_by = user
             device.save()
             result['actions'].append(f"Device {device.name} maintenance completed")
+        
+        return result
+    
+    def _handle_maintenance_open(self, entities: List[Dict], user: User) -> Dict:
+        """Handle opening maintenance work order"""
+        from .models_cmms import WorkOrder
+        from .models import Badge
+        result = {'actions': []}
+        
+        badge_entity = next((e for e in entities if e['type'] == 'user'), None)
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            
+            # Create work order
+            wo = WorkOrder.objects.create(
+                device=device,
+                work_type='corrective',
+                priority='medium',
+                status='open',
+                reported_by=user,
+                title=f"صيانة الجهاز {device.name}",
+                description=f"أمر صيانة مفتوح عبر QR",
+                scheduled_start=timezone.now(),
+                scheduled_end=timezone.now() + timedelta(hours=4)
+            )
+            
+            # Update device status
+            device.status = 'under_maintenance'
+            device.save()
+            
+            result['actions'].append(f"✅ تم فتح أمر الصيانة #{wo.work_order_number} للجهاز {device.name}")
+        
+        return result
+    
+    def _handle_maintenance_close(self, entities: List[Dict], user: User) -> Dict:
+        """Handle closing maintenance work order"""
+        from .models_cmms import WorkOrder
+        result = {'actions': []}
+        
+        badge_entity = next((e for e in entities if e['type'] == 'user'), None)
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            
+            # Find open work orders for this device
+            open_wos = WorkOrder.objects.filter(
+                device=device,
+                status__in=['open', 'in_progress', 'pending']
+            )
+            
+            for wo in open_wos:
+                wo.status = 'completed'
+                wo.actual_end = timezone.now()
+                wo.completed_by = user
+                wo.resolution_notes = "تم إغلاق أمر الصيانة عبر QR"
+                wo.save()
+                
+                result['actions'].append(f"✅ تم إغلاق أمر الصيانة #{wo.work_order_number}")
+            
+            # Update device status
+            device.status = 'working'
+            device.save()
+            
+            if not open_wos:
+                result['actions'].append(f"⚠️ لا توجد أوامر صيانة مفتوحة للجهاز {device.name}")
+        
+        return result
+    
+    def _handle_device_lending(self, entities: List[Dict], user: User) -> Dict:
+        """Handle device lending operation"""
+        result = {'actions': []}
+        
+        # Find from_user, to_user/department, and devices
+        from_user = next((e for e in entities if e['type'] == 'user'), None)
+        to_entity = next((e for e in entities[1:] if e['type'] in ['user', 'department']), None)
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        if from_user and to_entity and device_entities:
+            for device_entity in device_entities:
+                device = self.Device.objects.get(id=device_entity['id'])
+                
+                # Create lending record
+                lending_info = {
+                    'lent_to': to_entity['type'],
+                    'lent_to_id': to_entity['id'],
+                    'lent_by': user.id,
+                    'lent_date': timezone.now().isoformat(),
+                    'expected_return': (timezone.now() + timedelta(days=7)).isoformat()
+                }
+                
+                # Update device
+                device.is_lent = True
+                device.lending_info = json.dumps(lending_info)
+                device.save()
+                
+                result['actions'].append(f"✅ تم إعارة الجهاز {device.name} لمدة 7 أيام")
+        
+        return result
+    
+    def _handle_out_of_service(self, entities: List[Dict], user: User) -> Dict:
+        """Handle taking device out of service - requires double authentication"""
+        result = {'actions': []}
+        
+        # Need supervisor and employee badges
+        user_entities = [e for e in entities if e['type'] == 'user']
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        if len(user_entities) >= 2 and device_entities:
+            # Double authentication verified
+            supervisor = User.objects.get(id=user_entities[0]['id'])
+            employee = User.objects.get(id=user_entities[1]['id'])
+            
+            for device_entity in device_entities:
+                device = self.Device.objects.get(id=device_entity['id'])
+                
+                # Update device status
+                device.status = 'out_of_order'
+                device.out_of_service_reason = f"أخرج من الخدمة بواسطة {supervisor.get_full_name()} و {employee.get_full_name()}"
+                device.out_of_service_date = timezone.now()
+                device.save()
+                
+                result['actions'].append(f"⛔ تم إخراج الجهاز {device.name} من الخدمة")
+        else:
+            result['actions'].append("⚠️ يتطلب مصادقة مزدوجة (مشرف + موظف)")
+        
+        return result
+    
+    def _handle_audit_report(self, entities: List[Dict], user: User) -> Dict:
+        """Handle audit and reporting - open device log"""
+        result = {'actions': []}
+        
+        device_entities = [e for e in entities if e['type'] == 'device']
+        
+        for device_entity in device_entities:
+            device = self.Device.objects.get(id=device_entity['id'])
+            
+            # Gather audit information
+            from .models_cmms import WorkOrder
+            
+            # Recent work orders
+            recent_wos = WorkOrder.objects.filter(
+                device=device
+            ).order_by('-created_at')[:5]
+            
+            # Usage logs
+            recent_usage = self.DeviceUsageLog.objects.filter(
+                device=device
+            ).order_by('-start_time')[:5]
+            
+            audit_info = {
+                'device_name': device.name,
+                'status': device.status,
+                'last_maintenance': device.last_maintenance_date.isoformat() if device.last_maintenance_date else None,
+                'recent_work_orders': len(recent_wos),
+                'recent_usage_count': len(recent_usage),
+                'audited_by': user.get_full_name(),
+                'audit_date': timezone.now().isoformat()
+            }
+            
+            result['actions'].append(f"📊 تقرير تدقيق للجهاز {device.name}")
+            result['audit_data'] = audit_info
         
         return result
     
