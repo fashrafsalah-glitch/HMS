@@ -32,6 +32,7 @@ class Department(MPTTModel):
     hospital = models.ForeignKey('superadmin.Hospital', on_delete=models.CASCADE, related_name='departments')
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    qr_code = models.CharField(max_length=255, blank=True, null=True, unique=True)
 
     class MPTTMeta:
         order_insertion_by = ['name']

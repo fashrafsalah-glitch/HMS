@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}تفاصيل البطاقة - {{ badge.badge_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>
+                        <i class="fas fa-id-card me-2"></i>
+                        تفاصيل البطاقة
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'maintenance:badges_management' %}">إدارة البطاقات</a></li>
+                            <li class="breadcrumb-item active">{{ badge.badge_number }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:edit_badge' badge.pk %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>تعديل البطاقة
+                    </a>
+                    <a href="{% url 'maintenance:badges_management' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>العودة
+                    </a>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Badge Information -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                معلومات البطاقة
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">رقم البطاقة</label>
+                                        <div class="p-2 bg-light rounded">
+                                            <code class="fs-5">{{ badge.badge_number }}</code>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">المستخدم</label>
+                                        <div class="p-2 bg-light rounded">
+                                            {% if badge.user %}
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm me-3">
+                                                        <div class="avatar-title bg-primary rounded-circle">
+                                                            {{ badge.user.first_name|first|upper }}{{ badge.user.last_name|first|upper }}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <strong>{{ badge.user.get_full_name }}</strong>
+                                                        <br><small class="text-muted">{{ badge.user.username }}</small>
+                                                        {% if badge.user.email %}
+                                                            <br><small class="text-muted">{{ badge.user.email }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">غير مخصصة لمستخدم</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">الحالة</label>
+                                        <div class="p-2 bg-light rounded">
+                                            {% if badge.is_active %}
+                                                <span class="badge bg-success fs-6">
+                                                    <i class="fas fa-check-circle me-1"></i>نشطة
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger fs-6">
+                                                    <i class="fas fa-times-circle me-1"></i>معطلة
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">كود QR</label>
+                                        <div class="p-2 bg-light rounded">
+                                            {% if badge.qr_code %}
+                                                <code>{{ badge.qr_code }}</code>
+                                            {% else %}
+                                                <span class="text-muted">غير متوفر</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">تاريخ الإنشاء</label>
+                                        <div class="p-2 bg-light rounded">
+                                            <i class="fas fa-calendar me-2"></i>
+                                            {{ badge.created_at|date:"Y-m-d H:i:s" }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">آخر استخدام</label>
+                                        <div class="p-2 bg-light rounded">
+                                            {% if badge.last_login %}
+                                                <i class="fas fa-clock me-2"></i>
+                                                {{ badge.last_login|date:"Y-m-d H:i:s" }}
+                                            {% else %}
+                                                <span class="text-muted">
+                                                    <i class="fas fa-minus me-2"></i>
+                                                    لم تستخدم بعد
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code Display -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-qrcode me-2"></i>
+                                كود QR
+                            </h5>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if badge.qr_code %}
+                                <div class="qr-code-container mb-3">
+                                    <div id="qrcode-{{ badge.pk }}" class="d-inline-block"></div>
+                                </div>
+                                <p class="text-muted small">امسح هذا الكود للوصول السريع</p>
+                                <a href="{% url 'maintenance:download_badge_qr' badge.pk %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>تحميل صورة QR
+                                </a>
+                            {% else %}
+                                <div class="text-muted">
+                                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                                    <p>لا يوجد كود QR متاح</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-bolt me-2"></i>
+                                إجراءات سريعة
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if badge.is_active %}
+                                    <a href="{% url 'maintenance:deactivate_badge' badge.pk %}" 
+                                       class="btn btn-warning"
+                                       onclick="return confirm('هل أنت متأكد من تعطيل هذه البطاقة؟')">
+                                        <i class="fas fa-pause me-2"></i>تعطيل البطاقة
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'maintenance:activate_badge' badge.pk %}" 
+                                       class="btn btn-success">
+                                        <i class="fas fa-play me-2"></i>تفعيل البطاقة
+                                    </a>
+                                {% endif %}
+                                
+                                <a href="{% url 'maintenance:edit_badge' badge.pk %}" 
+                                   class="btn btn-primary">
+                                    <i class="fas fa-edit me-2"></i>تعديل البطاقة
+                                </a>
+                                
+                                <button class="btn btn-info" onclick="printBadge()">
+                                    <i class="fas fa-print me-2"></i>طباعة البطاقة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 50px;
+    height: 50px;
+}
+
+.avatar-title {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.qr-code-container {
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+body.dark-mode .card {
+    background-color: #2d3748;
+    border-color: #4a5568;
+}
+
+body.dark-mode .bg-light {
+    background-color: #4a5568 !important;
+    color: #e2e8f0;
+}
+
+body.dark-mode .qr-code-container {
+    background: white;
+}
+
+body.dark-mode .breadcrumb-item a {
+    color: #63b3ed;
+}
+
+body.dark-mode .text-muted {
+    color: #a0aec0 !important;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if badge.qr_code %}
+    // Generate QR Code
+    var qrData = 'user:{{ badge.user.pk|default:"" }}';
+    var qrElement = document.getElementById('qrcode-{{ badge.pk }}');
+    if (qrElement && typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(qrElement, qrData, {
+            width: 200,
+            height: 200,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        }).catch(function(error) {
+            console.error('QR Code generation failed:', error);
+            qrElement.innerHTML = '<div class="text-danger">فشل في توليد QR Code</div>';
+        });
+    }
+    {% endif %}
+});
+
+function downloadQR(badgeNumber) {
+    var canvas = document.querySelector('#qrcode-{{ badge.pk }} canvas');
+    if (canvas) {
+        var link = document.createElement('a');
+        link.download = 'badge-qr-' + badgeNumber + '.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+}
+
+function printBadge() {
+    window.print();
+}
+</script>
+
+<style media="print">
+@media print {
+    .btn, .breadcrumb, .card-header {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .qr-code-container {
+        border: 2px solid #000;
+    }
+}
+</style>
+{% endblock %}

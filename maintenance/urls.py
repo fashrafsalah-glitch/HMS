@@ -28,6 +28,9 @@ urlpatterns = [
     path('badges/<int:badge_id>/edit/', views.edit_badge, name='edit_badge'),
     path('badges/<int:badge_id>/activate/', views.activate_badge, name='activate_badge'),
     path('badges/<int:badge_id>/deactivate/', views.deactivate_badge, name='deactivate_badge'),
+    path('badges/<int:badge_id>/regenerate-qr/', views.regenerate_qr_code, name='regenerate_qr_code'),
+    path('badges/<int:badge_id>/download-qr/', views.download_badge_qr, name='download_badge_qr'),
+    path('badges/update-all-qr/', views.update_all_badges_qr, name='update_all_badges_qr'),
     
     # Sessions Management
     path('sessions/', views.sessions_list, name='sessions_list'),

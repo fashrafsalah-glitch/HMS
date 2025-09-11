@@ -1320,6 +1320,65 @@ def department_surgical_combined(request, department_id=None):
     }
     return render(request, "combined/department_surgical.html", context)
 
+@login_required
+def generate_department_qr_codes(request):
+    """Generate QR codes for all departments without one"""
+    import hashlib
+    import uuid
+    from django.utils import timezone
+    from .models import Department
+    
+    departments_without_qr = Department.objects.filter(qr_code__isnull=True) | Department.objects.filter(qr_code='')
+    updated_count = 0
+    
+    for department in departments_without_qr:
+        # Generate QR code similar to badge system
+        qr_data = f"department:{department.pk}"
+        qr_code = hashlib.sha256(f"{qr_data}:{department.name}:{timezone.now()}:{uuid.uuid4().hex[:4]}".encode()).hexdigest()[:16]
+        
+        # Ensure QR code is unique
+        while Department.objects.filter(qr_code=qr_code).exists():
+            qr_code = hashlib.sha256(f"{qr_data}:{department.name}:{timezone.now()}:{uuid.uuid4().hex[:8]}".encode()).hexdigest()[:16]
+        
+        department.qr_code = qr_code
+        department.save()
+        updated_count += 1
+    
+    messages.success(request, f'تم تحديث {updated_count} قسم بأكواد QR جديدة')
+    return redirect('manager:department_list')
+
+@login_required
+def download_department_qr(request, department_id):
+    """Download QR code image for department"""
+    import qrcode
+    import io
+    import hashlib
+    from django.conf import settings
+    from .models import Department
+    
+    department = get_object_or_404(Department, pk=department_id, hospital=request.user.hospital)
+    
+    # Generate hash for the department similar to patient system
+    hash_input = f"department_{department.pk}_{settings.SECRET_KEY}"
+    dept_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+    
+    # Build the QR with hash format that parse_qr_code expects
+    qr = qrcode.QRCode(version=1, box_size=10, border=1)
+    qr.add_data(f"department:{dept_hash}")
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Stream it back as PNG
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="image/png")
+    response["Content-Disposition"] = (
+        f'attachment; filename="department_{department.name}_qrcode.png"'
+    )
+    return response
+
 def edit_department(request, pk):
     department = get_object_or_404(Department, pk=pk, hospital=request.user.hospital)
     if request.method == 'POST':
@@ -2610,9 +2669,12 @@ def download_wristband(request, patient_id):
     
 def download_qr_code(request, patient_id):
     """
-    Return a PNG image with a QR‑code that encodes the patient's MRN
-    and full name. Used by the /<patient_id>/qrcode/ route.
+    Return a PNG image with a QR‑code that encodes the patient's hash
+    in the format patient:hash that can be recognized by the QR system.
     """
+    import hashlib
+    from django.conf import settings
+    
     if not (request.user.is_authenticated and request.user.role == "hospital_manager"):
         return HttpResponse("Unauthorized", status=401)
 
@@ -2620,9 +2682,13 @@ def download_qr_code(request, patient_id):
         Patient, id=patient_id, hospital=request.user.hospital
     )
 
-    # Build the QR
+    # Generate hash for the patient
+    hash_input = f"patient_{patient.pk}_{settings.SECRET_KEY}"
+    patient_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+    
+    # Build the QR with hash format that parse_qr_code expects
     qr = qrcode.QRCode(version=1, box_size=10, border=1)
-    qr.add_data(f"MRN:{patient.mrn} | {patient.first_name} {patient.last_name}")
+    qr.add_data(f"patient:{patient_hash}")
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
 

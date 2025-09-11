@@ -186,6 +186,8 @@ path(
     path("departments/<int:pk>/delete/",delete_department,        name="department_delete"),
     # Unified combined page (keeps old name for reverse compatibility)
     path("departments/<int:department_id>/page/",      views.department_surgical_combined,      name="department_page"),
+    path("departments/generate-qr/", views.generate_department_qr_codes, name="generate_department_qr_codes"),
+    path("departments/<int:department_id>/download-qr/", views.download_department_qr, name="download_department_qr"),
     path("departments/<int:department_id>/doctors/",   department_doctors,   name="department_doctors"),
     path("departments/<int:department_id>/patients/",  department_patients,  name="department_patients"),
     path("departments/<int:department_id>/staffs/",  department_staffs,      name="department_staffs"),

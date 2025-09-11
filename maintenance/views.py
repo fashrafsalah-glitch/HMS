@@ -246,13 +246,13 @@ def badges_management(request):
     from .models import Badge
     from hr.models import Department
     
-    badges = Badge.objects.all().select_related('user', 'department').order_by('-created_at')
+    badges = Badge.objects.all().select_related('user').order_by('-created_at')
     
     # Statistics
     total_badges = badges.count()
     active_badges = badges.filter(is_active=True).count()
     assigned_badges = badges.filter(user__isnull=False).count()
-    used_today = badges.filter(last_used__date=timezone.now().date()).count()
+    used_today = badges.filter(last_login__date=timezone.now().date()).count()
     
     # Get data for create form
     users = User.objects.filter(is_active=True)
@@ -276,28 +276,54 @@ def badges_management(request):
 def create_badge(request):
     """Create new badge"""
     from .models import Badge
-    from hr.models import Department
+    from django.contrib.auth import get_user_model
     import hashlib
+    import uuid
     
-    badge = Badge.objects.create(
-        badge_type=request.POST.get('badge_type', 'permanent'),
-        user_id=request.POST.get('user') if request.POST.get('user') else None,
-        department_id=request.POST.get('department') if request.POST.get('department') else None,
-        expiry_date=request.POST.get('expiry_date') if request.POST.get('expiry_date') else None,
-        is_active=True
-    )
+    user_id = request.POST.get('user')
+    if not user_id:
+        messages.error(request, 'يجب اختيار مستخدم للبطاقة')
+        return redirect('maintenance:badges_management')
     
-    # Generate unique badge ID and QR token
-    badge.badge_id = f"BADGE-{badge.id:06d}"
-    badge.qr_token = hashlib.sha256(f"{badge.badge_id}{timezone.now()}".encode()).hexdigest()[:32]
-    badge.save()
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        messages.error(request, 'المستخدم المحدد غير موجود')
+        return redirect('maintenance:badges_management')
     
-    # Add allowed operations
-    operation_ids = request.POST.getlist('allowed_operations')
-    if operation_ids:
-        badge.allowed_operations.set(operation_ids)
+    # Check if user already has a badge
+    if hasattr(user, 'badge') and user.badge:
+        messages.error(request, f'المستخدم {user.get_full_name()} لديه بطاقة بالفعل')
+        return redirect('maintenance:badges_management')
     
-    messages.success(request, f'تم إنشاء البطاقة {badge.badge_id} بنجاح')
+    # Generate unique badge number
+    badge_number = f"BADGE-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Ensure badge number is unique
+    while Badge.objects.filter(badge_number=badge_number).exists():
+        badge_number = f"BADGE-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Generate QR code with proper format
+    qr_data = f"user:{user_id}"
+    qr_code = hashlib.sha256(f"{qr_data}:{badge_number}:{timezone.now()}".encode()).hexdigest()[:16]
+    
+    # Ensure QR code is unique
+    while Badge.objects.filter(qr_code=qr_code).exists():
+        qr_code = hashlib.sha256(f"{qr_data}:{badge_number}:{timezone.now()}:{uuid.uuid4().hex[:4]}".encode()).hexdigest()[:16]
+    
+    try:
+        badge = Badge.objects.create(
+            user=user,
+            badge_number=badge_number,
+            qr_code=qr_code,
+            is_active=True
+        )
+        
+        messages.success(request, f'تم إنشاء البطاقة {badge.badge_number} بنجاح للمستخدم {user.get_full_name()}')
+    except Exception as e:
+        messages.error(request, f'حدث خطأ أثناء إنشاء البطاقة: {str(e)}')
+    
     return redirect('maintenance:badges_management')
 
 @login_required
@@ -314,21 +340,17 @@ def edit_badge(request, badge_id):
     badge = get_object_or_404(Badge, pk=badge_id)
     
     if request.method == 'POST':
-        badge.badge_type = request.POST.get('badge_type', badge.badge_type)
-        badge.user_id = request.POST.get('user') if request.POST.get('user') else None
-        badge.department_id = request.POST.get('department') if request.POST.get('department') else None
-        badge.expiry_date = request.POST.get('expiry_date') if request.POST.get('expiry_date') else None
+        user_id = request.POST.get('user')
+        if user_id:
+            badge.user_id = user_id
+        badge.is_active = request.POST.get('is_active') == 'on'
         badge.save()
         
-        # Update allowed operations
-        operation_ids = request.POST.getlist('allowed_operations')
-        if operation_ids:
-            badge.allowed_operations.set(operation_ids)
-        
-        messages.success(request, f'تم تحديث البطاقة {badge.badge_id} بنجاح')
+        messages.success(request, f'تم تحديث البطاقة {badge.badge_number} بنجاح')
         return redirect('maintenance:badges_management')
     
-    return render(request, 'maintenance/badge_edit.html', {'badge': badge})
+    users = User.objects.filter(is_active=True)
+    return render(request, 'maintenance/badge_edit.html', {'badge': badge, 'users': users})
 
 @login_required
 def activate_badge(request, badge_id):
@@ -337,7 +359,7 @@ def activate_badge(request, badge_id):
     badge = get_object_or_404(Badge, pk=badge_id)
     badge.is_active = True
     badge.save()
-    messages.success(request, f'تم تفعيل البطاقة {badge.badge_id}')
+    messages.success(request, f'تم تفعيل البطاقة {badge.badge_number}')
     return redirect('maintenance:badges_management')
 
 @login_required
@@ -347,8 +369,93 @@ def deactivate_badge(request, badge_id):
     badge = get_object_or_404(Badge, pk=badge_id)
     badge.is_active = False
     badge.save()
-    messages.success(request, f'تم إلغاء تفعيل البطاقة {badge.badge_id}')
+    messages.success(request, f'تم إلغاء تفعيل البطاقة {badge.badge_number}')
     return redirect('maintenance:badges_management')
+
+@login_required
+def regenerate_qr_code(request, badge_id):
+    """Regenerate QR code for badge"""
+    from .models import Badge
+    import hashlib
+    import uuid
+    
+    badge = get_object_or_404(Badge, pk=badge_id)
+    
+    # Generate new QR code
+    qr_data = f"user:{badge.user.pk}"
+    qr_code = hashlib.sha256(f"{qr_data}:{badge.badge_number}:{timezone.now()}:{uuid.uuid4().hex[:4]}".encode()).hexdigest()[:16]
+    
+    # Ensure QR code is unique
+    while Badge.objects.filter(qr_code=qr_code).exists():
+        qr_code = hashlib.sha256(f"{qr_data}:{badge.badge_number}:{timezone.now()}:{uuid.uuid4().hex[:8]}".encode()).hexdigest()[:16]
+    
+    badge.qr_code = qr_code
+    badge.save()
+    
+    messages.success(request, f'تم إعادة توليد كود QR للبطاقة {badge.badge_number}')
+    return redirect('maintenance:badge_detail', badge_id=badge.pk)
+
+@login_required
+def update_all_badges_qr(request):
+    """Update QR codes for all badges that don't have one"""
+    from .models import Badge
+    import hashlib
+    import uuid
+    
+    badges_without_qr = Badge.objects.filter(qr_code__isnull=True) | Badge.objects.filter(qr_code='')
+    updated_count = 0
+    
+    for badge in badges_without_qr:
+        # Generate QR code
+        qr_data = f"user:{badge.user.pk}"
+        qr_code = hashlib.sha256(f"{qr_data}:{badge.badge_number}:{timezone.now()}:{uuid.uuid4().hex[:4]}".encode()).hexdigest()[:16]
+        
+        # Ensure QR code is unique
+        while Badge.objects.filter(qr_code=qr_code).exists():
+            qr_code = hashlib.sha256(f"{qr_data}:{badge.badge_number}:{timezone.now()}:{uuid.uuid4().hex[:8]}".encode()).hexdigest()[:16]
+        
+        badge.qr_code = qr_code
+        badge.save()
+        updated_count += 1
+    
+    if updated_count > 0:
+        messages.success(request, f'تم تحديث {updated_count} بطاقة بأكواد QR جديدة')
+    else:
+        messages.info(request, 'جميع البطاقات تحتوي على أكواد QR بالفعل')
+    
+    return redirect('maintenance:badges_management')
+
+@login_required
+def download_badge_qr(request, badge_id):
+    """Download QR code image for badge"""
+    import qrcode
+    import io
+    import hashlib
+    from django.conf import settings
+    from .models import Badge
+    
+    badge = get_object_or_404(Badge, pk=badge_id)
+    
+    # Generate hash for the badge similar to patient system
+    hash_input = f"user_{badge.user.pk}_{settings.SECRET_KEY}"
+    badge_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+    
+    # Build the QR with hash format that parse_qr_code expects
+    qr = qrcode.QRCode(version=1, box_size=10, border=1)
+    qr.add_data(f"user:{badge_hash}")
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Stream it back as PNG
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="image/png")
+    response["Content-Disposition"] = (
+        f'attachment; filename="badge_{badge.badge_number}_qrcode.png"'
+    )
+    return response
 
 @login_required
 def sessions_list(request):
@@ -2047,13 +2154,18 @@ def parse_qr_code(raw_value):
     - Legacy patient extended: patient:id|MRN:mrn|Name:first_last|DOB:yyyy-mm-dd
     - Operation token: op:operation_type (e.g., op:usage, op:transfer)
     - Lab sample: sample:uuid (e.g., sample:abc123)
+    - Simple hash: just the hash without prefix (e.g., 761bd9ff7e31)
     """
     from django.apps import apps
     from core.secure_qr import SecureQRToken
     from urllib.parse import urlparse, parse_qs
+    import hashlib
+    from django.conf import settings
     
     if not raw_value or not raw_value.strip():
         return None, None, None, "QR code is empty"
+    
+    print(f"[DEBUG parse_qr_code] Starting with raw_value: '{raw_value}'")
     
     # Extract token from URL or use raw value
     if raw_value.startswith("http"):
@@ -2069,13 +2181,60 @@ def parse_qr_code(raw_value):
     else:
         qr_code = raw_value
     
+    print(f"[DEBUG parse_qr_code] QR code after URL parsing: '{qr_code}'")
+    print(f"[DEBUG parse_qr_code] Checking format - Has ':': {':' in qr_code}, Has '|': {'|' in qr_code}, Length: {len(qr_code)}")
+    
     try:
         # Parse QR code based on format
         entity_type = None
         entity_id = None
         
-        # Check if it's a simple hash token (new format: entity_type:hash)
-        if ':' in qr_code and '|' not in qr_code and len(qr_code.split(':')) == 2:
+        # Check if it's a simple hash without prefix (e.g., 761bd9ff7e31)
+        # This must be checked FIRST before other formats
+        if ':' not in qr_code and '|' not in qr_code and len(qr_code) == 12:
+            print(f"[DEBUG parse_qr_code] Simple hash format detected")
+            # This looks like a hash - try to find the entity
+            potential_hash = qr_code
+            
+            # Map entity types to models - search in order of most common
+            model_mapping = [
+                ('device', 'maintenance', 'Device'),
+                ('patient', 'manager', 'Patient'),
+                ('user', 'hr', 'CustomUser'),
+                ('bed', 'manager', 'Bed'),
+                ('accessory', 'maintenance', 'DeviceAccessory'),
+                ('department', 'manager', 'Department'),
+                ('doctor', 'manager', 'Doctor'),
+            ]
+            
+            entity_found = False
+            for entity_type_check, app_label, model_name in model_mapping:
+                try:
+                    model_class = apps.get_model(app_label, model_name)
+                    
+                    # Try to find the entity by checking all IDs
+                    for entity in model_class.objects.all():
+                        hash_input = f"{entity_type_check}_{entity.pk}_{settings.SECRET_KEY}"
+                        calculated_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+                        
+                        if calculated_hash == potential_hash:
+                            entity_type = entity_type_check
+                            entity_id = entity.pk
+                            entity_found = True
+                            break
+                    
+                    if entity_found:
+                        break
+                        
+                except Exception as e:
+                    print(f"Error checking {entity_type_check}: {e}")
+                    continue
+            
+            if not entity_found:
+                return None, None, None, f"Entity not found for hash: {potential_hash}"
+        
+        # Check if it's a hash token with entity type prefix (format: entity_type:hash)
+        elif ':' in qr_code and '|' not in qr_code and len(qr_code.split(':')) == 2:
             entity_type, potential_hash = qr_code.split(':', 1)
             
             # Check if it's numeric (legacy format)
@@ -2084,8 +2243,7 @@ def parse_qr_code(raw_value):
                 # This is legacy format, continue with normal processing
             except ValueError:
                 # This is hash format - find entity by reverse-engineering
-                import hashlib
-                from django.conf import settings
+                print(f"[DEBUG parse_qr_code] Hash format detected: entity_type='{entity_type}', hash='{potential_hash}'")
                 
                 # Map entity types to models
                 model_mapping = {
@@ -2105,19 +2263,78 @@ def parse_qr_code(raw_value):
                     try:
                         model_class = apps.get_model(app_label, model_name)
                         
+                        # Initialize entity_id as None
+                        entity_id = None
+                        
                         # Try to find the entity by checking all IDs
+                        count = 0
                         for entity in model_class.objects.all():
                             hash_input = f"{entity_type}_{entity.pk}_{settings.SECRET_KEY}"
                             calculated_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+                            count += 1
+                            
+                            if count <= 5:  # Show first 5 for debug
+                                print(f"[DEBUG] Checking entity {entity.pk}: hash={calculated_hash}, looking for={potential_hash}")
                             
                             if calculated_hash == potential_hash:
                                 entity_id = entity.pk
+                                print(f"[DEBUG] FOUND! Entity ID {entity_id} matches hash {potential_hash}")
                                 break
-                    except:
-                        pass
+                        
+                        print(f"[DEBUG] Checked {count} {entity_type} entities")
+                    except Exception as e:
+                        print(f"[DEBUG] Error searching for entity: {e}")
+                        entity_id = None
+                else:
+                    print(f"[DEBUG] Entity type '{entity_type}' not in model_mapping")
+                    entity_id = None
                 
-                if not entity_id:
+                if entity_id is None:
                     return None, None, None, f"Entity not found for hash: {potential_hash}"
+                
+                # Entity found - now fetch and return its data
+                print(f"[DEBUG] Entity found, fetching data for {entity_type} ID {entity_id}")
+                
+                # Now fetch the actual entity and prepare data
+                app_label, model_name = model_mapping[entity_type]
+                model_class = apps.get_model(app_label, model_name)
+                
+                try:
+                    entity = model_class.objects.get(pk=entity_id)
+                    
+                    # Prepare entity data
+                    entity_data = {
+                        'id': entity.pk,
+                        'name': str(entity),
+                        'type': entity_type,
+                    }
+                    
+                    # Add specific fields based on entity type
+                    if entity_type == 'device':
+                        entity_data.update({
+                            'status': entity.status,
+                            'availability': entity.availability,
+                            'clean_status': entity.clean_status,
+                            'sterilization_status': entity.sterilization_status,
+                            'department': str(entity.department) if entity.department else None,
+                            'room': str(entity.room) if entity.room else None,
+                            'bed': str(entity.bed) if entity.bed else None,
+                            'current_patient': str(entity.current_patient) if entity.current_patient else None,
+                        })
+                    elif entity_type == 'patient':
+                        entity_data.update({
+                            'full_name': f"{entity.first_name} {entity.last_name}",
+                            'mrn': getattr(entity, 'mrn', ''),
+                            'age': entity.age if hasattr(entity, 'age') else None,
+                            'gender': getattr(entity, 'gender', None),
+                            'date_of_birth': entity.date_of_birth.strftime('%Y-%m-%d') if entity.date_of_birth else None,
+                        })
+                    
+                    print(f"[DEBUG] Returning entity data for {entity_type} ID {entity_id}")
+                    return entity_type, entity_id, entity_data, None
+                    
+                except model_class.DoesNotExist:
+                    return None, None, None, f"{entity_type.title()} with ID {entity_id} not found"
                 
         # Check if it's a secure token with signature (legacy)
         elif '|sig=' in qr_code:
@@ -2308,6 +2525,10 @@ def parse_qr_code(raw_value):
                 # If we reach here, it means the hash wasn't found
                 return None, None, None, f"Entity not found for hash: {potential_id}"
         
+        # Only proceed if we have entity_type and entity_id
+        if entity_type is None or entity_id is None:
+            return None, None, None, "Invalid QR code format or entity not found"
+        
         # Map entity types to models
         model_mapping = {
             'device': ('maintenance', 'Device'),
@@ -2404,6 +2625,10 @@ def scan_qr_code_api(request):
     Works without browser interface - pure API endpoint
     Now with context-based flow management and secure token validation
     """
+    print(f"[DEBUG scan_qr_code_api] Method: {request.method}")
+    print(f"[DEBUG scan_qr_code_api] Content-Type: {request.content_type}")
+    print(f"[DEBUG scan_qr_code_api] Body: {request.body[:200] if request.body else 'None'}")
+    
     from core.secure_qr import QRContextFlow
     
     if request.method != 'POST':
@@ -2416,17 +2641,23 @@ def scan_qr_code_api(request):
         else:
             data = request.POST.dict()
         
+        print(f"[DEBUG scan_qr_code_api] Parsed data: {data}")
+        
         qr_code = data.get('qr_code', '').strip()
         device_type = data.get('device_type', 'unknown')  # 'scanner', 'mobile', 'unknown'
         user_id = data.get('user_id')
         scanner_id = data.get('scanner_id')  # Unique ID for dedicated scanner
         session_id = data.get('session_id')  # Session ID for context flows
         
+        print(f"[DEBUG scan_qr_code_api] QR Code: '{qr_code}', Session: {session_id}")
+        
         if not qr_code:
             return JsonResponse({'error': 'QR code is required'}, status=400)
         
         # Parse QR code (now supports secure tokens)
+        print(f"[DEBUG scan_qr_code_api] Calling parse_qr_code with: '{qr_code}'")
         entity_type, entity_id, entity_data, error = parse_qr_code(qr_code)
+        print(f"[DEBUG scan_qr_code_api] Parse result - Type: {entity_type}, ID: {entity_id}, Error: {error}")
         
         if error:
             return JsonResponse({
@@ -2448,19 +2679,29 @@ def scan_qr_code_api(request):
         flow_executed = False
         
         # Log the scan with enhanced data (initial log, will update if flow matches)
-        scan_log = log_qr_scan(
-            qr_code=qr_code,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            entity_data=entity_data,
-            user=user,
-            device_type=device_type,
-            scanner_id=scanner_id,
-            request=request,
-            is_secure=entity_data.get('token_uuid') is not None,
-            is_ephemeral=entity_data.get('ephemeral', False),
-            session_id=session_id
-        )
+        try:
+            is_secure = entity_data.get('token_uuid') is not None if entity_data else False
+            is_ephemeral = entity_data.get('ephemeral', False) if entity_data else False
+            
+            scan_log = log_qr_scan(
+                qr_code=qr_code,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_data=entity_data if entity_data else {},
+                user=user,
+                device_type=device_type,
+                scanner_id=scanner_id,
+                request=request,
+                is_secure=is_secure,
+                is_ephemeral=is_ephemeral,
+                session_id=session_id
+            )
+        except Exception as e:
+            print(f"[DEBUG scan_qr_code_api] Error logging scan: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error logging scan: {str(e)}'
+            }, status=500)
         
         # Handle context-based flows for mobile devices
         if device_type == 'mobile' and user_id:
@@ -2604,7 +2845,11 @@ def scan_qr_code(request):
             return JsonResponse({'error': 'QR code or sample token is required'}, status=400)
         
         # Parse QR code or sample token
-        entity_type, entity_id, entity_data, error = parse_qr_code(qr_code, sample_token)
+        if sample_token:
+            # If sample token provided, use it directly as qr_code
+            entity_type, entity_id, entity_data, error = parse_qr_code(sample_token)
+        else:
+            entity_type, entity_id, entity_data, error = parse_qr_code(qr_code)
         
         if error:
             return JsonResponse({

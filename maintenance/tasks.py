@@ -47,22 +47,22 @@ class MaintenanceTaskRunner:
         
         # جدولة جميع المهام كل دقيقة
         schedule.every(1).minutes.do(self._check_pm_schedules)
-        print("DEBUG: ✓ PM schedule check scheduled every 1 minute")
+        print("DEBUG: PM schedule check scheduled every 1 minute")
         
         schedule.every(1).minutes.do(self._check_sla_violations)
-        print("DEBUG: ✓ SLA violations check scheduled every 1 minute")
+        print("DEBUG: SLA violations check scheduled every 1 minute")
         
         schedule.every(1).minutes.do(self._daily_maintenance_check)
-        print("DEBUG: ✓ Daily maintenance check scheduled every 1 minute")
+        print("DEBUG: Daily maintenance check scheduled every 1 minute")
         
         schedule.every(1).minutes.do(self._send_daily_reports)
-        print("DEBUG: ✓ Daily reports scheduled every 1 minute")
+        print("DEBUG: Daily reports scheduled every 1 minute")
         
         schedule.every(1).minutes.do(self._monitor_downtime_schedules)
-        print("DEBUG: ✓ Downtime monitoring scheduled every 1 minute")
+        print("DEBUG: Downtime monitoring scheduled every 1 minute")
         
         schedule.every(1).minutes.do(self._check_calibration_schedules)
-        print("DEBUG: ✓ Calibration schedule check scheduled every 1 minute")
+        print("DEBUG: Calibration schedule check scheduled every 1 minute")
         
         print("=" * 80)
         print("DEBUG: All tasks scheduled to run every minute!")
@@ -73,7 +73,7 @@ class MaintenanceTaskRunner:
         while self.running:
             try:
                 current_time = timezone.now()
-                print(f"\n🔄 SCHEDULER TICK: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"\n[SCHEDULER TICK]: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 print("-" * 60)
                 
                 # تشغيل المهام المجدولة
@@ -89,7 +89,7 @@ class MaintenanceTaskRunner:
             except Exception as e:
                 error_time = timezone.now()
                 logger.error(f"خطأ في تشغيل المهام المجدولة في {error_time}: {str(e)}")
-                print(f"❌ SCHEDULER ERROR at {error_time}: {str(e)}")
+                print(f"[SCHEDULER ERROR] at {error_time}: {str(e)}")
                 time.sleep(60)  # انتظار دقيقة واحدة عند حدوث خطأ
     
     def _check_pm_schedules(self):

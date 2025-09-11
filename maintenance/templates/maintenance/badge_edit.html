@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}تعديل البطاقة - {{ badge.badge_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>
+                        <i class="fas fa-edit me-2"></i>
+                        تعديل البطاقة
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'maintenance:badges_management' %}">إدارة البطاقات</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'maintenance:badge_detail' badge.pk %}">{{ badge.badge_number }}</a></li>
+                            <li class="breadcrumb-item active">تعديل</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:badge_detail' badge.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>العودة
+                    </a>
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-id-card me-2"></i>
+                        تعديل بيانات البطاقة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <!-- Badge Number (Read Only) -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">رقم البطاقة</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-hashtag"></i>
+                                        </span>
+                                        <input type="text" class="form-control" value="{{ badge.badge_number }}" readonly>
+                                    </div>
+                                    <small class="form-text text-muted">رقم البطاقة لا يمكن تعديله</small>
+                                </div>
+
+                                <!-- QR Code (Read Only) -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">كود QR</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-qrcode"></i>
+                                        </span>
+                                        <input type="text" class="form-control" value="{{ badge.qr_code|default:'غير متوفر' }}" readonly>
+                                    </div>
+                                    <small class="form-text text-muted">كود QR يتم توليده تلقائياً</small>
+                                </div>
+
+                                <!-- Creation Date (Read Only) -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">تاريخ الإنشاء</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-calendar"></i>
+                                        </span>
+                                        <input type="text" class="form-control" value="{{ badge.created_at|date:'Y-m-d H:i:s' }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <!-- User Selection -->
+                                <div class="mb-3">
+                                    <label for="user" class="form-label fw-bold">المستخدم <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                        <select class="form-select" id="user" name="user" required>
+                                            <option value="">اختر المستخدم</option>
+                                            {% for user in users %}
+                                                <option value="{{ user.pk }}" {% if badge.user.pk == user.pk %}selected{% endif %}>
+                                                    {{ user.get_full_name }} ({{ user.username }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">حالة البطاقة</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                               {% if badge.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_active">
+                                            البطاقة نشطة
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        البطاقات المعطلة لا يمكن استخدامها في العمليات
+                                    </small>
+                                </div>
+
+                                <!-- Last Login (Read Only) -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">آخر استخدام</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-clock"></i>
+                                        </span>
+                                        <input type="text" class="form-control" 
+                                               value="{% if badge.last_login %}{{ badge.last_login|date:'Y-m-d H:i:s' }}{% else %}لم تستخدم بعد{% endif %}" 
+                                               readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current User Info Display -->
+                        {% if badge.user %}
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm me-3">
+                                    <div class="avatar-title bg-primary rounded-circle">
+                                        {{ badge.user.first_name|first|upper }}{{ badge.user.last_name|first|upper }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong>المستخدم الحالي:</strong> {{ badge.user.get_full_name }}
+                                    <br><small class="text-muted">{{ badge.user.username }}{% if badge.user.email %} - {{ badge.user.email }}{% endif %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Action Buttons -->
+                        <div class="row">
+                            <div class="col-12">
+                                <hr>
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <a href="{% url 'maintenance:badge_detail' badge.pk %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-2"></i>إلغاء
+                                        </a>
+                                    </div>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>حفظ التغييرات
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Additional Actions -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        إجراءات إضافية
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            {% if badge.is_active %}
+                                <a href="{% url 'maintenance:deactivate_badge' badge.pk %}" 
+                                   class="btn btn-warning w-100"
+                                   onclick="return confirm('هل أنت متأكد من تعطيل هذه البطاقة؟')">
+                                    <i class="fas fa-pause me-2"></i>تعطيل البطاقة
+                                </a>
+                            {% else %}
+                                <a href="{% url 'maintenance:activate_badge' badge.pk %}" 
+                                   class="btn btn-success w-100">
+                                    <i class="fas fa-play me-2"></i>تفعيل البطاقة
+                                </a>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'maintenance:regenerate_qr_code' badge.pk %}" 
+                               class="btn btn-info w-100"
+                               onclick="return confirm('هل أنت متأكد من إعادة توليد كود QR؟ سيتم إلغاء الكود الحالي.')">
+                                <i class="fas fa-sync me-2"></i>إعادة توليد QR
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 50px;
+    height: 50px;
+}
+
+.avatar-title {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+body.dark-mode .card {
+    background-color: #2d3748;
+    border-color: #4a5568;
+}
+
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+    background-color: #4a5568;
+    border-color: #718096;
+    color: #e2e8f0;
+}
+
+body.dark-mode .form-control:focus,
+body.dark-mode .form-select:focus {
+    background-color: #4a5568;
+    border-color: #63b3ed;
+    color: #e2e8f0;
+    box-shadow: 0 0 0 0.2rem rgba(99, 179, 237, 0.25);
+}
+
+body.dark-mode .input-group-text {
+    background-color: #4a5568;
+    border-color: #718096;
+    color: #e2e8f0;
+}
+
+body.dark-mode .form-check-input:checked {
+    background-color: #63b3ed;
+    border-color: #63b3ed;
+}
+
+body.dark-mode .alert-info {
+    background-color: #2c5aa0;
+    border-color: #2c5aa0;
+    color: #e2e8f0;
+}
+
+body.dark-mode .breadcrumb-item a {
+    color: #63b3ed;
+}
+
+body.dark-mode .text-muted {
+    color: #a0aec0 !important;
+}
+</style>
+
+<script>
+function regenerateQR() {
+    if (confirm('هل أنت متأكد من إعادة توليد كود QR؟ سيتم إلغاء الكود الحالي.')) {
+        // Here you would make an AJAX call to regenerate QR code
+        // For now, just show a message
+        alert('سيتم تطبيق هذه الميزة قريباً');
+    }
+}
+
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const userSelect = document.getElementById('user');
+    
+    form.addEventListener('submit', function(e) {
+        if (!userSelect.value) {
+            e.preventDefault();
+            alert('يرجى اختيار مستخدم للبطاقة');
+            userSelect.focus();
+        }
+    });
+});
+</script>
+{% endblock %}

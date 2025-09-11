@@ -243,7 +243,7 @@
 <!-- Session Data -->
 <script>
     const SESSION_ID = '{{ session.session_id }}';
-    const SCAN_API_URL = '{% url "maintenance:scan_qr_code" %}';
+    const SCAN_API_URL = '{% url "maintenance:scan_qr_code_api" %}';
     const SAVE_SESSION_URL = '{% url "maintenance:save_scan_session" %}';
 </script>
 {% endblock %}
@@ -298,7 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     qr_code: code,
-                    session_id: currentSession.id
+                    session_id: currentSession.id,
+                    redirect_to_page: false  // Don't redirect in scan session
                 })
             });
             

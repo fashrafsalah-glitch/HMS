@@ -37,6 +37,15 @@
                 <a href="{% url 'manager:department_devices' department.id %}" class="btn btn-dark me-2">
                     <i class="bi bi-cpu me-1"></i> قائمة الأجهزة
                 </a>
+                {% if department.qr_code %}
+                <a href="{% url 'manager:download_department_qr' department.id %}" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-qr-code me-1"></i> تحميل QR Code
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        
             </div>
         </div>
         {% endif %}
@@ -132,3 +141,28 @@
     </div>
 </div>
 {% endblock %}
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if department and department.qr_code %}
+    // Generate QR Code for department
+    var qrData = 'department:{{ department.pk }}';
+    var qrElement = document.getElementById('qrcode-{{ department.pk }}');
+    if (qrElement && typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(qrElement, qrData, {
+            width: 200,
+            height: 200,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        }).catch(function(error) {
+            console.error('QR Code generation failed:', error);
+            qrElement.innerHTML = '<div class="text-danger">فشل في توليد QR Code</div>';
+        });
+    }
+    {% endif %}
+});
+</script>
