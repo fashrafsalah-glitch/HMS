@@ -2935,7 +2935,7 @@ def scan_qr_code(request):
             scanned_code=qr_code,
             entity_type=entity_type,
             entity_id=entity_id,
-            entity_data=entity_data,
+            entity_data=json.dumps(entity_data) if entity_data else None,  # Convert dict to JSON string
             is_valid=True
         )
         

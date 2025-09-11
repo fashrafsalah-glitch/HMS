@@ -63,59 +63,84 @@ class QROperationsManager:
         
         entities = []
         for scan in scans:
+            # entity_data might already be a dict or a string
+            if scan.entity_data:
+                if isinstance(scan.entity_data, dict):
+                    data = scan.entity_data
+                else:
+                    data = json.loads(scan.entity_data)
+            else:
+                data = {}
+                
             entities.append({
                 'type': scan.entity_type,
                 'id': scan.entity_id,
-                'data': json.loads(scan.entity_data) if scan.entity_data else {},
+                'data': data,
                 'scanned_at': scan.scanned_at
             })
         return entities
     
     def match_operation(self, scanned_entities: List[Dict]) -> Optional['OperationDefinition']:
         """Match scanned sequence to an operation definition"""
+        print(f"[DEBUG match_operation] Checking {len(scanned_entities)} entities")
+        print(f"[DEBUG match_operation] Entity types: {[e['type'] for e in scanned_entities]}")
+        
         if not scanned_entities:
             return None
         
         # Get active operations
         active_operations = self.OperationDefinition.objects.filter(is_active=True)
+        print(f"[DEBUG match_operation] Found {active_operations.count()} active operations")
         
         for operation in active_operations:
             steps = operation.steps.order_by('order')
+            print(f"[DEBUG match_operation] Checking {operation.code} with {steps.count()} steps")
             if self._sequence_matches_steps(scanned_entities, steps):
+                print(f"[DEBUG match_operation] MATCHED: {operation.code}")
                 return operation
         
+        print("[DEBUG match_operation] No operation matched")
         return None
     
     def _sequence_matches_steps(self, entities: List[Dict], steps) -> bool:
         """Check if scanned entities match operation steps"""
         required_steps = [s for s in steps if s.is_required]
+        print(f"[DEBUG _sequence_matches_steps] Required steps: {len(required_steps)}")
+        print(f"[DEBUG _sequence_matches_steps] Step types: {[s.entity_type for s in required_steps]}")
+        print(f"[DEBUG _sequence_matches_steps] Entity types: {[e['type'] for e in entities]}")
         
         # Must have at least the required steps
         if len(entities) < len(required_steps):
+            print(f"[DEBUG] Not enough entities: {len(entities)} < {len(required_steps)}")
             return False
         
         # Check each required step
         for i, step in enumerate(required_steps):
             if i >= len(entities):
+                print(f"[DEBUG] Step {i} - no entity at this position")
                 return False
                 
             entity = entities[i]
             
             # Check entity type
             if entity['type'] != step.entity_type:
+                print(f"[DEBUG] Step {i} - type mismatch: {entity['type']} != {step.entity_type}")
                 return False
             
             # Check validation rule if exists
             if step.validation_rule:
                 if not self._validate_entity(entity, step.validation_rule):
+                    print(f"[DEBUG] Step {i} - validation rule failed")
                     return False
             
             # Check allowed entity IDs if specified
             if step.allowed_entity_ids:
                 allowed_ids = json.loads(step.allowed_entity_ids)
                 if str(entity['id']) not in allowed_ids:
+                    print(f"[DEBUG] Step {i} - entity ID not in allowed list")
                     return False
         
+        print(f"[DEBUG] All steps matched!")
         return True
     
     def _validate_entity(self, entity: Dict, rule: str) -> bool:
@@ -143,9 +168,12 @@ class QROperationsManager:
         scanned_entities: List[Dict]
     ) -> Tuple[bool, Optional['OperationExecution'], str]:
         """Execute an operation and create appropriate logs"""
+        print(f"[DEBUG execute_operation] Operation: {operation.code}, Auto: {operation.auto_execute}, Confirm: {operation.requires_confirmation}")
+        print(f"[DEBUG execute_operation] Entities: {[e['type'] for e in scanned_entities]}")
         
         # Check if operation requires confirmation
         if operation.requires_confirmation:
+            print("[DEBUG] Operation requires confirmation - creating pending execution")
             # Return pending execution for frontend confirmation
             execution = self.OperationExecution.objects.create(
                 operation=operation,
@@ -159,9 +187,11 @@ class QROperationsManager:
         
         # Auto-execute if configured
         if operation.auto_execute:
+            print("[DEBUG] Auto-executing operation")
             return self._perform_execution(operation, session, user, scanned_entities)
         
         # Create pending execution
+        print("[DEBUG] Creating pending execution (not auto-execute)")
         execution = self.OperationExecution.objects.create(
             operation=operation,
             session=session,
@@ -181,6 +211,7 @@ class QROperationsManager:
         scanned_entities: List[Dict]
     ) -> Tuple[bool, Optional['OperationExecution'], str]:
         """Perform the actual operation execution"""
+        print(f"[DEBUG _perform_execution] Starting execution for {operation.code}")
         
         execution = None
         try:
@@ -194,12 +225,16 @@ class QROperationsManager:
                     scanned_entities=json.dumps(scanned_entities),
                     started_at=timezone.now()
                 )
+                print(f"[DEBUG] Created execution record: {execution.id}")
                 
                 # Execute based on operation code
+                print(f"[DEBUG] Calling _execute_by_code for {operation.code}")
                 result = self._execute_by_code(operation.code, scanned_entities, user)
+                print(f"[DEBUG] _execute_by_code result: {result}")
                 
                 # Create logs based on operation settings
                 logs_created = self._create_logs(operation, scanned_entities, user, result)
+                print(f"[DEBUG] Logs created: {logs_created}")
                 
                 # Update execution
                 execution.status = 'completed'
@@ -207,10 +242,14 @@ class QROperationsManager:
                 execution.result_data = json.dumps(result)
                 execution.created_logs = json.dumps(logs_created)
                 execution.save()
+                print(f"[DEBUG] Execution completed successfully")
                 
                 return True, execution, f"Operation '{operation.name}' executed successfully"
                 
         except Exception as e:
+            print(f"[DEBUG ERROR] Exception in _perform_execution: {e}")
+            import traceback
+            print(f"[DEBUG ERROR] Traceback: {traceback.format_exc()}")
             if execution:
                 execution.status = 'failed'
                 execution.error_message = str(e)
@@ -362,8 +401,8 @@ class QROperationsManager:
         return result
     
     def _handle_device_usage(self, entities: List[Dict], user: User) -> Dict:
-        """Handle device usage operation - Patient Association"""
-        from .models import Badge
+        """Handle device usage operation - Link device to patient"""
+        print(f"[DEBUG _handle_device_usage] Starting with {len(entities)} entities")
         result = {'actions': []}
         
         # Find badge, patient and devices
@@ -371,16 +410,21 @@ class QROperationsManager:
         patient_entity = next((e for e in entities if e['type'] == 'patient'), None)
         device_entities = [e for e in entities if e['type'] == 'device']
         
+        print(f"[DEBUG] Badge: {badge_entity}, Patient: {patient_entity}, Devices: {len(device_entities)}")
+        
         if patient_entity and device_entities:
             from manager.models import Patient
             patient = Patient.objects.get(id=patient_entity['id'])
+            print(f"[DEBUG] Found patient: {patient}")
             
             for device_entity in device_entities:
                 device = self.Device.objects.get(id=device_entity['id'])
+                print(f"[DEBUG] Processing device: {device.name}, status: {device.status}")
                 
                 # Check if device is available
                 if device.status == 'in_use':
                     result['actions'].append(f"⚠️ الجهاز {device.name} قيد الاستخدام بالفعل")
+                    print(f"[DEBUG] Device {device.name} already in use")
                     continue
                     
                 # Create usage log
@@ -391,6 +435,7 @@ class QROperationsManager:
                     start_time=timezone.now(),
                     notes=f"ربط عبر QR - المريض: {patient.first_name} {patient.last_name}"
                 )
+                print(f"[DEBUG] Created usage log: {usage_log.id}")
                 
                 # Update device status
                 device.status = 'in_use'
@@ -398,9 +443,14 @@ class QROperationsManager:
                 device.current_patient = patient
                 device.usage_start_time = timezone.now()
                 device.save()
+                print(f"[DEBUG] Device {device.name} status updated to in_use")
                 
                 result['actions'].append(f"✅ تم ربط الجهاز {device.name} بالمريض {patient.first_name} {patient.last_name}")
+        else:
+            print(f"[DEBUG] Missing entities - Patient: {patient_entity is not None}, Devices: {len(device_entities)}")
+            result['actions'].append("⚠️ يجب مسح المستخدم والجهاز والمريض بالترتيب")
         
+        print(f"[DEBUG] Result: {result}")
         return result
     
     def _handle_end_device_usage(self, entities: List[Dict], user: User) -> Dict:

@@ -923,7 +923,7 @@
     // Process scan result
     function handleScan(code) {
         // Send to server
-        fetch("{% url 'maintenance:scan_qr_code_api' %}", {
+        fetch("{% url 'maintenance:scan_qr_code' %}", {  // تغيير إلى scan_qr_code بدلاً من scan_qr_code_api
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -243,12 +243,11 @@
 <!-- Session Data -->
 <script>
     const SESSION_ID = '{{ session.session_id }}';
-    const SCAN_API_URL = '{% url "maintenance:scan_qr_code_api" %}';
+    // IMPORTANT: Using scan_qr_code NOT scan_qr_code_api
+    const SCAN_API_URL = '/maintenance/api/scan-qr/';  // Direct URL to scan_qr_code
     const SAVE_SESSION_URL = '{% url "maintenance:save_scan_session" %}';
+    console.log('✅ SCAN_API_URL set to:', SCAN_API_URL);
 </script>
-{% endblock %}
-
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const scanInput = document.getElementById('scanInput');
@@ -289,6 +288,9 @@ document.addEventListener('DOMContentLoaded', function() {
     async function scanQRCode(code) {
         try {
             showAlert('جاري المسح...', 'info');
+            
+            // استخدام scan_qr_code وليس scan_qr_code_api
+            console.log('Using URL:', SCAN_API_URL);
             
             const response = await fetch(SCAN_API_URL, {
                 method: 'POST',
