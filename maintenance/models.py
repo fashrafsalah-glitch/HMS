@@ -1091,7 +1091,6 @@ class Device(QRCodeMixin, models.Model):
         self.availability = True
         self.clean_status = 'needs_cleaning'
         self.sterilization_status = 'needs_sterilization'
-        self.status = 'needs_check'
         self.save()
         
         # Check for after-use PM schedules
@@ -1159,17 +1158,6 @@ class Device(QRCodeMixin, models.Model):
     def __str__(self):
         return f"{self.id} - {self.model}"
     
-
-
-# DeviceCleaningLog model removed - duplicate definition exists above
-
-# DeviceSterilizationLog model removed - duplicate definition exists above
-
-# DeviceMaintenanceLog model removed - duplicate definition exists above
-
-# ═══════════════════════════════════════════════════════════════════════════
-# QR/BARCODE INTEGRATION MODELS
-# ═══════════════════════════════════════════════════════════════════════════
 
 class DeviceUsageLog(models.Model):
     """Log for tracking device usage sessions via QR scanning"""

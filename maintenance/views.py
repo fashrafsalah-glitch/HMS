@@ -3040,16 +3040,137 @@ def scan_qr_code(request):
         # Get all scanned entities and match to operations
         scanned_entities = ops_manager.get_scanned_entities(scan_session)
         
-        # If we have a pending operation and just scanned the third entity, execute it
+        # Initialize these before processing
+        operation_executed = False
+        execution_result = None
+        execution_message = None
+        
+        # If we have a pending operation and just scanned the third entity, use it
         if pending_operation and entity_type in ['patient', 'department', 'user', 'customuser']:
             print(f"🎯 DEBUG: Using pending operation {pending_operation.code} for entity type {entity_type}")
             matched_operation = pending_operation
-            # Clear the pending operation
-            if scan_session.context_json:
-                scan_session.context_json.pop('pending_operation', None)
-                scan_session.context_json.pop('pending_device', None)
-                scan_session.save()
-                print(f"✅ DEBUG: Cleared pending operation from session")
+            
+            # For DEVICE_USAGE specifically, we need to handle the execution here
+            if pending_operation.code == 'DEVICE_USAGE' and entity_type == 'patient':
+                # Get the pending device ID
+                pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
+                if pending_device_id:
+                    print(f"🔗 DEBUG: Executing DEVICE_USAGE - Linking device {pending_device_id} to patient {entity_id}")
+                    try:
+                        device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
+                        patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
+                        
+                        # Clear any previous patient assignments for this patient
+                        Device = apps.get_model('maintenance', 'Device')
+                        Device.objects.filter(current_patient=patient).update(current_patient=None)
+                        
+                        # Assign device to patient
+                        device.current_patient = patient
+                        device.availability = False
+                        device.save()
+                        
+                        # Create DeviceUsageLog
+                        DeviceUsageLog = apps.get_model('maintenance', 'DeviceUsageLog')
+                        usage_log = DeviceUsageLog.objects.create(
+                            user=request.user,
+                            patient=patient,
+                            started_at=timezone.now(),
+                            operation_type='procedure',  # Valid choice from OPERATION_CHOICES
+                            procedure_name=f'استخدام الجهاز {device.name}',
+                            status='active'
+                        )
+                        
+                        # Create DeviceUsageLogItem for the device
+                        DeviceUsageLogItem = apps.get_model('maintenance', 'DeviceUsageLogItem')
+                        usage_item = DeviceUsageLogItem.objects.create(
+                            usage_log=usage_log,
+                            device=device,
+                            usage_start=timezone.now(),
+                            status='in_use',
+                            used_by=request.user
+                        )
+                        
+                        operation_executed = True
+                        execution_message = f'تم ربط الجهاز {device.name} بالمريض {patient.name}'
+                        print(f"✅ DEBUG: Device linked successfully - operation_executed={operation_executed}")
+                        
+                        # Clear the pending operation
+                        if scan_session.context_json:
+                            scan_session.context_json.pop('pending_operation', None)
+                            scan_session.context_json.pop('pending_device', None)
+                            scan_session.save()
+                            print(f"✅ DEBUG: Cleared pending operation from session")
+                    except Exception as e:
+                        print(f"❌ DEBUG: Error linking device: {e}")
+                        execution_message = f'خطأ في ربط الجهاز: {str(e)}'
+                        operation_executed = False
+            
+            # Handle END_DEVICE_USAGE - إنهاء الاستخدام
+            elif pending_operation.code == 'END_DEVICE_USAGE' and entity_type == 'patient':
+                # Get the pending device ID
+                pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
+                if pending_device_id:
+                    print(f"🅾️ DEBUG: Executing END_DEVICE_USAGE - Ending usage for device {pending_device_id}")
+                    try:
+                        device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
+                        patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
+                        
+                        # Check if this patient is using this device
+                        if device.current_patient and device.current_patient.id == patient.id:
+                            # End the device usage
+                            device.current_patient = None
+                            device.availability = True
+                            # Mark device as needing cleaning and sterilization
+                            device.clean_status = 'needs_cleaning'
+                            device.sterilization_status = 'needs_sterilization'
+                            device.save()
+                            
+                            # End active DeviceUsageLog
+                            DeviceUsageLog = apps.get_model('maintenance', 'DeviceUsageLog')
+                            active_logs = DeviceUsageLog.objects.filter(
+                                patient=patient,
+                                status='active'
+                            )
+                            
+                            for log in active_logs:
+                                # Check if this log has the device
+                                if log.items.filter(device=device).exists():
+                                    log.completed_at = timezone.now()
+                                    log.status = 'completed'
+                                    log.completed_by = request.user
+                                    log.save()
+                                    
+                                    # Update the device item status
+                                    log.items.filter(device=device).update(
+                                        usage_end=timezone.now(),
+                                        status='completed'
+                                    )
+                            
+                            operation_executed = True
+                            execution_message = f'تم إنهاء استخدام الجهاز {device.name} - الجهاز يحتاج تنظيف وتعقيم'
+                            print(f"✅ DEBUG: Device usage ended successfully")
+                        else:
+                            execution_message = f'المريض {patient.name} لا يستخدم الجهاز {device.name}'
+                            print(f"⚠️ DEBUG: Patient is not using this device")
+                        
+                        # Clear the pending operation
+                        if scan_session.context_json:
+                            scan_session.context_json.pop('pending_operation', None)
+                            scan_session.context_json.pop('pending_device', None)
+                            scan_session.save()
+                            print(f"✅ DEBUG: Cleared pending operation from session")
+                    except Exception as e:
+                        print(f"❌ DEBUG: Error ending device usage: {e}")
+                        execution_message = f'خطأ في إنهاء الاستخدام: {str(e)}'
+                        operation_executed = False
+            
+            else:
+                # Clear the pending operation for other operations
+                if scan_session.context_json:
+                    scan_session.context_json.pop('pending_operation', None)
+                    scan_session.context_json.pop('pending_device', None)
+                    scan_session.save()
+                    print(f"✅ DEBUG: Cleared pending operation from session")
         else:
             # Otherwise, try to match normally
             matched_operation = ops_manager.match_operation(scanned_entities)
@@ -3070,41 +3191,9 @@ def scan_qr_code(request):
                 scan_session.save()
             
             # Special handling for DEVICE_USAGE when we have pending operation
-            if matched_operation.code == 'DEVICE_USAGE' and pending_operation:
-                # Get the pending device ID
-                pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
-                if pending_device_id and entity_type == 'patient':
-                    print(f"🔗 DEBUG: Linking device {pending_device_id} to patient {entity_id}")
-                    # Link device to patient
-                    try:
-                        device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
-                        patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
-                        
-                        # Clear any previous patient assignments for this patient
-                        Device = apps.get_model('maintenance', 'Device')
-                        Device.objects.filter(current_patient=patient).update(current_patient=None)
-                        
-                        # Assign device to patient
-                        device.current_patient = patient
-                        device.availability = False
-                        device.save()
-                        
-                        # Create DeviceUsageLog
-                        DeviceUsageLog = apps.get_model('maintenance', 'DeviceUsageLog')
-                        usage_log = DeviceUsageLog.objects.create(
-                            device=device,
-                            user=request.user,
-                            patient=patient,
-                            started_at=timezone.now(),
-                            operation_type='qr_scan'
-                        )
-                        
-                        operation_executed = True
-                        execution_message = f'تم ربط الجهاز {device.name} بالمريض {patient.name}'
-                        print(f"✅ DEBUG: Device linked successfully")
-                    except Exception as e:
-                        print(f"❌ DEBUG: Error linking device: {e}")
-                        execution_message = f'خطأ في ربط الجهاز: {str(e)}'
+            if matched_operation and matched_operation.code == 'DEVICE_USAGE' and pending_operation:
+                # Already handled above in the pending operation section
+                pass  # Skip duplicate execution
             
             # Check if we can execute multiple operations in same session
             elif not pending_operation:  # Only execute normally if not handling pending operation
@@ -4580,6 +4669,22 @@ def execute_operation(request):
                 return JsonResponse({
                     'success': True,
                     'message': 'امسح كود المريض لربطه بالجهاز',
+                    'pending_operation': operation_code
+                })
+            
+            elif operation_code == 'END_DEVICE_USAGE':
+                # For three-step operation, just store and wait for patient scan
+                print(f"📝 DEBUG: END_DEVICE_USAGE selected, waiting for patient scan")
+                if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
+                    scan_session.context_json = {}
+                
+                scan_session.context_json['pending_operation'] = operation_code
+                scan_session.context_json['pending_device'] = device_id
+                scan_session.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'امسح كود المريض لإنهاء الاستخدام',
                     'pending_operation': operation_code
                 })
         
