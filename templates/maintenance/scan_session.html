@@ -446,10 +446,62 @@
     </div>
 </div>
 
-<!-- Audio feedback -->
-<audio id="beepSound" preload="auto">
-    <source src="{% static 'sounds/beep.mp3' %}" type="audio/mpeg">
-</audio>
+<!-- Additional Data Modal -->
+<div class="modal fade" id="additionalDataModal" tabindex="-1" aria-labelledby="additionalDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="additionalDataModalLabel">
+                    <i class="fas fa-plus-circle"></i> بيانات إضافية للعملية
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="additionalDataForm">
+                    <div id="additionalFields">
+                        <!-- Fields will be populated based on operation type -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> إلغاء
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitAdditionalData()">
+                    <i class="fas fa-check"></i> تنفيذ العملية
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Operations Modal -->
+<div class="modal fade" id="operationsModal" tabindex="-1" aria-labelledby="operationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="operationsModalLabel">
+                    <i class="fas fa-list-check"></i> العمليات المتاحة
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="operationsContent">
+                    <!-- Operations will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> إلغاء
+                </button>
+                <button type="button" class="btn btn-primary" id="continueScanning" style="display: none;">
+                    <i class="fas fa-qrcode"></i> متابعة المسح للعمليات ثلاثية الخطوات
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <script>// Global variables
@@ -963,6 +1015,11 @@
                     });
                 }
                 
+                // Check if we have available operations to show (User + Device scanned)
+                if (data.available_operations && data.available_operations.length > 0) {
+                    showOperationsModal(data.available_operations, data.requires_third_step, data.entity_id, data.entity_type);
+                }
+                
                 // If operation executed, refresh pending executions
                 if (data.operation_executed) {
                     showNotification('Operation executed successfully!', 'success');
@@ -1098,5 +1155,282 @@
             });
         }
     }
+    
+    // Show operations modal
+    function showOperationsModal(operations, requiresThirdStep, entityId, entityType) {
+        const operationsContent = document.getElementById('operationsContent');
+        const continueBtn = document.getElementById('continueScanning');
+        
+        // Clear previous content
+        operationsContent.innerHTML = '';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'mb-3';
+        header.innerHTML = `
+            <p class="text-muted">
+                <i class="fas fa-info-circle"></i>
+                تم مسح المستخدم والجهاز. اختر العملية المطلوبة:
+            </p>
+        `;
+        operationsContent.appendChild(header);
+        
+        // Create operation buttons grid
+        const operationsGrid = document.createElement('div');
+        operationsGrid.className = 'row g-3';
+        
+        operations.forEach(op => {
+            const col = document.createElement('div');
+            col.className = 'col-md-6';
+            
+            const button = document.createElement('button');
+            button.className = `btn btn-${op.color || 'primary'} w-100 p-3 operation-btn`;
+            button.innerHTML = `
+                <i class="${op.icon || 'fas fa-cog'} fs-3 mb-2"></i><br>
+                <strong>${op.name}</strong>
+                ${op.requires_third_step ? '<br><small class="text-white-50">يحتاج خطوة إضافية</small>' : ''}
+            `;
+            
+            // Add click handler
+            button.addEventListener('click', function() {
+                checkOperationRequirements(op.code, entityId, op.two_step);
+            });
+            
+            col.appendChild(button);
+            operationsGrid.appendChild(col);
+        });
+        
+        operationsContent.appendChild(operationsGrid);
+        
+        // Show/hide continue scanning button based on whether third step is needed
+        if (requiresThirdStep) {
+            continueBtn.style.display = 'block';
+        } else {
+            continueBtn.style.display = 'none';
+        }
+        
+        // Show modal using Bootstrap 5
+        const modal = new bootstrap.Modal(document.getElementById('operationsModal'));
+        modal.show();
+    }
+    
+    // Check if operation needs additional data
+    function checkOperationRequirements(operationCode, deviceId, isTwoStep) {
+        const needsAdditionalData = {
+            'DEVICE_CLEANING': {
+                fields: [
+                    { type: 'file', name: 'before_image', label: 'صورة قبل التنظيف', required: false },
+                    { type: 'file', name: 'after_image', label: 'صورة بعد التنظيف', required: false },
+                    { type: 'textarea', name: 'notes', label: 'ملاحظات', required: false }
+                ]
+            },
+            'DEVICE_STERILIZATION': {
+                fields: [
+                    { type: 'file', name: 'before_image', label: 'صورة قبل التعقيم', required: false },
+                    { type: 'file', name: 'after_image', label: 'صورة بعد التعقيم', required: false },
+                    { type: 'select', name: 'method', label: 'طريقة التعقيم', required: true, options: [
+                        { value: 'autoclave', label: 'أوتوكلاف' },
+                        { value: 'chemical', label: 'كيميائي' },
+                        { value: 'uv', label: 'الأشعة فوق البنفسجية' }
+                    ]},
+                    { type: 'text', name: 'lot_number', label: 'رقم الدفعة', required: false },
+                    { type: 'textarea', name: 'notes', label: 'ملاحظات', required: false }
+                ]
+            },
+            'MAINTENANCE_OPEN': {
+                fields: [
+                    { type: 'textarea', name: 'description', label: 'وصف المشكلة', required: true },
+                    { type: 'file', name: 'issue_image', label: 'صورة المشكلة', required: false },
+                    { type: 'select', name: 'priority', label: 'الأولوية', required: true, options: [
+                        { value: 'low', label: 'منخفضة' },
+                        { value: 'normal', label: 'عادية' },
+                        { value: 'high', label: 'عالية' },
+                        { value: 'critical', label: 'حرجة' }
+                    ]}
+                ]
+            },
+            'MAINTENANCE_CLOSE': {
+                fields: [
+                    { type: 'textarea', name: 'solution', label: 'الحل المطبق', required: true },
+                    { type: 'file', name: 'after_image', label: 'صورة بعد الإصلاح', required: false },
+                    { type: 'textarea', name: 'notes', label: 'ملاحظات', required: false }
+                ]
+            },
+            'CALIBRATION': {
+                fields: [
+                    { type: 'textarea', name: 'reason', label: 'سبب المعايرة', required: false },
+                    { type: 'date', name: 'next_due', label: 'تاريخ المعايرة القادمة', required: false }
+                ]
+            }
+        };
+        
+        if (needsAdditionalData[operationCode]) {
+            showAdditionalDataModal(operationCode, deviceId, isTwoStep, needsAdditionalData[operationCode]);
+        } else {
+            executeOperation(operationCode, deviceId, isTwoStep, {});
+        }
+    }
+    
+    // Show additional data modal
+    function showAdditionalDataModal(operationCode, deviceId, isTwoStep, config) {
+        const fieldsContainer = document.getElementById('additionalFields');
+        fieldsContainer.innerHTML = '';
+        
+        // Store operation info for later use
+        window.pendingOperationData = {
+            operationCode: operationCode,
+            deviceId: deviceId,
+            isTwoStep: isTwoStep
+        };
+        
+        // Generate form fields
+        config.fields.forEach(field => {
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = 'mb-3';
+            
+            const label = document.createElement('label');
+            label.className = 'form-label';
+            label.innerHTML = field.label + (field.required ? ' <span class="text-danger">*</span>' : '');
+            fieldDiv.appendChild(label);
+            
+            if (field.type === 'textarea') {
+                const textarea = document.createElement('textarea');
+                textarea.className = 'form-control';
+                textarea.name = field.name;
+                textarea.rows = 3;
+                textarea.required = field.required;
+                fieldDiv.appendChild(textarea);
+            } else if (field.type === 'select') {
+                const select = document.createElement('select');
+                select.className = 'form-control';
+                select.name = field.name;
+                select.required = field.required;
+                
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'اختر...';
+                select.appendChild(defaultOption);
+                
+                field.options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    select.appendChild(option);
+                });
+                
+                fieldDiv.appendChild(select);
+            } else if (field.type === 'file') {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.className = 'form-control';
+                input.name = field.name;
+                input.accept = 'image/*';
+                input.required = field.required;
+                fieldDiv.appendChild(input);
+            } else {
+                const input = document.createElement('input');
+                input.type = field.type;
+                input.className = 'form-control';
+                input.name = field.name;
+                input.required = field.required;
+                fieldDiv.appendChild(input);
+            }
+            
+            fieldsContainer.appendChild(fieldDiv);
+        });
+        
+        // Hide operations modal and show additional data modal
+        const opsModal = bootstrap.Modal.getInstance(document.getElementById('operationsModal'));
+        if (opsModal) opsModal.hide();
+        
+        const modal = new bootstrap.Modal(document.getElementById('additionalDataModal'));
+        modal.show();
+    }
+    
+    // Submit additional data and execute operation
+    function submitAdditionalData() {
+        const form = document.getElementById('additionalDataForm');
+        const formData = new FormData(form);
+        const additionalData = {};
+        
+        // Convert FormData to object
+        for (let [key, value] of formData.entries()) {
+            additionalData[key] = value;
+        }
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('additionalDataModal'));
+        modal.hide();
+        
+        // Execute operation with additional data
+        if (window.pendingOperationData) {
+            executeOperation(
+                window.pendingOperationData.operationCode,
+                window.pendingOperationData.deviceId,
+                window.pendingOperationData.isTwoStep,
+                additionalData
+            );
+        }
+    }
+    
+    // Execute operation
+    async function executeOperation(operationCode, deviceId, isTwoStep, additionalData = {}) {
+        try {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('operationsModal'));
+            modal.hide();
+            
+            showNotification('جاري تنفيذ العملية...', 'info');
+            
+            // Send request to execute operation
+            const response = await fetch('/maintenance/api/execute-operation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    operation_code: operationCode,
+                    device_id: deviceId,
+                    session_id: window.currentSessionId || '{{ session.session_id }}',
+                    execute_now: isTwoStep,  // Execute immediately if it's a two-step operation
+                    additional_data: additionalData  // Include additional data
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification(`✅ ${data.message || 'تم تنفيذ العملية بنجاح'}`, 'success');
+                
+                // If operation needs third step, keep scanning
+                if (!isTwoStep) {
+                    showNotification('امسح الكيان الثالث لإكمال العملية', 'info');
+                    window.pendingOperation = operationCode;
+                }
+            } else {
+                showNotification(`خطأ: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`خطأ في الاتصال: ${error.message}`, 'error');
+        }
+    }
+    
+    // Continue scanning button handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const continueBtn = document.getElementById('continueScanning');
+        if (continueBtn) {
+            continueBtn.addEventListener('click', function() {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('operationsModal'));
+                modal.hide();
+                showNotification('استمر في المسح لإضافة الكيان الثالث...', 'info');
+                // Focus on manual input or keep camera active
+                const manualInput = document.getElementById('manualInput');
+                if (manualInput) {
+                    manualInput.focus();
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}

@@ -240,6 +240,36 @@
     <div id="alertsContainer" class="mt-3"></div>
 </div>
 
+<!-- Operations Modal -->
+<div class="modal fade" id="operationsModal" tabindex="-1" aria-labelledby="operationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="operationsModalLabel">
+                    <i class="bi bi-list-check me-2"></i>
+                    العمليات المتاحة
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="operationsContent">
+                    <!-- Operations will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>
+                    إلغاء
+                </button>
+                <button type="button" class="btn btn-primary" id="continueScanning">
+                    <i class="bi bi-qr-code-scan me-2"></i>
+                    متابعة المسح للعمليات ثلاثية الخطوات
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Session Data -->
 <script>
     const SESSION_ID = '{{ session.session_id }}';
@@ -326,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
         addToScanHistory(data);
         
         // Show success message
-        let message = `✅ تم مسح ${getEntityDisplayName(data.entity_type)}: ${data.entity_data.name}`;
+        let message = `✅ تم مسح ${getEntityDisplayName(data.entity_type)}: ${data.entity_data.name || data.entity_id}`;
         
         // Add warnings if any
         if (data.warnings && data.warnings.length > 0) {
@@ -339,6 +369,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.entity_type === 'device') {
             currentSession.scannedDevices.push(data.entity_data);
             updateDeviceCount();
+            
+            // Check if we have available operations to show
+            if (data.available_operations && data.available_operations.length > 0) {
+                showOperationsModal(data.available_operations, data.requires_third_step, data.entity_id);
+            }
         }
         
         // Enable save button if we have devices
@@ -465,6 +500,117 @@ document.addEventListener('DOMContentLoaded', function() {
             this.disabled = false;
             this.innerHTML = '<i class="bi bi-save me-2"></i>حفظ الجلسة';
         }
+    });
+    
+    // Show operations modal
+    function showOperationsModal(operations, requiresThirdStep, deviceId) {
+        const operationsContent = document.getElementById('operationsContent');
+        const continueBtn = document.getElementById('continueScanning');
+        
+        // Clear previous content
+        operationsContent.innerHTML = '';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'mb-3';
+        header.innerHTML = `
+            <p class="text-muted">
+                <i class="bi bi-info-circle me-2"></i>
+                تم مسح المستخدم والجهاز. اختر العملية المطلوبة:
+            </p>
+        `;
+        operationsContent.appendChild(header);
+        
+        // Create operation buttons
+        const operationsGrid = document.createElement('div');
+        operationsGrid.className = 'row g-3';
+        
+        operations.forEach(op => {
+            const col = document.createElement('div');
+            col.className = 'col-md-6';
+            
+            const button = document.createElement('button');
+            button.className = `btn btn-${op.color} w-100 p-3 operation-btn`;
+            button.setAttribute('data-operation', op.code);
+            button.setAttribute('data-device', deviceId);
+            button.setAttribute('data-two-step', op.two_step);
+            button.innerHTML = `
+                <i class="${op.icon} fs-3 mb-2"></i><br>
+                <strong>${op.name}</strong>
+                ${op.requires_third_step ? '<br><small class="text-white-50">يحتاج خطوة إضافية</small>' : ''}
+            `;
+            
+            // Add click handler
+            button.addEventListener('click', function() {
+                executeOperation(op.code, deviceId, op.two_step);
+            });
+            
+            col.appendChild(button);
+            operationsGrid.appendChild(col);
+        });
+        
+        operationsContent.appendChild(operationsGrid);
+        
+        // Show/hide continue scanning button based on whether third step is needed
+        if (requiresThirdStep) {
+            continueBtn.style.display = 'block';
+        } else {
+            continueBtn.style.display = 'none';
+        }
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('operationsModal'));
+        modal.show();
+    }
+    
+    // Execute operation
+    async function executeOperation(operationCode, deviceId, isTwoStep) {
+        try {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('operationsModal'));
+            modal.hide();
+            
+            showAlert('جاري تنفيذ العملية...', 'info');
+            
+            // Send request to execute operation
+            const response = await fetch('/maintenance/api/execute-operation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    operation_code: operationCode,
+                    device_id: deviceId,
+                    session_id: currentSession.id,
+                    execute_now: isTwoStep  // Execute immediately if it's a two-step operation
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showAlert(`✅ ${data.message || 'تم تنفيذ العملية بنجاح'}`, 'success');
+                
+                // If operation needs third step, keep scanning
+                if (!isTwoStep) {
+                    showAlert('امسح الكيان الثالث لإكمال العملية', 'info');
+                    currentSession.pendingOperation = operationCode;
+                }
+            } else {
+                showAlert(`خطأ: ${data.error}`, 'danger');
+            }
+        } catch (error) {
+            showAlert(`خطأ في الاتصال: ${error.message}`, 'danger');
+        }
+    }
+    
+    // Continue scanning button handler
+    document.getElementById('continueScanning').addEventListener('click', function() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('operationsModal'));
+        modal.hide();
+        showAlert('استمر في المسح لإضافة الكيان الثالث...', 'info');
+        scanInput.focus();
     });
     
     // Get CSRF token

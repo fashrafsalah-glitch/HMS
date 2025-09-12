@@ -138,6 +138,7 @@ urlpatterns = [
     path('api/scan-session/end/', views.end_scan_session, name='end_scan_session'),
     
     # Dynamic Operation APIs
+    path('api/execute-operation/', views.execute_operation, name='execute_operation'),
     path('api/operation/confirm/<int:execution_id>/', views.confirm_operation, name='confirm_operation'),
     path('api/operation/cancel/<int:execution_id>/', views.cancel_operation, name='cancel_operation'),
     path('usage-logs/', views.device_usage_logs, name='device_usage_logs'),

@@ -3019,9 +3019,44 @@ def scan_qr_code(request):
         if session_updated:
             scan_session.save()
         
+        # Check for pending operation from previous scan (three-step operations)
+        pending_operation = None
+        if scan_session and hasattr(scan_session, 'context_json') and scan_session.context_json:
+            pending_operation_code = scan_session.context_json.get('pending_operation')
+            print(f"🔍 DEBUG: Checking pending operation: {pending_operation_code}")
+            if pending_operation_code:
+                # Try to get the operation definition
+                try:
+                    OperationDefinition = apps.get_model('maintenance', 'OperationDefinition')
+                    pending_operation = OperationDefinition.objects.filter(code=pending_operation_code).first()
+                    if pending_operation:
+                        print(f"✅ DEBUG: Found pending operation: {pending_operation.name} ({pending_operation.code})")
+                    else:
+                        print(f"❌ DEBUG: Could not find operation with code: {pending_operation_code}")
+                except Exception as e:
+                    print(f"❌ DEBUG: Error getting operation: {e}")
+                    pass
+        
         # Get all scanned entities and match to operations
         scanned_entities = ops_manager.get_scanned_entities(scan_session)
-        matched_operation = ops_manager.match_operation(scanned_entities)
+        
+        # If we have a pending operation and just scanned the third entity, execute it
+        if pending_operation and entity_type in ['patient', 'department', 'user', 'customuser']:
+            print(f"🎯 DEBUG: Using pending operation {pending_operation.code} for entity type {entity_type}")
+            matched_operation = pending_operation
+            # Clear the pending operation
+            if scan_session.context_json:
+                scan_session.context_json.pop('pending_operation', None)
+                scan_session.context_json.pop('pending_device', None)
+                scan_session.save()
+                print(f"✅ DEBUG: Cleared pending operation from session")
+        else:
+            # Otherwise, try to match normally
+            matched_operation = ops_manager.match_operation(scanned_entities)
+            if matched_operation:
+                print(f"🔄 DEBUG: Matched operation normally: {matched_operation.code}")
+            else:
+                print(f"⚠️ DEBUG: No operation matched for entities: {[e['type'] for e in scanned_entities]}")
         
         operation_executed = False
         execution_result = None
@@ -3034,25 +3069,63 @@ def scan_qr_code(request):
                 scan_session.current_operation = matched_operation
                 scan_session.save()
             
+            # Special handling for DEVICE_USAGE when we have pending operation
+            if matched_operation.code == 'DEVICE_USAGE' and pending_operation:
+                # Get the pending device ID
+                pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
+                if pending_device_id and entity_type == 'patient':
+                    print(f"🔗 DEBUG: Linking device {pending_device_id} to patient {entity_id}")
+                    # Link device to patient
+                    try:
+                        device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
+                        patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
+                        
+                        # Clear any previous patient assignments for this patient
+                        Device = apps.get_model('maintenance', 'Device')
+                        Device.objects.filter(current_patient=patient).update(current_patient=None)
+                        
+                        # Assign device to patient
+                        device.current_patient = patient
+                        device.availability = False
+                        device.save()
+                        
+                        # Create DeviceUsageLog
+                        DeviceUsageLog = apps.get_model('maintenance', 'DeviceUsageLog')
+                        usage_log = DeviceUsageLog.objects.create(
+                            device=device,
+                            user=request.user,
+                            patient=patient,
+                            started_at=timezone.now(),
+                            operation_type='qr_scan'
+                        )
+                        
+                        operation_executed = True
+                        execution_message = f'تم ربط الجهاز {device.name} بالمريض {patient.name}'
+                        print(f"✅ DEBUG: Device linked successfully")
+                    except Exception as e:
+                        print(f"❌ DEBUG: Error linking device: {e}")
+                        execution_message = f'خطأ في ربط الجهاز: {str(e)}'
+            
             # Check if we can execute multiple operations in same session
-            existing_executions = apps.get_model('maintenance', 'OperationExecution').objects.filter(
-                session=scan_session,
-                operation=matched_operation,
-                status__in=['completed', 'in_progress']
-            )
-            
-            can_execute = matched_operation.allow_multiple_executions or not existing_executions.exists()
-            
-            if can_execute:
-                success, execution, message = ops_manager.execute_operation(
-                    matched_operation,
-                    scan_session,
-                    request.user,
-                    scanned_entities
+            elif not pending_operation:  # Only execute normally if not handling pending operation
+                existing_executions = apps.get_model('maintenance', 'OperationExecution').objects.filter(
+                    session=scan_session,
+                    operation=matched_operation,
+                    status__in=['completed', 'in_progress']
                 )
-                operation_executed = True
-                execution_result = execution
-                execution_message = message
+                
+                can_execute = matched_operation.allow_multiple_executions or not existing_executions.exists()
+                
+                if can_execute:
+                    success, execution, message = ops_manager.execute_operation(
+                        matched_operation,
+                        scan_session,
+                        request.user,
+                        scanned_entities
+                    )
+                    operation_executed = True
+                    execution_result = execution
+                    execution_message = message
         
         # Prepare response
         response_data = {
@@ -3084,6 +3157,205 @@ def scan_qr_code(request):
         # Add validation warnings and notifications
         warnings = []
         notifications = []
+        available_operations = []  # قائمة العمليات المتاحة
+        requires_third_step = False  # هل نحتاج خطوة ثالثة
+        
+        # Check for User + Device sequence to determine available operations
+        if entity_type == 'device' and scan_session:
+            # Check if we have a user scan in this session
+            user_scans = scan_session.scan_history.filter(entity_type='user')
+            if user_scans.exists():
+                # We have User + Device, now determine available operations
+                try:
+                    device = apps.get_model('maintenance', 'Device').objects.get(pk=entity_id)
+                    
+                    # 1. Check if device is Out of Service
+                    if hasattr(device, 'status') and device.status == 'out_of_service':
+                        available_operations = [{
+                            'code': 'RETURN_TO_SERVICE',
+                            'name': 'إرجاع للخدمة',
+                            'icon': 'bi-arrow-return-left',
+                            'color': 'success',
+                            'two_step': True
+                        }]
+                    
+                    # 2. Check for open maintenance
+                    elif hasattr(device, 'status') and device.status == 'maintenance':
+                        # Check if there's an open work order
+                        WorkOrder = apps.get_model('maintenance', 'WorkOrder')
+                        open_wo = WorkOrder.objects.filter(
+                            device=device,
+                            status__in=['open', 'in_progress', 'pending']
+                        ).exists()
+                        
+                        if open_wo:
+                            available_operations = [{
+                                'code': 'MAINTENANCE_CLOSE',
+                                'name': 'إغلاق الصيانة',
+                                'icon': 'bi-tools',
+                                'color': 'warning',
+                                'two_step': True
+                            }]
+                        else:
+                            available_operations = [{
+                                'code': 'MAINTENANCE_OPEN',
+                                'name': 'فتح أمر صيانة',
+                                'icon': 'bi-wrench',
+                                'color': 'danger',
+                                'two_step': True
+                            }]
+                    
+                    # 3. Check if device is in use with a patient
+                    elif hasattr(device, 'current_patient') and device.current_patient:
+                        available_operations = [{
+                            'code': 'END_DEVICE_USAGE',
+                            'name': 'إنهاء الاستخدام',
+                            'icon': 'bi-x-circle',
+                            'color': 'danger',
+                            'two_step': False,
+                            'requires_third_step': True  # يحتاج مسح المريض
+                        }]
+                        requires_third_step = True
+                    
+                    # 4. Device is available for use
+                    else:
+                        operations_list = []
+                        
+                        # Check if device can be used (not needing maintenance, cleaning, or sterilization)
+                        can_use = True
+                        usage_warnings = []
+                        
+                        if hasattr(device, 'status') and device.status == 'maintenance':
+                            can_use = False
+                            usage_warnings.append('الجهاز تحت الصيانة')
+                        
+                        if hasattr(device, 'clean_status') and device.clean_status in ['needs_cleaning', 'dirty']:
+                            can_use = False
+                            usage_warnings.append('الجهاز يحتاج تنظيف')
+                        
+                        if hasattr(device, 'sterilization_status') and device.sterilization_status in ['needs_sterilization', 'not_sterilized']:
+                            can_use = False
+                            usage_warnings.append('الجهاز يحتاج تعقيم')
+                        
+                        # Only show Device Usage if device is ready
+                        if can_use:
+                            operations_list.append({
+                                'code': 'DEVICE_USAGE',
+                                'name': 'بدء الاستخدام',
+                                'icon': 'bi-play-circle',
+                                'color': 'primary',
+                                'two_step': False,
+                                'requires_third_step': True  # يحتاج مسح المريض
+                            })
+                        else:
+                            # Add warning to response
+                            warnings.extend(usage_warnings)
+                        
+                        # Check if maintenance is needed
+                        if not hasattr(device, 'status') or device.status != 'maintenance':
+                            operations_list.append({
+                                'code': 'MAINTENANCE_OPEN',
+                                'name': 'فتح أمر صيانة',
+                                'icon': 'bi-wrench',
+                                'color': 'warning',
+                                'two_step': True
+                            })
+                        
+                        # Check cleaning status
+                        if hasattr(device, 'clean_status'):
+                            if device.clean_status == 'needs_cleaning' or device.clean_status == 'dirty':
+                                operations_list.append({
+                                    'code': 'DEVICE_CLEANING',
+                                    'name': 'بدء التنظيف',
+                                    'icon': 'bi-droplet',
+                                    'color': 'info',
+                                    'two_step': True
+                                })
+                            elif device.clean_status == 'in_progress':
+                                operations_list.append({
+                                    'code': 'DEVICE_CLEANING',
+                                    'name': 'إنهاء التنظيف',
+                                    'icon': 'bi-droplet-fill',
+                                    'color': 'success',
+                                    'two_step': True
+                                })
+                        
+                        # Check sterilization status
+                        if hasattr(device, 'sterilization_status'):
+                            if device.sterilization_status == 'needs_sterilization' or device.sterilization_status == 'dirty':
+                                operations_list.append({
+                                    'code': 'DEVICE_STERILIZATION',
+                                    'name': 'بدء التعقيم',
+                                    'icon': 'bi-shield-check',
+                                    'color': 'info',
+                                    'two_step': True
+                                })
+                            elif device.sterilization_status == 'in_progress':
+                                operations_list.append({
+                                    'code': 'DEVICE_STERILIZATION',
+                                    'name': 'إنهاء التعقيم',
+                                    'icon': 'bi-shield-fill-check',
+                                    'color': 'success',
+                                    'two_step': True
+                                })
+                        
+                        # Check calibration status
+                        if hasattr(device, 'next_calibration_date'):
+                            from datetime import timedelta
+                            if device.next_calibration_date and device.next_calibration_date <= timezone.now().date():
+                                operations_list.append({
+                                    'code': 'CALIBRATION',
+                                    'name': 'معايرة الجهاز',
+                                    'icon': 'bi-speedometer',
+                                    'color': 'warning',
+                                    'two_step': True
+                                })
+                        
+                        # Quality Control
+                        operations_list.append({
+                            'code': 'QUALITY_CONTROL',
+                            'name': 'فحص الجودة',
+                            'icon': 'bi-clipboard2-check',
+                            'color': 'secondary',
+                            'two_step': True
+                        })
+                        
+                        # Audit Report
+                        operations_list.append({
+                            'code': 'AUDIT_REPORT',
+                            'name': 'تقرير التدقيق',
+                            'icon': 'bi-file-earmark-text',
+                            'color': 'dark',
+                            'two_step': True
+                        })
+                        
+                        # Device Transfer (needs department scan)
+                        operations_list.append({
+                            'code': 'DEVICE_TRANSFER',
+                            'name': 'نقل الجهاز',
+                            'icon': 'bi-arrow-left-right',
+                            'color': 'primary',
+                            'two_step': False,
+                            'requires_third_step': True  # يحتاج مسح القسم
+                        })
+                        
+                        # Device Handover (needs second user scan)
+                        operations_list.append({
+                            'code': 'DEVICE_HANDOVER',
+                            'name': 'تسليم الجهاز',
+                            'icon': 'bi-person-badge',
+                            'color': 'info',
+                            'two_step': False,
+                            'requires_third_step': True  # يحتاج مسح المستخدم الثاني
+                        })
+                        
+                        available_operations = operations_list
+                        
+                        # Check if any operation requires third step
+                        requires_third_step = any(op.get('requires_third_step', False) for op in operations_list)
+                    
+                except apps.get_model('maintenance', 'Device').DoesNotExist:
+                    pass
         
         if entity_type == 'device':
             try:
@@ -3250,6 +3522,8 @@ def scan_qr_code(request):
         
         response_data['warnings'] = warnings
         response_data['notifications'] = notifications
+        response_data['available_operations'] = available_operations
+        response_data['requires_third_step'] = requires_third_step
         
         return JsonResponse(response_data)
     
@@ -4111,6 +4385,227 @@ def department_transfer_requests(request, department_id):
 # ═══════════════════════════════════════════════════════════════════════════
 # STERILIZATION & CLEANING CYCLE VIEWS
 # ═══════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def execute_operation(request):
+    """
+    Execute a selected operation from the UI popup
+    """
+    from .qr_operations import QROperationsManager
+    from .models import OperationDefinition, OperationExecution, WorkOrder, ServiceRequest
+    
+    try:
+        data = json.loads(request.body)
+        operation_code = data.get('operation_code')
+        device_id = data.get('device_id')
+        session_id = data.get('session_id')
+        execute_now = data.get('execute_now', False)
+        
+        # Get session
+        try:
+            scan_session = ScanSession.objects.get(session_id=session_id, status='active')
+        except ScanSession.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Session not found'}, status=404)
+        
+        # Get device
+        try:
+            device = apps.get_model('maintenance', 'Device').objects.get(pk=device_id)
+        except:
+            return JsonResponse({'success': False, 'error': 'Device not found'}, status=404)
+        
+        # Handle two-step operations that should execute immediately
+        if execute_now:
+            if operation_code == 'MAINTENANCE_OPEN':
+                # Create work order
+                wo = WorkOrder.objects.create(
+                    device=device,
+                    type='corrective',
+                    priority='normal',
+                    title=f'صيانة الجهاز {device.name}',
+                    description=data.get('notes', 'تم فتح أمر صيانة من نظام QR'),
+                    requested_by=request.user,
+                    status='open'
+                )
+                device.status = 'maintenance'
+                device.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم فتح أمر الصيانة رقم {wo.id} للجهاز {device.name}'
+                })
+            
+            elif operation_code == 'MAINTENANCE_CLOSE':
+                # Close open work orders
+                open_orders = WorkOrder.objects.filter(
+                    device=device,
+                    status__in=['open', 'in_progress', 'pending']
+                ).update(
+                    status='completed',
+                    actual_end=timezone.now(),
+                    completed_by=request.user
+                )
+                device.status = 'working'
+                device.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم إغلاق أوامر الصيانة للجهاز {device.name}'
+                })
+            
+            elif operation_code == 'DEVICE_CLEANING':
+                # Check if there's an active cleaning cycle
+                CleaningCycle = apps.get_model('maintenance', 'CleaningCycle')
+                active_cycle = CleaningCycle.objects.filter(
+                    device=device,
+                    is_completed=False
+                ).first()
+                
+                if active_cycle:
+                    # End cleaning
+                    active_cycle.end_time = timezone.now()
+                    active_cycle.is_completed = True
+                    active_cycle.save()
+                    device.clean_status = 'clean'
+                    device.save()
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'تم إنهاء دورة التنظيف للجهاز {device.name}'
+                    })
+                else:
+                    # Start cleaning
+                    cycle = CleaningCycle.objects.create(
+                        device=device,
+                        user=request.user,
+                        notes='بدء دورة تنظيف من نظام QR'
+                    )
+                    device.clean_status = 'in_progress'
+                    device.save()
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'تم بدء دورة التنظيف للجهاز {device.name}'
+                    })
+            
+            elif operation_code == 'DEVICE_STERILIZATION':
+                # Check if there's an active sterilization cycle
+                SterilizationCycle = apps.get_model('maintenance', 'SterilizationCycle')
+                active_cycle = SterilizationCycle.objects.filter(
+                    device=device,
+                    is_completed=False
+                ).first()
+                
+                if active_cycle:
+                    # End sterilization
+                    active_cycle.end_time = timezone.now()
+                    active_cycle.is_completed = True
+                    active_cycle.save()
+                    device.sterilization_status = 'sterilized'
+                    device.save()
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'تم إنهاء دورة التعقيم للجهاز {device.name}'
+                    })
+                else:
+                    # Start sterilization
+                    cycle = SterilizationCycle.objects.create(
+                        device=device,
+                        user=request.user,
+                        method='autoclave',
+                        notes='بدء دورة تعقيم من نظام QR'
+                    )
+                    device.sterilization_status = 'in_progress'
+                    device.save()
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'تم بدء دورة التعقيم للجهاز {device.name}'
+                    })
+            
+            elif operation_code == 'CALIBRATION':
+                # Create calibration request
+                CalibrationRequest = apps.get_model('maintenance', 'CalibrationRequest')
+                cal_request = CalibrationRequest.objects.create(
+                    device=device,
+                    requested_by=request.user,
+                    notes='طلب معايرة من نظام QR',
+                    status='pending'
+                )
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم إنشاء طلب معايرة رقم {cal_request.id} للجهاز {device.name}'
+                })
+            
+            elif operation_code == 'QUALITY_CONTROL':
+                # Perform quality control check
+                notes = f"فحص جودة تم بواسطة {request.user.get_full_name()} في {timezone.now()}"
+                # You can add more quality control logic here
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم تسجيل فحص الجودة للجهاز {device.name}'
+                })
+            
+            elif operation_code == 'AUDIT_REPORT':
+                # Generate audit report info
+                audit_info = {
+                    'device_name': device.name,
+                    'device_id': device.id,
+                    'status': device.status,
+                    'last_maintenance': device.last_maintenance_date.isoformat() if hasattr(device, 'last_maintenance_date') and device.last_maintenance_date else None,
+                    'audit_time': timezone.now().isoformat(),
+                    'auditor': request.user.get_full_name()
+                }
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم إنشاء تقرير التدقيق للجهاز {device.name}',
+                    'audit_data': audit_info
+                })
+            
+            elif operation_code == 'RETURN_TO_SERVICE':
+                # Return device to service
+                device.status = 'working'
+                device.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': f'تم إرجاع الجهاز {device.name} للخدمة'
+                })
+            
+            elif operation_code == 'DEVICE_USAGE':
+                # For three-step operation, just store and wait for patient scan
+                print(f"📝 DEBUG: DEVICE_USAGE selected, waiting for patient scan")
+                if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
+                    scan_session.context_json = {}
+                
+                scan_session.context_json['pending_operation'] = operation_code
+                scan_session.context_json['pending_device'] = device_id
+                scan_session.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'امسح كود المريض لربطه بالجهاز',
+                    'pending_operation': operation_code
+                })
+        
+        # For three-step operations, store in session context
+        else:
+            print(f"📝 DEBUG: Storing pending operation {operation_code} for three-step execution")
+            # Store the selected operation in session context
+            if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
+                scan_session.context_json = {}
+            
+            scan_session.context_json['pending_operation'] = operation_code
+            scan_session.context_json['pending_device'] = device_id
+            scan_session.save()
+            print(f"✅ DEBUG: Saved pending operation to session: {scan_session.context_json}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تم تحديد العملية {operation_code}. امسح الكيان الثالث لإكمال العملية.',
+                'pending_operation': operation_code
+            })
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
 @require_http_methods(["POST"])

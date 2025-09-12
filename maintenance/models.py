@@ -1398,6 +1398,12 @@ class ScanSession(models.Model):
         default='active',
         verbose_name="الحالة"
     )
+    context_json = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        verbose_name="سياق الجلسة"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
