@@ -5,6 +5,26 @@
 {% block title %}QR Scanner Session | HMS{% endblock %}
 
 {% block content %}
+<script>
+// Initialize session ID early with better fallback
+(function() {
+    // Get session ID from multiple sources
+    var fromTemplate = '{{ active_session.session_id|escapejs }}';
+    var fromUrl = '{{ session_id_from_url|escapejs }}';
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlSessionId = urlParams.get('session_id');
+    
+    // Use first valid session ID found
+    window.currentSessionId = urlSessionId || fromUrl || fromTemplate || '';
+    
+    console.log('Session ID sources:', {
+        fromURL: urlSessionId,
+        fromContext: fromUrl,
+        fromTemplate: fromTemplate,
+        final: window.currentSessionId
+    });
+})();
+</script>
 <style>
     .scanner-container {
         max-width: 1400px;
@@ -275,7 +295,7 @@
     <!-- Header -->
     <div class="scanner-header">
         <h1><i class="fas fa-qrcode"></i> QR Scanner Session</h1>
-        <p>Session ID: {{ session.session_id }}</p>
+        <p>Session ID: <span id="sessionIdDisplay">{{ active_session.session_id|default:"Loading..." }}</span></p>
     </div>
     
     <!-- Session Info -->
@@ -292,12 +312,12 @@
         </div>
         <div class="info-card">
             <i class="fas fa-tasks"></i>
-            <h5>{{ pending_executions.count }}</h5>
+            <h5 id="pendingCount">{{ pending_executions|length|default:0 }}</h5>
             <p>{% trans "Pending" %}</p>
         </div>
         <div class="info-card">
             <i class="fas fa-check-circle"></i>
-            <h5>{{ completed_executions.count }}</h5>
+            <h5 id="completedCount">{{ completed_executions|length|default:0 }}</h5>
             <p>{% trans "Completed" %}</p>
         </div>
     </div>
@@ -350,31 +370,6 @@
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Operations Selection -->
-    <h3 class="mb-3"><i class="fas fa-cogs"></i> {% trans "Available Operations" %}</h3>
-    <div class="operations-section">
-        {% for operation in operations %}
-        <div class="operation-card" data-operation-id="{{ operation.id }}" 
-             data-operation-code="{{ operation.code }}">
-            <h4>
-                {{ operation.name }}
-                {% if operation.requires_badge %}
-                    <span class="badge badge-warning">
-                        <i class="fas fa-id-badge"></i> Badge
-                    </span>
-                {% endif %}
-                {% if operation.auto_execute %}
-                    <span class="badge badge-success">Auto</span>
-                {% endif %}
-            </h4>
-            <p>{{ operation.description|default:"" }}</p>
-            <small class="text-muted">
-                <i class="fas fa-list"></i> {{ operation.steps.count }} steps
-            </small>
-        </div>
-        {% endfor %}
     </div>
     
     <!-- Pending Executions -->
@@ -972,10 +967,40 @@
         debugLog(`Selected operation: ${selectedOperation.code}`);
     }
     
+    // Get current session ID
+    function getSessionId() {
+        // First try to get from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSessionId = urlParams.get('session_id');
+        
+        if (urlSessionId && urlSessionId !== 'pending') {
+            console.log('Using session_id from URL:', urlSessionId);
+            window.currentSessionId = urlSessionId; // Update window variable
+            return urlSessionId;
+        }
+        
+        // Then try from window variable
+        if (window.currentSessionId && window.currentSessionId !== 'pending') {
+            console.log('Using session_id from window:', window.currentSessionId);
+            return window.currentSessionId;
+        }
+        
+        // Try to get from template context
+        var templateSessionId = '{{ active_session.session_id|default:"" }}';
+        if (templateSessionId && templateSessionId !== 'pending' && templateSessionId !== '') {
+            console.log('Using session_id from template:', templateSessionId);
+            window.currentSessionId = templateSessionId;
+            return templateSessionId;
+        }
+        
+        console.log('No valid session_id found');
+        return null;
+    }
+    
     // Process scan result
     function handleScan(code) {
         // Send to server
-        fetch("{% url 'maintenance:scan_qr_code' %}", {  // تغيير إلى scan_qr_code بدلاً من scan_qr_code_api
+        fetch("{% url 'maintenance:scan_qr_code' %}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -983,22 +1008,46 @@
             },
             body: JSON.stringify({
                 qr_code: code,
-                session_id: window.currentSessionId || ('{{ session.session_id }}' === 'pending' ? null : '{{ session.session_id }}'),
+                session_id: getSessionId(),
                 operation_code: selectedOperation ? selectedOperation.code : null
             })
         })
         .then(response => response.json())
         .then(data => {
             console.log('Scan response:', data);
+            console.log('Current session_id sent:', getSessionId());
             
             if (data.success) {
+                // Check if we need to redirect (for badge scan creating new session)
+                if (data.redirect && data.redirect_url) {
+                    console.log('Redirecting to:', data.redirect_url);
+                    showNotification(data.message || 'جاري التحويل...', 'success');
+                    setTimeout(() => {
+                        console.log('Executing redirect...');
+                        window.location.href = data.redirect_url;
+                    }, 1000);
+                    return;
+                }
+                
                 addToHistory(data);
                 
-                // If new session created (first user scan), update session_id
-                if (data.session_id && '{{ session.session_id }}' === 'pending') {
+                // If new session created or session_id provided, update it
+                if (data.session_id) {
                     // Update the current session_id for future scans
                     window.currentSessionId = data.session_id;
-                    showNotification('New session started! Continue scanning device and patient.', 'success');
+                    console.log('Updated window.currentSessionId to:', data.session_id);
+                    
+                    // Update URL if needed
+                    const currentUrl = new URL(window.location);
+                    if (currentUrl.searchParams.get('session_id') !== data.session_id) {
+                        currentUrl.searchParams.set('session_id', data.session_id);
+                        window.history.replaceState({}, '', currentUrl);
+                        console.log('Updated URL with session_id:', data.session_id);
+                    }
+                    
+                    if ('{{ session.session_id }}' === 'pending') {
+                        showNotification('New session started! Continue scanning device and patient.', 'success');
+                    }
                 }
                 
                 // Show notifications
@@ -1017,7 +1066,10 @@
                 
                 // Check if we have available operations to show (User + Device scanned)
                 if (data.available_operations && data.available_operations.length > 0) {
+                    console.log('Available operations found:', data.available_operations);
                     showOperationsModal(data.available_operations, data.requires_third_step, data.entity_id, data.entity_type);
+                } else {
+                    console.log('No available operations found in response');
                 }
                 
                 // If operation executed, refresh pending executions
@@ -1158,8 +1210,15 @@
     
     // Show operations modal
     function showOperationsModal(operations, requiresThirdStep, entityId, entityType) {
+        console.log('showOperationsModal called with:', {operations, requiresThirdStep, entityId, entityType});
+        
         const operationsContent = document.getElementById('operationsContent');
         const continueBtn = document.getElementById('continueScanning');
+        
+        if (!operationsContent) {
+            console.error('operationsContent element not found!');
+            return;
+        }
         
         // Clear previous content
         operationsContent.innerHTML = '';
@@ -1210,7 +1269,14 @@
         }
         
         // Show modal using Bootstrap 5
-        const modal = new bootstrap.Modal(document.getElementById('operationsModal'));
+        const modalElement = document.getElementById('operationsModal');
+        if (!modalElement) {
+            console.error('operationsModal element not found!');
+            return;
+        }
+        
+        console.log('Showing operations modal...');
+        const modal = new bootstrap.Modal(modalElement);
         modal.show();
     }
     
@@ -1418,6 +1484,71 @@
     
     // Continue scanning button handler
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOMContentLoaded fired');
+        
+        // Debug: Check what session IDs are available
+        console.log('Debug - Available session IDs:', {
+            fromWindow: window.currentSessionId,
+            fromURL: new URLSearchParams(window.location.search).get('session_id'),
+            templateValue: '{{ active_session.session_id|escapejs }}',
+            urlContextValue: '{{ session_id_from_url|escapejs }}'
+        });
+        
+        // Update Session ID display
+        const sessionId = getSessionId();
+        const sessionIdDisplay = document.getElementById('sessionIdDisplay');
+        
+        console.log('Session ID elements:', {
+            sessionId: sessionId,
+            displayElement: sessionIdDisplay,
+            currentContent: sessionIdDisplay ? sessionIdDisplay.textContent : 'element not found'
+        });
+        
+        if (sessionId && sessionIdDisplay) {
+            sessionIdDisplay.textContent = sessionId;
+            console.log('✅ Updated session ID display to:', sessionId);
+        } else if (!sessionIdDisplay) {
+            console.error('❌ sessionIdDisplay element not found!');
+        } else if (!sessionId) {
+            console.warn('⚠️ No valid session ID found');
+            sessionIdDisplay.textContent = 'No active session';
+        }
+        
+        // Debug counters and operations
+        const pendingCount = document.getElementById('pendingCount');
+        const completedCount = document.getElementById('completedCount');
+        const operationsSection = document.querySelector('.operations-section');
+        
+        console.log('Operations debug:', {
+            operationsSection: operationsSection,
+            operationCards: document.querySelectorAll('.operation-card').length,
+            operationsFromTemplate: {{ operations|length|default:0 }}
+        });
+        
+        console.log('Counter elements:', {
+            pendingElement: pendingCount,
+            pendingValue: pendingCount ? pendingCount.textContent : 'not found',
+            completedElement: completedCount,
+            completedValue: completedCount ? completedCount.textContent : 'not found'
+        });
+        
+        // Ensure counters show 0 if empty
+        if (pendingCount && (!pendingCount.textContent || pendingCount.textContent.trim() === '')) {
+            pendingCount.textContent = '0';
+            console.log('Set pending count to 0');
+        }
+        if (completedCount && (!completedCount.textContent || completedCount.textContent.trim() === '')) {
+            completedCount.textContent = '0';
+            console.log('Set completed count to 0');
+        }
+        
+        // Check if operations are rendered
+        if ({{ operations|length|default:0 }} === 0) {
+            console.warn('⚠️ No operations found in template context!');
+        } else {
+            console.log('✅ Operations available:', {{ operations|length|default:0 }});
+        }
+        
         const continueBtn = document.getElementById('continueScanning');
         if (continueBtn) {
             continueBtn.addEventListener('click', function() {

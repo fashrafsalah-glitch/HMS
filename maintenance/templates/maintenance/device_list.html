@@ -50,6 +50,26 @@
 .qr-image:hover {
     transform: scale(1.1);
 }
+.handover-section {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+.handover-table {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.handover-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+.handover-pending { background: #fff3cd; color: #856404; }
+.handover-completed { background: #d4edda; color: #155724; }
+.handover-rejected { background: #f8d7da; color: #721c24; }
 </style>
 
 <div class="container-fluid mt-4" dir="rtl">
@@ -142,28 +162,48 @@
               {% endif %}
             </div>
             
-            <div class="mb-3">
+            <div class="mb-2">
               <div class="row g-2 text-sm">
-                <div class="col-6">
-                  <strong class="device-text"><p class="device-text">القسم:</p></strong><br>
-                  <span class="device-text-muted"><p class="device-text-muted">{{ device.department.name }}</p></span>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">القسم:</strong>
+                  <div class="device-text-muted">{{ device.department|default:"-" }}</div>
                 </div>
-                <div class="col-6">
-                  <strong class="device-text"><p class="device-text">الغرفة:</p></strong><br>
-                  <span class="device-text-muted"><p class="device-text-muted">{{ device.room|default:"-" }}</p></span>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">الغرفة:</strong>
+                  <div class="device-text-muted">{{ device.room|default:"-" }}</div>
                 </div>
-                <div class="col-6">
-                  <strong class="device-text"><p class="device-text">السرير:</p></strong><br>
-                  <span class="device-text-muted"><p class="device-text-muted">{{ device.bed|default:"-" }}</p></span>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">السرير:</strong>
+                  <div class="device-text-muted">{{ device.bed|default:"-" }}</div>
                 </div>
-                <div class="col-6">
-                  <strong class="device-text"><p class="device-text">المريض:</p></strong><br>
-                  <span class="device-text-muted"><p class="device-text-muted">{{ device.current_patient|default:"-" }}</p></span>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">المريض:</strong>
+                  <div class="device-text-muted">{{ device.current_patient|default:"-" }}</div>
+                </div>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">المسؤول:</strong>
+                  <div>
+                    {% if device.current_responsible %}
+                      <span class="badge bg-success text-white">{{ device.current_responsible.get_full_name }}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">غير معين</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="col-6 mb-1">
+                  <strong class="device-text">تاريخ العهدة:</strong>
+                  <div class="device-text-muted">
+                    {% if device.custody_assigned_at %}
+                      {{ device.custody_assigned_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </div>
                 </div>
               </div>
             </div>
             
-            <div class="mb-3">
+            <div class="mb-2">
               <div class="d-flex flex-wrap gap-1">
                 <span class="status-badge text-bg-{% if device.status == 'working' %}success{% elif device.status == 'in_use' %}info{% elif device.status == 'needs_maintenance' %}danger{% elif device.status == 'needs_check' %}warning{% else %}secondary{% endif %}">
                   {{ device.get_status_display }}
@@ -232,6 +272,8 @@
       </div>
     {% endfor %}
   </div>
+  
+ 
 </div>
 
 {% endblock %}

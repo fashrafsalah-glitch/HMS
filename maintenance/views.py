@@ -837,6 +837,18 @@ def device_list(request):
     room_id = request.GET.get('room')
     if room_id:
         devices = devices.filter(room_id=room_id)
+    
+    # Get recent handover logs
+    recent_handovers = DeviceHandoverLog.objects.select_related(
+        'device', 'from_user', 'to_user'
+    ).order_by('-handed_at')[:20]  # Last 20 handovers
+    
+    # Get handover stats for each device
+    device_handover_counts = {}
+    for device in devices:
+        device_handover_counts[device.id] = DeviceHandoverLog.objects.filter(
+            device=device
+        ).count()
 
     categories = DeviceCategory.objects.all()
     subcategories = DeviceSubCategory.objects.all()
@@ -849,6 +861,8 @@ def device_list(request):
         'subcategories': subcategories,
         'departments': departments,
         'rooms': rooms,
+        'recent_handovers': recent_handovers,
+        'device_handover_counts': device_handover_counts,
     })
 
 def load_subcategories(request):
@@ -2867,7 +2881,11 @@ def scan_qr_code(request):
         
         print(f"[DEBUG] redirect_to_page={redirect_to_page}, is_scan_session={is_scan_session}, session_id={session_id}")
         
-        if redirect_to_page and entity_type == 'device' and not is_scan_session:
+        # Special handling for user scans from scan-session page
+        if entity_type == 'user' and is_scan_session and not session_id:
+            # This is a badge scan from scan-session page, create session and redirect
+            pass  # Will be handled by the user scan logic below
+        elif redirect_to_page and entity_type == 'device' and not is_scan_session:
             # Return redirect URL for device detail page (only if not from scan-session)
             device_url = reverse('maintenance:device_detail', kwargs={'pk': entity_id})
             return JsonResponse({
@@ -2925,6 +2943,7 @@ def scan_qr_code(request):
                 status='active',
                 session_id=str(uuid.uuid4())
             )
+            
             # Initialize context_json if not exists
             if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
                 scan_session.context_json = {}
@@ -2945,6 +2964,18 @@ def scan_qr_code(request):
                 entity_data=json.dumps(user_data),
                 is_valid=True
             )
+            
+            # Return redirect to scan session with session_id
+            return JsonResponse({
+                'success': True,
+                'redirect': True,
+                'redirect_url': f'/maintenance/scan-session/?session_id={scan_session.session_id}',
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'entity_data': entity_data,
+                'session_id': str(scan_session.session_id),
+                'message': 'تم إنشاء جلسة جديدة بنجاح'
+            })
         else:
             # For non-user scans or if session_id exists, try to get existing session
             if session_id:
@@ -3621,66 +3652,138 @@ def scan_qr_code(request):
     except Exception as e:
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
-
 @login_required
 def scan_session_page(request):
     """
-    Main scanning session page with Operations support
+    Main scanning session page with Operations support - User-specific sessions
     """
     from .models import QRScanLog
     
-    # Don't create session automatically - wait for user badge scan
-    # This allows the new flow: scan user badge → create session → scan device → scan patient
-    active_session = ScanSession.objects.filter(
-        user=request.user, 
-        status='active'
-    ).first()
+    # Get user badge from request (could be from QR scan or session)
+    user_badge_id = request.GET.get('badge_id') or request.session.get('user_badge_id')
+    badge_hash = request.GET.get('badge_hash')
     
-    # Create a temporary session object for template rendering only
-    if not active_session:
-        active_session = type('TempSession', (), {
-            'session_id': 'pending',
-            'user': request.user,
-            'status': 'pending'
-        })()
+    # If badge_hash provided, find the badge and get its ID
+    if badge_hash and not user_badge_id:
+        from .models import Badge
+        try:
+            # Find badge by matching hash (assuming hash is stored in badge_number or similar field)
+            badge = Badge.objects.filter(user=request.user, is_active=True).first()
+            if badge:
+                # Generate hash for comparison (same method as QR generation)
+                import hashlib
+                from django.conf import settings
+                expected_hash = hashlib.sha256(f"{badge.user.id}-{settings.SECRET_KEY}".encode()).hexdigest()[:16]
+                if badge_hash == expected_hash:
+                    user_badge_id = str(badge.id)
+        except Exception as e:
+            pass
     
-    # Get pending executions for this session (only if real session exists)
-    if hasattr(active_session, 'id'):
+    # If no badge specified, show scan page to scan badge first
+    if not user_badge_id:
+        # Show scan page with badge scanning mode
+        context = {
+            'scan_mode': 'badge_scan',
+            'message': 'امسح بطاقتك أولاً لبدء الجلسة',
+            'instructions': 'وجه الكاميرا نحو QR code الخاص ببطاقتك'
+        }
+        return render(request, 'maintenance/scan_session.html', context)
+    
+    # Store badge in session for subsequent requests
+    request.session['user_badge_id'] = user_badge_id
+    
+    # Get session_id from URL parameter
+    session_id = request.GET.get('session_id')
+    print(f"[DEBUG scan_session_page] Looking for session_id: {session_id}")
+    
+    # Initialize variables
+    active_session = None
+    session_id_for_template = session_id  # Keep the original session_id for template
+    
+    if session_id:
+        active_session = ScanSession.objects.filter(
+            session_id=session_id,
+            status='active'
+        ).first()
+        print(f"[DEBUG scan_session_page] Found session by ID: {active_session}")
+        
+        # If session not found by ID, try to find any active session for this user
+        if not active_session:
+            active_session = ScanSession.objects.filter(
+                user=request.user,
+                status='active'
+            ).order_by('-created_at').first()
+            print(f"[DEBUG scan_session_page] Fallback session found: {active_session}")
+    else:
+        active_session = ScanSession.objects.filter(
+            user=request.user,
+            metadata__contains={'user_badge_id': user_badge_id},
+            status='active'
+        ).first()
+        print(f"[DEBUG scan_session_page] Found session by badge: {active_session}")
+        
+        # If we found a session, use its session_id
+        if active_session:
+            session_id_for_template = active_session.session_id
+
+    # Get data based on whether we have a real session
+    if active_session and hasattr(active_session, 'id'):
+        # We have a real session
         pending_executions = OperationExecution.objects.filter(
             session=active_session,
             status='pending'
         ).select_related('operation')
         
-        # Get completed executions for this session
         completed_executions = OperationExecution.objects.filter(
             session=active_session,
             status='completed'
         ).select_related('operation').order_by('-completed_at')[:10]
         
-        # Get recent QR scan logs
         recent_scans = QRScanLog.objects.filter(
             session_id=active_session.session_id
         ).order_by('-scanned_at')[:20]
+        
+        # Use the real session
+        session_for_template = active_session
+        
     else:
-        # No real session yet - empty lists
+        # No real session yet - create minimal session object for template
+        session_for_template = type('TempSession', (), {
+            'session_id': session_id_for_template or 'pending',
+            'user': request.user,
+            'status': 'pending' if not session_id_for_template else 'not_found'
+        })()
+        
+        # Empty lists for pending session
         pending_executions = []
         completed_executions = []
         recent_scans = []
     
-    # Get available operations
+    # Always get available operations - this was missing!
     operations = OperationDefinition.objects.filter(is_active=True)
+    operations_list = list(operations)  # Convert to list to ensure it's evaluated
+    
+    print(f"[DEBUG] Operations query result: {operations}")
+    print(f"[DEBUG] Operations count: {len(operations_list)}")
+    print(f"[DEBUG] Operations list: {[op.name for op in operations_list]}")
     
     context = {
-        'session': active_session,
-        'operations': operations,
+        'active_session': session_for_template,
+        'session': session_for_template,  # Keep for backward compatibility
+        'operations': operations_list,  # Use the evaluated list
         'pending_executions': pending_executions,
         'completed_executions': completed_executions,
         'recent_scans': recent_scans,
-        'title': 'QR Scanner Session'
+        'title': 'QR Scanner Session',
+        'session_id_from_url': session_id,  # Add this for JavaScript access
+        'user_badge_id': user_badge_id,  # Add this for debugging
     }
     
+    print(f"[DEBUG] Context operations count: {len(operations_list)}")
+    print(f"[DEBUG] Session ID for template: {session_for_template.session_id}")
+    print(f"[DEBUG] Full context keys: {list(context.keys())}")
+    
     return render(request, 'maintenance/scan_session.html', context)
-
 
 @csrf_exempt
 @login_required
@@ -3951,32 +4054,81 @@ def device_usage_logs(request):
     """
     View device usage logs with filtering and export options
     """
-    logs = DeviceUsageLogDaily.objects.all().select_related(
-        'checked_by', 'device'
-    )
+    # Get all usage logs with related data
+    usage_logs = DeviceUsageLog.objects.select_related(
+        'user', 'patient', 'created_by', 'completed_by'
+    ).prefetch_related('items__device')
     
-    # Filtering
-    user_filter = request.GET.get('user')
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
-    
-    if user_filter:
-        logs = logs.filter(checked_by_id=user_filter)
-    if date_from:
-        logs = logs.filter(date__gte=date_from)
-    if date_to:
-        logs = logs.filter(date__lte=date_to)
+    # Get all handover logs with related data
+    handover_logs = DeviceHandoverLog.objects.select_related(
+        'device', 'from_user', 'to_user'
+    ).order_by('-handed_at')
     
     # Get filter options
-    users = User.objects.filter(deviceusagelogdaily__isnull=False).distinct()
+    users = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    patients = apps.get_model('manager', 'Patient').objects.all().order_by('first_name', 'last_name')
+    departments = apps.get_model('manager', 'Department').objects.all().order_by('name')
+    devices = Device.objects.all().order_by('name')
+    
+    # Apply filters
+    user_filter = request.GET.get('user')
+    patient_filter = request.GET.get('patient')
+    department_filter = request.GET.get('department')
+    device_filter = request.GET.get('device')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    operation_type = request.GET.get('operation_type')
+    
+    # Apply filters to usage logs
+    if user_filter:
+        usage_logs = usage_logs.filter(user_id=user_filter)
+        handover_logs = handover_logs.filter(
+            models.Q(from_user_id=user_filter) | models.Q(to_user_id=user_filter)
+        )
+    
+    if patient_filter:
+        usage_logs = usage_logs.filter(patient_id=patient_filter)
+    
+    if department_filter:
+        # Filter by department through device
+        device_ids = Device.objects.filter(department_id=department_filter).values_list('id', flat=True)
+        usage_logs = usage_logs.filter(items__device_id__in=device_ids).distinct()
+        handover_logs = handover_logs.filter(device_id__in=device_ids)
+    
+    if device_filter:
+        usage_logs = usage_logs.filter(items__device_id=device_filter).distinct()
+        handover_logs = handover_logs.filter(device_id=device_filter)
+    
+    if date_from:
+        usage_logs = usage_logs.filter(created_at__date__gte=date_from)
+        handover_logs = handover_logs.filter(handed_at__date__gte=date_from)
+    
+    if date_to:
+        usage_logs = usage_logs.filter(created_at__date__lte=date_to)
+        handover_logs = handover_logs.filter(handed_at__date__lte=date_to)
+    
+    if operation_type:
+        usage_logs = usage_logs.filter(operation_type=operation_type)
+    
+    # Get operation choices
+    operation_choices = DeviceUsageLog.OPERATION_CHOICES
     
     context = {
-        'logs': logs.order_by('-date'),
+        'logs': usage_logs.order_by('-created_at'),
+        'handover_logs': handover_logs,
         'users': users,
+        'patients': patients,
+        'departments': departments,
+        'devices': devices,
+        'operation_choices': operation_choices,
         'filters': {
             'user': user_filter,
+            'patient': patient_filter,
+            'department': department_filter,
+            'device': device_filter,
             'date_from': date_from,
             'date_to': date_to,
+            'operation_type': operation_type,
         }
     }
     
@@ -3984,10 +4136,206 @@ def device_usage_logs(request):
 
 
 @login_required
+def assign_device_custody(request, device_id):
+    """تعيين مسؤول جديد عن الجهاز"""
+    device = get_object_or_404(Device, id=device_id)
+    
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        notes = request.POST.get('notes', '')
+        
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+                device.assign_custody(user, notes)
+                messages.success(request, f'تم تعيين {user.get_full_name()} كمسؤول عن الجهاز {device.name}')
+            except User.DoesNotExist:
+                messages.error(request, 'المستخدم غير موجود')
+        else:
+            messages.error(request, 'يجب اختيار مستخدم')
+        
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Get active users
+    users = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    
+    context = {
+        'device': device,
+        'users': users,
+    }
+    
+    return render(request, 'maintenance/assign_custody.html', context)
+
+
+@login_required
+def release_device_custody(request, device_id):
+    """تحرير الجهاز من العهدة"""
+    device = get_object_or_404(Device, id=device_id)
+    
+    if request.method == 'POST':
+        notes = request.POST.get('notes', '')
+        
+        if device.current_responsible:
+            old_responsible = device.current_responsible.get_full_name()
+            device.release_custody(notes)
+            messages.success(request, f'تم تحرير الجهاز {device.name} من عهدة {old_responsible}')
+        else:
+            messages.warning(request, 'الجهاز غير في عهدة أي مستخدم')
+        
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    context = {
+        'device': device,
+    }
+    
+    return render(request, 'maintenance/release_custody.html', context)
+
+
+@login_required
+def handover_device(request, device_id):
+    """تسليم الجهاز بين المستخدمين"""
+    device = get_object_or_404(Device, id=device_id)
+    
+    if request.method == 'POST':
+        to_user_id = request.POST.get('to_user_id')
+        notes = request.POST.get('notes', '')
+        
+        if not device.current_responsible:
+            messages.error(request, 'الجهاز غير في عهدة أي مستخدم')
+            return redirect('maintenance:device_detail', pk=device_id)
+        
+        if to_user_id:
+            try:
+                to_user = User.objects.get(id=to_user_id)
+                from_user = device.current_responsible
+                
+                # تعيين المسؤول الجديد
+                device.assign_custody(to_user, notes)
+                
+                messages.success(request, f'تم تسليم الجهاز {device.name} من {from_user.get_full_name()} إلى {to_user.get_full_name()}')
+            except User.DoesNotExist:
+                messages.error(request, 'المستخدم المستلم غير موجود')
+        else:
+            messages.error(request, 'يجب اختيار مستخدم للتسليم')
+        
+        return redirect('maintenance:device_detail', pk=device_id)
+    
+    # Get active users except current responsible
+    users = User.objects.filter(is_active=True).exclude(id=device.current_responsible.id if device.current_responsible else None).order_by('first_name', 'last_name')
+    
+    context = {
+        'device': device,
+        'users': users,
+    }
+    
+    return render(request, 'maintenance/handover_device.html', context)
+
+
+@login_required
+def custody_dashboard(request):
+    """لوحة تحكم العهدة"""
+    # الأجهزة في عهدة المستخدم الحالي
+    my_devices = Device.objects.filter(current_responsible=request.user)
+    
+    # جميع الأجهزة في عهدة مستخدمين
+    devices_in_custody = Device.objects.filter(current_responsible__isnull=False).select_related('current_responsible', 'department', 'category')
+    
+    # الأجهزة الغير معينة لمسؤول
+    unassigned_devices = Device.objects.filter(current_responsible__isnull=True).select_related('department', 'category')
+    
+    # آخر عمليات التسليم
+    recent_handovers = DeviceHandoverLog.objects.select_related('device', 'from_user', 'to_user').order_by('-handed_at')[:10]
+    
+    # إحصائيات
+    stats = {
+        'my_devices_count': my_devices.count(),
+        'total_in_custody': devices_in_custody.count(),
+        'unassigned_count': unassigned_devices.count(),
+        'total_handovers': DeviceHandoverLog.objects.count(),
+    }
+    
+    context = {
+        'my_devices': my_devices,
+        'devices_in_custody': devices_in_custody,
+        'unassigned_devices': unassigned_devices,
+        'recent_handovers': recent_handovers,
+        'stats': stats,
+    }
+    
+    return render(request, 'maintenance/custody_dashboard.html', context)
+
+
+@login_required
 def export_device_usage_logs(request):
     """Export device usage logs to Excel"""
-    # Implementation for exporting logs
-    pass
+    try:
+        from django.http import HttpResponse
+        import openpyxl
+        from openpyxl.styles import Font, Alignment
+        from datetime import datetime
+        
+        # Create workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Device Usage Logs"
+        
+        # Headers
+        headers = [
+            'Session ID', 'User', 'Patient', 'Operation Type', 'Procedure Name',
+            'Created At', 'Started At', 'Completed At', 'Status', 'Notes'
+        ]
+        
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Get data
+        usage_logs = DeviceUsageLog.objects.select_related(
+            'user', 'patient', 'created_by', 'completed_by'
+        ).order_by('-created_at')
+        
+        # Write data
+        for row, log in enumerate(usage_logs, 2):
+            ws.cell(row=row, column=1, value=str(log.session_id))
+            ws.cell(row=row, column=2, value=log.user.get_full_name() if log.user else '')
+            ws.cell(row=row, column=3, value=str(log.patient) if log.patient else '')
+            ws.cell(row=row, column=4, value=log.get_operation_type_display())
+            ws.cell(row=row, column=5, value=log.procedure_name or '')
+            ws.cell(row=row, column=6, value=log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '')
+            ws.cell(row=row, column=7, value=log.started_at.strftime('%Y-%m-%d %H:%M:%S') if log.started_at else '')
+            ws.cell(row=row, column=8, value=log.completed_at.strftime('%Y-%m-%d %H:%M:%S') if log.completed_at else '')
+            ws.cell(row=row, column=9, value=log.get_status_display())
+            ws.cell(row=row, column=10, value=log.notes or '')
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Create response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="device_usage_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        from django.contrib import messages
+        from django.shortcuts import redirect
+        messages.error(request, f'خطأ في تصدير البيانات: {str(e)}')
+        return redirect('maintenance:device_usage_logs')
 
 
 @login_required
@@ -4089,7 +4437,7 @@ def cancel_operation(request, execution_id):
 @login_required
 def start_scan_session(request):
     """
-    Start a new scan session
+    Start a new scan session - Badge-specific
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
@@ -4097,9 +4445,24 @@ def start_scan_session(request):
     try:
         data = json.loads(request.body)
         operation_type = data.get('operation_type')
+        user_badge_id = data.get('user_badge_id') or request.session.get('user_badge_id')
         
-        # Create new session
-        session = ScanSession.objects.create(user=request.user)
+        if not user_badge_id:
+            return JsonResponse({'error': 'User badge ID is required'}, status=400)
+        
+        # End any existing active session for this user and badge
+        ScanSession.objects.filter(
+            user=request.user,
+            metadata__contains={'user_badge_id': user_badge_id},
+            status='active'
+        ).update(status='completed')
+        
+        # Create new session with badge metadata
+        session = ScanSession.objects.create(
+            user=request.user,
+            status='active',
+            metadata={'user_badge_id': user_badge_id}
+        )
         
         # Set operation hint if provided
         if operation_type:
@@ -4109,6 +4472,7 @@ def start_scan_session(request):
         return JsonResponse({
             'success': True,
             'session_id': str(session.session_id),
+            'badge_id': user_badge_id,
             'state': {
                 'user': request.user.get_full_name(),
                 'operation_hint': operation_type,
@@ -4126,45 +4490,54 @@ def start_scan_session(request):
 @login_required
 def reset_scan_session(request):
     """
-    Reset/clear the current scan session
+    Reset/clear the current scan session - Badge-specific
     """
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
-    try:
-        data = json.loads(request.body)
-        session_id = data.get('session_id')
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            session_id = data.get('session_id')
+            user_badge_id = data.get('user_badge_id') or request.session.get('user_badge_id')
+            
+            if not user_badge_id:
+                return JsonResponse({'error': 'User badge ID is required'}, status=400)
+            
+            if session_id:
+                try:
+                    session = ScanSession.objects.get(
+                        session_id=session_id,
+                        user=request.user,
+                        metadata__contains={'user_badge_id': user_badge_id},
+                        status='active'
+                    )
+                    session.status = 'cancelled'
+                    session.save()
+                except ScanSession.DoesNotExist:
+                    pass
+            
+            # Create new session with badge metadata
+            new_session = ScanSession.objects.create(
+                user=request.user,
+                status='active',
+                metadata={'user_badge_id': user_badge_id}
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'session_id': str(new_session.session_id),
+                'badge_id': user_badge_id,
+                'message': 'تم إعادة تعيين الجلسة'
+            })
         
-        if session_id:
-            try:
-                session = ScanSession.objects.get(
-                    session_id=session_id,
-                    user=request.user,
-                    status='active'
-                )
-                session.status = 'cancelled'
-                session.save()
-            except ScanSession.DoesNotExist:
-                pass
-        
-        # Create new session
-        new_session = ScanSession.objects.create(user=request.user)
-        
-        return JsonResponse({
-            'success': True,
-            'session_id': str(new_session.session_id),
-            'message': 'تم إعادة تعيين الجلسة'
-        })
-    
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
 @login_required
 def get_session_status(request, session_id):
     """
+{{ ... }}
     Get current session status and scan history
     """
     try:

@@ -894,6 +894,18 @@ class Device(QRCodeMixin, models.Model):
         related_name='devices_maintained'
     )
     last_maintained_at = models.DateTimeField(null=True, blank=True)
+    
+    # Custody/Responsibility tracking
+    current_responsible = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='devices_in_custody',
+        verbose_name="المسؤول الحالي"
+    )
+    custody_assigned_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ تسليم العهدة")
+    custody_notes = models.TextField(blank=True, null=True, verbose_name="ملاحظات العهدة")
 
     def has_open_work_orders(self):
         """التحقق من وجود أوامر عمل مفتوحة (باستثناء الوقائية والفحص)"""
@@ -1117,8 +1129,8 @@ class Device(QRCodeMixin, models.Model):
     
     def _create_maintenance_work_order(self, schedule, trigger_type):
         """Create a maintenance work order based on PM schedule"""
-        from .models import ServiceRequest, WorkOrder
         from django.utils import timezone
+        from datetime import timedelta
         
         # Create service request first
         service_request = ServiceRequest.objects.create(
@@ -1140,13 +1152,13 @@ class Device(QRCodeMixin, models.Model):
             service_request=service_request,
             wo_type='preventive',
             pm_schedule=schedule,
-            job_plan=schedule.job_plan,
+            created_by=schedule.assigned_to or self.responsible_user or service_request.reporter,
             assignee=schedule.assigned_to or self.responsible_user,
             priority='scheduled',
             status='assigned' if (schedule.assigned_to or self.responsible_user) else 'new',
             scheduled_start=timezone.now(),
             scheduled_end=timezone.now() + timedelta(hours=2),
-            notes=f'أمر عمل تلقائي {trigger_type.replace("_", " ")}'
+            completion_notes=f'أمر عمل تلقائي {trigger_type.replace("_", " ")}'
         )
         
         # Update schedule last completed date
@@ -1154,6 +1166,53 @@ class Device(QRCodeMixin, models.Model):
         schedule.save()
         
         return work_order
+
+    def assign_custody(self, user, notes=None):
+        """تعيين مسؤول جديد عن الجهاز"""
+        from django.utils import timezone
+        
+        old_responsible = self.current_responsible
+        self.current_responsible = user
+        self.custody_assigned_at = timezone.now()
+        self.custody_notes = notes or ''
+        self.save()
+        
+        # إنشاء سجل تسليم إذا كان هناك مسؤول سابق
+        if old_responsible and old_responsible != user:
+            DeviceHandoverLog.objects.create(
+                device=self,
+                from_user=old_responsible,
+                to_user=user,
+                note=notes or f'تسليم عهدة الجهاز'
+            )
+    
+    def release_custody(self, notes=None):
+        """تحرير الجهاز من العهدة"""
+        if self.current_responsible:
+            old_responsible = self.current_responsible
+            self.current_responsible = None
+            self.custody_assigned_at = None
+            self.custody_notes = notes or 'تم تحرير الجهاز من العهدة'
+            self.save()
+            
+            # إنشاء سجل تحرير
+            DeviceHandoverLog.objects.create(
+                device=self,
+                from_user=old_responsible,
+                to_user=None,
+                note=self.custody_notes
+            )
+    
+    def get_custody_duration(self):
+        """حساب مدة العهدة"""
+        if self.custody_assigned_at:
+            from django.utils import timezone
+            return timezone.now() - self.custody_assigned_at
+        return None
+    
+    def is_in_custody(self):
+        """فحص إذا كان الجهاز في عهدة مستخدم"""
+        return self.current_responsible is not None
 
     def __str__(self):
         return f"{self.id} - {self.model}"

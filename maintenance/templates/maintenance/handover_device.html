@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تسليم الجهاز - {{ device.name }} - HMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="bi bi-arrow-left-right me-2"></i>
+                        تسليم الجهاز
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Device Info -->
+                    <div class="alert alert-info">
+                        <h5><i class="bi bi-gear me-2"></i>{{ device.name }}</h5>
+                        <p class="mb-1"><strong>القسم:</strong> {{ device.department.name }}</p>
+                        <p class="mb-1"><strong>التصنيف:</strong> {{ device.category.name }}</p>
+                        {% if device.model %}
+                            <p class="mb-1"><strong>الموديل:</strong> {{ device.model }}</p>
+                        {% endif %}
+                        {% if device.current_responsible %}
+                            <p class="mb-0"><strong>المسؤول الحالي:</strong> 
+                                <span class="badge bg-primary">{{ device.current_responsible.get_full_name }}</span>
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    {% if device.current_responsible %}
+                        <!-- Handover Form -->
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="to_user_id" class="form-label">تسليم إلى:</label>
+                                <select name="to_user_id" id="to_user_id" class="form-select" required>
+                                    <option value="">-- اختر المستخدم المستلم --</option>
+                                    {% for user in users %}
+                                        <option value="{{ user.id }}">
+                                            {{ user.get_full_name }}
+                                            {% if user.email %}
+                                                ({{ user.email }})
+                                            {% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">ملاحظات التسليم:</label>
+                                <textarea name="notes" id="notes" class="form-control" rows="3" 
+                                          placeholder="أدخل ملاحظات حول حالة الجهاز أو تفاصيل التسليم..."></textarea>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>تنبيه:</strong> سيتم تسليم الجهاز من {{ device.current_responsible.get_full_name }} إلى المستخدم المحدد أعلاه.
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="bi bi-arrow-right me-2"></i>
+                                    تأكيد التسليم
+                                </button>
+                                <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    إلغاء
+                                </a>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-circle me-2"></i>
+                            <strong>خطأ:</strong> الجهاز غير معين لأي مستخدم حالياً. يجب تعيين مسؤول أولاً.
+                        </div>
+                        <a href="{% url 'maintenance:assign_device_custody' device.id %}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-2"></i>
+                            تعيين مسؤول
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

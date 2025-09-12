@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تحرير العهدة - {{ device.name }} - HMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-x-circle me-2"></i>
+                        تحرير الجهاز من العهدة
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Device Info -->
+                    <div class="alert alert-info">
+                        <h5><i class="bi bi-gear me-2"></i>{{ device.name }}</h5>
+                        <p class="mb-1"><strong>القسم:</strong> {{ device.department.name }}</p>
+                        <p class="mb-1"><strong>التصنيف:</strong> {{ device.category.name }}</p>
+                        {% if device.model %}
+                            <p class="mb-1"><strong>الموديل:</strong> {{ device.model }}</p>
+                        {% endif %}
+                        {% if device.current_responsible %}
+                            <p class="mb-1"><strong>المسؤول الحالي:</strong> 
+                                <span class="badge bg-primary">{{ device.current_responsible.get_full_name }}</span>
+                            </p>
+                            {% if device.custody_assigned_at %}
+                                <p class="mb-1"><strong>تاريخ التسليم:</strong> {{ device.custody_assigned_at|date:"Y-m-d H:i" }}</p>
+                            {% endif %}
+                            {% with duration=device.get_custody_duration %}
+                                {% if duration %}
+                                    <p class="mb-0"><strong>مدة العهدة:</strong> {{ duration.days }} يوم</p>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <p class="mb-0"><strong>الحالة:</strong> 
+                                <span class="badge bg-secondary">غير معين لمسؤول</span>
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    {% if device.current_responsible %}
+                        <!-- Release Form -->
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">سبب التحرير وملاحظات:</label>
+                                <textarea name="notes" id="notes" class="form-control" rows="4" 
+                                          placeholder="أدخل سبب تحرير الجهاز من العهدة وأي ملاحظات أخرى..." required></textarea>
+                                <div class="form-text">يجب توضيح سبب تحرير الجهاز من العهدة</div>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>تنبيه:</strong> سيتم تحرير الجهاز من عهدة {{ device.current_responsible.get_full_name }} وسيصبح غير معين لأي مسؤول.
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    تأكيد التحرير
+                                </button>
+                                <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left me-2"></i>
+                                    إلغاء
+                                </a>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>معلومة:</strong> الجهاز غير معين لأي مستخدم حالياً.
+                        </div>
+                        <a href="{% url 'maintenance:assign_device_custody' device.id %}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-2"></i>
+                            تعيين مسؤول
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تعيين مسؤول - {{ device.name }} - HMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-plus me-2"></i>
+                        تعيين مسؤول عن الجهاز
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Device Info -->
+                    <div class="alert alert-info">
+                        <h5><i class="bi bi-gear me-2"></i>{{ device.name }}</h5>
+                        <p class="mb-1"><strong>القسم:</strong> {{ device.department.name }}</p>
+                        <p class="mb-1"><strong>التصنيف:</strong> {{ device.category.name }}</p>
+                        {% if device.model %}
+                            <p class="mb-1"><strong>الموديل:</strong> {{ device.model }}</p>
+                        {% endif %}
+                        {% if device.current_responsible %}
+                            <p class="mb-0"><strong>المسؤول الحالي:</strong> 
+                                <span class="badge bg-warning">{{ device.current_responsible.get_full_name }}</span>
+                            </p>
+                        {% else %}
+                            <p class="mb-0"><strong>الحالة:</strong> 
+                                <span class="badge bg-secondary">غير معين لمسؤول</span>
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Assignment Form -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="user_id" class="form-label">اختر المسؤول الجديد:</label>
+                            <select name="user_id" id="user_id" class="form-select" required>
+                                <option value="">-- اختر مستخدم --</option>
+                                {% for user in users %}
+                                    <option value="{{ user.id }}">
+                                        {{ user.get_full_name }}
+                                        {% if user.email %}
+                                            ({{ user.email }})
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">ملاحظات (اختياري):</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="3" 
+                                      placeholder="أدخل أي ملاحظات حول تعيين المسؤولية..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>
+                                تعيين المسؤول
+                            </button>
+                            <a href="{% url 'maintenance:device_detail' device.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle me-2"></i>
+                                إلغاء
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

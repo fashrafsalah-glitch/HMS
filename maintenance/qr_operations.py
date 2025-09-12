@@ -724,8 +724,7 @@ class QROperationsManager:
     
     def _handle_maintenance_open(self, entities: List[Dict], user: User) -> Dict:
         """Handle opening maintenance work order"""
-        from .models_cmms import WorkOrder
-        from .models import Badge
+        from .models import WorkOrder, Badge
         result = {'actions': []}
         
         badge_entity = next((e for e in entities if e['type'] == 'user'), None)
@@ -736,11 +735,10 @@ class QROperationsManager:
             
             # Create work order
             wo = WorkOrder.objects.create(
-                device=device,
-                work_type='corrective',
+                wo_type='corrective',
                 priority='medium',
-                status='open',
-                reported_by=user,
+                status='new',
+                created_by=user,
                 title=f"صيانة الجهاز {device.name}",
                 description=f"أمر صيانة مفتوح عبر QR",
                 scheduled_start=timezone.now(),
@@ -751,13 +749,13 @@ class QROperationsManager:
             device.status = 'under_maintenance'
             device.save()
             
-            result['actions'].append(f"✅ تم فتح أمر الصيانة #{wo.work_order_number} للجهاز {device.name}")
+            result['actions'].append(f"✅ تم فتح أمر الصيانة #{wo.wo_number} للجهاز {device.name}")
         
         return result
     
     def _handle_maintenance_close(self, entities: List[Dict], user: User) -> Dict:
         """Handle closing maintenance work order"""
-        from .models_cmms import WorkOrder
+        from .models import WorkOrder
         result = {'actions': []}
         
         badge_entity = next((e for e in entities if e['type'] == 'user'), None)
@@ -859,7 +857,7 @@ class QROperationsManager:
             device = self.Device.objects.get(id=device_entity['id'])
             
             # Gather audit information
-            from .models_cmms import WorkOrder
+            from .models import WorkOrder
             
             # Recent work orders
             recent_wos = WorkOrder.objects.filter(

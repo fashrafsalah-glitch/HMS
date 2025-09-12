@@ -143,6 +143,12 @@ urlpatterns = [
     path('api/operation/cancel/<int:execution_id>/', views.cancel_operation, name='cancel_operation'),
     path('usage-logs/', views.device_usage_logs, name='device_usage_logs'),
     path('usage-logs/export/', views.export_device_usage_logs, name='export_device_usage_logs'),
+    
+    # Custody Management URLs
+    path('custody/', views.custody_dashboard, name='custody_dashboard'),
+    path('devices/<int:device_id>/assign-custody/', views.assign_device_custody, name='assign_device_custody'),
+    path('devices/<int:device_id>/release-custody/', views.release_device_custody, name='release_device_custody'),
+    path('devices/<int:device_id>/handover/', views.handover_device, name='handover_device'),
 
     # Step 3: Additional API endpoints
     path('api/start-session/', views.start_scan_session, name='start_scan_session'),

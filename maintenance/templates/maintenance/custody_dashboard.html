@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}لوحة تحكم العهدة - HMS{% endblock %}
+
+{% block content %}
+<style>
+    .custody-card {
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .custody-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+    }
+    
+    .device-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+    
+    .device-working { background: #d4edda; color: #155724; }
+    .device-maintenance { background: #f8d7da; color: #721c24; }
+    .device-check { background: #fff3cd; color: #856404; }
+    
+    .handover-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+    
+    .handover-pending { background: #fff3cd; color: #856404; }
+    .handover-completed { background: #d4edda; color: #155724; }
+    .handover-rejected { background: #f8d7da; color: #721c24; }
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">
+                <i class="bi bi-shield-check me-2"></i>
+                لوحة تحكم العهدة
+            </h1>
+            <p class="text-muted">إدارة عهدة الأجهزة الطبية والتسليم بين المستخدمين</p>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="bi bi-person-check display-4 mb-2"></i>
+                <h3>{{ stats.my_devices_count }}</h3>
+                <p class="mb-0">أجهزتي</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="bi bi-shield-fill-check display-4 mb-2"></i>
+                <h3>{{ stats.total_in_custody }}</h3>
+                <p class="mb-0">إجمالي في العهدة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="bi bi-exclamation-triangle display-4 mb-2"></i>
+                <h3>{{ stats.unassigned_count }}</h3>
+                <p class="mb-0">غير معينة</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="bi bi-arrow-left-right display-4 mb-2"></i>
+                <h3>{{ stats.total_handovers }}</h3>
+                <p class="mb-0">عمليات التسليم</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#my-devices" type="button">
+                <i class="bi bi-person-check me-2"></i>
+                أجهزتي ({{ my_devices.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#all-custody" type="button">
+                <i class="bi bi-shield-check me-2"></i>
+                جميع الأجهزة في العهدة ({{ devices_in_custody.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#unassigned" type="button">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                غير معينة ({{ unassigned_devices.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#recent-handovers" type="button">
+                <i class="bi bi-clock-history me-2"></i>
+                آخر التسليمات
+            </button>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- My Devices Tab -->
+        <div class="tab-pane fade show active" id="my-devices">
+            <div class="custody-card">
+                {% if my_devices %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>القسم</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ التسليم</th>
+                                    <th>مدة العهدة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in my_devices %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ device.name }}</strong>
+                                            {% if device.model %}
+                                                <br><small class="text-muted">{{ device.model }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ device.department.name }}</td>
+                                        <td>
+                                            <span class="device-badge device-{{ device.status }}">
+                                                {{ device.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ device.custody_assigned_at|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            {% with duration=device.get_custody_duration %}
+                                                {% if duration %}
+                                                    {{ duration.days }} يوم
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'maintenance:device_detail' device.id %}" 
+                                                   class="btn btn-sm btn-outline-info">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <a href="{% url 'maintenance:handover_device' device.id %}" 
+                                                   class="btn btn-sm btn-outline-warning">
+                                                    <i class="bi bi-arrow-right"></i> تسليم
+                                                </a>
+                                                <a href="{% url 'maintenance:release_device_custody' device.id %}" 
+                                                   class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-x-circle"></i> تحرير
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">لا توجد أجهزة في عهدتك</h4>
+                        <p class="text-muted">لم يتم تعيين أي أجهزة في عهدتك حالياً</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- All Custody Tab -->
+        <div class="tab-pane fade" id="all-custody">
+            <div class="custody-card">
+                {% if devices_in_custody %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-success">
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>المسؤول</th>
+                                    <th>القسم</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ التسليم</th>
+                                    <th>مدة العهدة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices_in_custody %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'maintenance:device_detail' device.id %}" class="text-decoration-none">
+                                                <strong>{{ device.name }}</strong>
+                                            </a>
+                                            {% if device.model %}
+                                                <br><small class="text-muted">{{ device.model }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>{{ device.current_responsible.get_full_name }}</strong>
+                                        </td>
+                                        <td>{{ device.department.name }}</td>
+                                        <td>
+                                            <span class="device-badge device-{{ device.status }}">
+                                                {{ device.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ device.custody_assigned_at|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            {% with duration=device.get_custody_duration %}
+                                                {% if duration %}
+                                                    {{ duration.days }} يوم
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-shield-x display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">لا توجد أجهزة في العهدة</h4>
+                        <p class="text-muted">لم يتم تعيين أي أجهزة لمستخدمين حالياً</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Unassigned Tab -->
+        <div class="tab-pane fade" id="unassigned">
+            <div class="custody-card">
+                {% if unassigned_devices %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-warning">
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>القسم</th>
+                                    <th>التصنيف</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in unassigned_devices %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'maintenance:device_detail' device.id %}" class="text-decoration-none">
+                                                <strong>{{ device.name }}</strong>
+                                            </a>
+                                            {% if device.model %}
+                                                <br><small class="text-muted">{{ device.model }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ device.department.name }}</td>
+                                        <td>{{ device.category.name }}</td>
+                                        <td>
+                                            <span class="device-badge device-{{ device.status }}">
+                                                {{ device.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'maintenance:assign_device_custody' device.id %}" 
+                                               class="btn btn-sm btn-primary">
+                                                <i class="bi bi-person-plus"></i> تعيين مسؤول
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-check-circle display-1 text-success"></i>
+                        <h4 class="text-success mt-3">جميع الأجهزة معينة</h4>
+                        <p class="text-muted">جميع الأجهزة لديها مسؤولين معينين</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Recent Handovers Tab -->
+        <div class="tab-pane fade" id="recent-handovers">
+            <div class="custody-card">
+                {% if recent_handovers %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-info">
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>من المستخدم</th>
+                                    <th>إلى المستخدم</th>
+                                    <th>التاريخ والوقت</th>
+                                    <th>الملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for handover in recent_handovers %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'maintenance:device_detail' handover.device.id %}" class="text-decoration-none">
+                                                <strong>{{ handover.device.name }}</strong>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            {% if handover.from_user %}
+                                                {{ handover.from_user.get_full_name }}
+                                            {% else %}
+                                                <span class="text-muted">النظام</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if handover.to_user %}
+                                                {{ handover.to_user.get_full_name }}
+                                            {% else %}
+                                                <span class="text-muted">تم التحرير</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ handover.handed_at|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            {% if handover.note %}
+                                                {{ handover.note|truncatechars:50 }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-clock-history display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">لا توجد عمليات تسليم</h4>
+                        <p class="text-muted">لم يتم تسجيل أي عمليات تسليم حتى الآن</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %}
