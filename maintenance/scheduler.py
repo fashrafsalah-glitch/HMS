@@ -97,7 +97,7 @@ class CMMSScheduler:
                         device=schedule.device,
                         request_type='preventive',
                         priority='medium',
-                        requested_by=schedule.created_by or self._get_system_user(),
+                        reporter=schedule.created_by or self._get_system_user(),
                         assigned_to=schedule.created_by,
                         is_auto_generated=True
                     )
@@ -235,7 +235,7 @@ class CMMSScheduler:
                         device=calibration.device,
                         request_type='calibration',
                         priority='low',  # أولوية منخفضة كما طلب المستخدم
-                        requested_by=calibration.calibrated_by or self._get_system_user(),
+                        reporter=calibration.calibrated_by or self._get_system_user(),
                         assigned_to=calibration.calibrated_by,
                         is_auto_generated=True
                     )

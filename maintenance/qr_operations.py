@@ -559,6 +559,7 @@ class QROperationsManager:
     
     def _handle_device_handover(self, entities: List[Dict], user: User) -> Dict:
         """Handle device handover between users"""
+        from django.utils import timezone
         result = {'actions': []}
         
         from_user = next((e for e in entities if e['type'] == 'user'), None)
@@ -571,7 +572,30 @@ class QROperationsManager:
             
             for device_entity in device_entities:
                 device = self.Device.objects.get(id=device_entity['id'])
-                result['actions'].append(f"Device {device.name} handed over from {from_user_obj.username} to {to_user_obj.username}")
+                
+                # Update device custody
+                old_responsible = device.current_responsible
+                device.current_responsible = to_user_obj
+                device.save()
+                
+                # Create handover log
+                try:
+                    DeviceHandoverLog = apps.get_model('maintenance', 'DeviceHandoverLog')
+                    DeviceHandoverLog.objects.create(
+                        device=device,
+                        from_user=from_user_obj,
+                        to_user=to_user_obj,
+                        handed_by=user,
+                        handed_at=timezone.now(),
+                        notes=f"تسليم عبر نظام QR - من {from_user_obj.get_full_name()} إلى {to_user_obj.get_full_name()}"
+                    )
+                except:
+                    # If DeviceHandoverLog doesn't exist, just update the device
+                    pass
+                
+                result['actions'].append(f"✅ تم تسليم الجهاز {device.name} من {from_user_obj.get_full_name()} إلى {to_user_obj.get_full_name()}")
+        else:
+            result['actions'].append("❌ يجب مسح بطاقة المستخدم المسلم والمستلم والجهاز لإتمام عملية التسليم")
         
         return result
     
@@ -724,7 +748,7 @@ class QROperationsManager:
     
     def _handle_maintenance_open(self, entities: List[Dict], user: User) -> Dict:
         """Handle opening maintenance work order"""
-        from .models import WorkOrder, Badge
+        from .models import WorkOrder, Badge, ServiceRequest
         result = {'actions': []}
         
         badge_entity = next((e for e in entities if e['type'] == 'user'), None)
@@ -733,8 +757,20 @@ class QROperationsManager:
         for device_entity in device_entities:
             device = self.Device.objects.get(id=device_entity['id'])
             
-            # Create work order
+            # Create service request first
+            service_request = ServiceRequest.objects.create(
+                device=device,
+                reporter=user,
+                request_type='maintenance',
+                priority='medium',
+                status='new',
+                title=f"طلب صيانة للجهاز {device.name}",
+                description=f"طلب صيانة مفتوح عبر QR"
+            )
+            
+            # Create work order linked to service request
             wo = WorkOrder.objects.create(
+                service_request=service_request,
                 wo_type='corrective',
                 priority='medium',
                 status='new',
@@ -766,18 +802,18 @@ class QROperationsManager:
             
             # Find open work orders for this device
             open_wos = WorkOrder.objects.filter(
-                device=device,
-                status__in=['open', 'in_progress', 'pending']
+                service_request__device=device,
+                status__in=['new', 'assigned', 'in_progress']
             )
             
             for wo in open_wos:
-                wo.status = 'completed'
+                wo.status = 'resolved'
                 wo.actual_end = timezone.now()
-                wo.completed_by = user
-                wo.resolution_notes = "تم إغلاق أمر الصيانة عبر QR"
+                wo.completed_at = timezone.now()
+                wo.completion_notes = "تم إغلاق أمر الصيانة عبر QR"
                 wo.save()
                 
-                result['actions'].append(f"✅ تم إغلاق أمر الصيانة #{wo.work_order_number}")
+                result['actions'].append(f"✅ تم إغلاق أمر الصيانة #{wo.wo_number}")
             
             # Update device status
             device.status = 'working'

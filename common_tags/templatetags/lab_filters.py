@@ -23,3 +23,13 @@ def format_result(result_value, normal_range):
     colour = "green" if lo <= val <= hi else "red"
     html = f'<span style="color:{colour}; font-weight:bold;">{val}</span>'
     return mark_safe(html)
+
+@register.filter(name="get_item")
+def get_item(dictionary, key):
+    """
+    Get an item from a dictionary using a key.
+    Usage: {{ dict|get_item:key }}
+    """
+    if dictionary is None:
+        return None
+    return dictionary.get(key)

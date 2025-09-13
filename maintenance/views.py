@@ -21,7 +21,7 @@ from .forms_cmms import ServiceRequestForm
 from .models import (Company, Device, DeviceTransferRequest, DeviceType, DeviceUsage, 
                      DeviceCleaningLog, DeviceSterilizationLog, DeviceMaintenanceLog, 
                      DeviceCategory, DeviceSubCategory, PreventiveMaintenanceSchedule, 
-                     WorkOrder, JobPlan, OperationDefinition, OperationStep, 
+                     WorkOrder, ServiceRequest, JobPlan, OperationDefinition, OperationStep, 
                      OperationExecution, ScanSession, DeviceUsageLog, DeviceTransferLog,
                      CalibrationRecord, DeviceUsageLogDaily)
 from manager.models import Department, Room, Bed, Patient
@@ -1371,7 +1371,7 @@ def add_device(request):
             form.save()
             return redirect('maintenance:device_list')
         else:
-            print("Form Errors:", form.errors)  # ← اطبع الأخطاء هنا
+            pass  # Form errors handled by template
     else:
         form = DeviceFormBasic()
     
@@ -2179,7 +2179,7 @@ def parse_qr_code(raw_value):
     if not raw_value or not raw_value.strip():
         return None, None, None, "QR code is empty"
     
-    print(f"[DEBUG parse_qr_code] Starting with raw_value: '{raw_value}'")
+    # Debug: Starting with raw_value
     
     # Extract token from URL or use raw value
     if raw_value.startswith("http"):
@@ -2195,8 +2195,7 @@ def parse_qr_code(raw_value):
     else:
         qr_code = raw_value
     
-    print(f"[DEBUG parse_qr_code] QR code after URL parsing: '{qr_code}'")
-    print(f"[DEBUG parse_qr_code] Checking format - Has ':': {':' in qr_code}, Has '|': {'|' in qr_code}, Length: {len(qr_code)}")
+    # Debug: QR code after URL parsing
     
     try:
         # Parse QR code based on format
@@ -2206,7 +2205,7 @@ def parse_qr_code(raw_value):
         # Check if it's a simple hash without prefix (e.g., 761bd9ff7e31)
         # This must be checked FIRST before other formats
         if ':' not in qr_code and '|' not in qr_code and len(qr_code) == 12:
-            print(f"[DEBUG parse_qr_code] Simple hash format detected")
+            # Debug: Simple hash format detected
             # This looks like a hash - try to find the entity
             potential_hash = qr_code
             
@@ -2235,13 +2234,9 @@ def parse_qr_code(raw_value):
                             entity_type = entity_type_check
                             entity_id = entity.pk
                             entity_found = True
-                            break
-                    
-                    if entity_found:
-                        break
-                        
+                            pass  # Check pending operation
                 except Exception as e:
-                    print(f"Error checking {entity_type_check}: {e}")
+                    pass  # Error checking pending operationype
                     continue
             
             if not entity_found:
@@ -2257,7 +2252,7 @@ def parse_qr_code(raw_value):
                 # This is legacy format, continue with normal processing
             except ValueError:
                 # This is hash format - find entity by reverse-engineering
-                print(f"[DEBUG parse_qr_code] Hash format detected: entity_type='{entity_type}', hash='{potential_hash}'")
+                # Debug: Hash format detected
                 
                 # Map entity types to models
                 model_mapping = {
@@ -2288,26 +2283,26 @@ def parse_qr_code(raw_value):
                             count += 1
                             
                             if count <= 5:  # Show first 5 for debug
-                                print(f"[DEBUG] Checking entity {entity.pk}: hash={calculated_hash}, looking for={potential_hash}")
+                                pass  # Checking entity
                             
                             if calculated_hash == potential_hash:
                                 entity_id = entity.pk
-                                print(f"[DEBUG] FOUND! Entity ID {entity_id} matches hash {potential_hash}")
+                                # Debug: FOUND! Entity matches hash
                                 break
                         
-                        print(f"[DEBUG] Checked {count} {entity_type} entities")
+                        # Debug: Checked entities
                     except Exception as e:
-                        print(f"[DEBUG] Error searching for entity: {e}")
+                        # Debug: Error searching for entity
                         entity_id = None
                 else:
-                    print(f"[DEBUG] Entity type '{entity_type}' not in model_mapping")
+                    # Debug: Entity type not in model_mapping
                     entity_id = None
                 
                 if entity_id is None:
                     return None, None, None, f"Entity not found for hash: {potential_hash}"
                 
                 # Entity found - now fetch and return its data
-                print(f"[DEBUG] Entity found, fetching data for {entity_type} ID {entity_id}")
+                # Debug: Entity found, fetching data
                 
                 # Now fetch the actual entity and prepare data
                 app_label, model_name = model_mapping[entity_type]
@@ -2344,7 +2339,7 @@ def parse_qr_code(raw_value):
                             'date_of_birth': entity.date_of_birth.strftime('%Y-%m-%d') if entity.date_of_birth else None,
                         })
                     
-                    print(f"[DEBUG] Returning entity data for {entity_type} ID {entity_id}")
+                    # Debug: Returning entity data
                     return entity_type, entity_id, entity_data, None
                     
                 except model_class.DoesNotExist:
@@ -2639,9 +2634,7 @@ def scan_qr_code_api(request):
     Works without browser interface - pure API endpoint
     Now with context-based flow management and secure token validation
     """
-    print(f"[DEBUG scan_qr_code_api] Method: {request.method}")
-    print(f"[DEBUG scan_qr_code_api] Content-Type: {request.content_type}")
-    print(f"[DEBUG scan_qr_code_api] Body: {request.body[:200] if request.body else 'None'}")
+    # Debug: scan_qr_code_api called
     
     from core.secure_qr import QRContextFlow
     
@@ -2655,7 +2648,7 @@ def scan_qr_code_api(request):
         else:
             data = request.POST.dict()
         
-        print(f"[DEBUG scan_qr_code_api] Parsed data: {data}")
+        # Debug: Parsed data
         
         qr_code = data.get('qr_code', '').strip()
         device_type = data.get('device_type', 'unknown')  # 'scanner', 'mobile', 'unknown'
@@ -2663,15 +2656,15 @@ def scan_qr_code_api(request):
         scanner_id = data.get('scanner_id')  # Unique ID for dedicated scanner
         session_id = data.get('session_id')  # Session ID for context flows
         
-        print(f"[DEBUG scan_qr_code_api] QR Code: '{qr_code}', Session: {session_id}")
+        # Debug: QR Code and Session received
         
         if not qr_code:
             return JsonResponse({'error': 'QR code is required'}, status=400)
         
         # Parse QR code (now supports secure tokens)
-        print(f"[DEBUG scan_qr_code_api] Calling parse_qr_code with: '{qr_code}'")
+        # Debug: Calling parse_qr_code
         entity_type, entity_id, entity_data, error = parse_qr_code(qr_code)
-        print(f"[DEBUG scan_qr_code_api] Parse result - Type: {entity_type}, ID: {entity_id}, Error: {error}")
+        # Debug: Parse result received
         
         if error:
             return JsonResponse({
@@ -2711,7 +2704,7 @@ def scan_qr_code_api(request):
                 session_id=session_id
             )
         except Exception as e:
-            print(f"[DEBUG scan_qr_code_api] Error logging scan: {e}")
+            # Debug: Error logging scan
             return JsonResponse({
                 'success': False,
                 'error': f'Error logging scan: {str(e)}'
@@ -2837,23 +2830,20 @@ def scan_qr_code(request):
     from .qr_operations import QROperationsManager
     from .models import OperationExecution
     
-    print(f"[DEBUG] scan_qr_code called - Method: {request.method}")
-    print(f"[DEBUG] Request body: {request.body}")
-    print(f"[DEBUG] User: {request.user}")
+    # Debug: scan_qr_code called
     
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
     try:
         data = json.loads(request.body) if request.body else {}
-        print(f"[DEBUG] Parsed data: {data}")
+        # Debug: Parsed data
         qr_code = data.get('qr_code', '').strip()
         sample_token = data.get('sample_token', '').strip()
         session_id = data.get('session_id')
         operation_code = data.get('operation_code')
         
-        print(f"[DEBUG] Extracted: qr_code={qr_code}, session_id={session_id}, operation_code={operation_code}")
-        print(f"[DEBUG] QR Code: {qr_code}, Session ID: {session_id}")
+        # Debug: Extracted parameters
         
         # Initialize operations manager
         ops_manager = QROperationsManager()
@@ -2879,7 +2869,7 @@ def scan_qr_code(request):
         redirect_to_page = data.get('redirect_to_page', True)  # Default to redirect
         is_scan_session = session_id or 'scan-session' in request.META.get('HTTP_REFERER', '')
         
-        print(f"[DEBUG] redirect_to_page={redirect_to_page}, is_scan_session={is_scan_session}, session_id={session_id}")
+        # Debug: redirect and session flags
         
         # Special handling for user scans from scan-session page
         if entity_type == 'user' and is_scan_session and not session_id:
@@ -3054,18 +3044,14 @@ def scan_qr_code(request):
         pending_operation = None
         if scan_session and hasattr(scan_session, 'context_json') and scan_session.context_json:
             pending_operation_code = scan_session.context_json.get('pending_operation')
-            print(f"🔍 DEBUG: Checking pending operation: {pending_operation_code}")
+            # Debug: Checking pending operation
             if pending_operation_code:
                 # Try to get the operation definition
                 try:
                     OperationDefinition = apps.get_model('maintenance', 'OperationDefinition')
                     pending_operation = OperationDefinition.objects.filter(code=pending_operation_code).first()
-                    if pending_operation:
-                        print(f"✅ DEBUG: Found pending operation: {pending_operation.name} ({pending_operation.code})")
-                    else:
-                        print(f"❌ DEBUG: Could not find operation with code: {pending_operation_code}")
+                    pass
                 except Exception as e:
-                    print(f"❌ DEBUG: Error getting operation: {e}")
                     pass
         
         # Get all scanned entities and match to operations
@@ -3078,7 +3064,7 @@ def scan_qr_code(request):
         
         # If we have a pending operation and just scanned the third entity, use it
         if pending_operation and entity_type in ['patient', 'department', 'user', 'customuser']:
-            print(f"🎯 DEBUG: Using pending operation {pending_operation.code} for entity type {entity_type}")
+            # Using pending operation for entity type
             matched_operation = pending_operation
             
             # For DEVICE_USAGE specifically, we need to handle the execution here
@@ -3086,7 +3072,7 @@ def scan_qr_code(request):
                 # Get the pending device ID
                 pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
                 if pending_device_id:
-                    print(f"🔗 DEBUG: Executing DEVICE_USAGE - Linking device {pending_device_id} to patient {entity_id}")
+                    # Executing DEVICE_USAGE - Linking device to patient
                     try:
                         device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
                         patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
@@ -3123,16 +3109,15 @@ def scan_qr_code(request):
                         
                         operation_executed = True
                         execution_message = f'تم ربط الجهاز {device.name} بالمريض {patient.name}'
-                        print(f"✅ DEBUG: Device linked successfully - operation_executed={operation_executed}")
+                        # Device linked successfully
                         
                         # Clear the pending operation
                         if scan_session.context_json:
                             scan_session.context_json.pop('pending_operation', None)
                             scan_session.context_json.pop('pending_device', None)
                             scan_session.save()
-                            print(f"✅ DEBUG: Cleared pending operation from session")
+                            # Cleared pending operation from session
                     except Exception as e:
-                        print(f"❌ DEBUG: Error linking device: {e}")
                         execution_message = f'خطأ في ربط الجهاز: {str(e)}'
                         operation_executed = False
             
@@ -3141,7 +3126,7 @@ def scan_qr_code(request):
                 # Get the pending device ID
                 pending_device_id = scan_session.context_json.get('pending_device') if scan_session.context_json else None
                 if pending_device_id:
-                    print(f"🅾️ DEBUG: Executing END_DEVICE_USAGE - Ending usage for device {pending_device_id}")
+                    # Executing END_DEVICE_USAGE - Ending usage for device
                     try:
                         device = apps.get_model('maintenance', 'Device').objects.get(pk=pending_device_id)
                         patient = apps.get_model('manager', 'Patient').objects.get(pk=entity_id)
@@ -3179,19 +3164,18 @@ def scan_qr_code(request):
                             
                             operation_executed = True
                             execution_message = f'تم إنهاء استخدام الجهاز {device.name} - الجهاز يحتاج تنظيف وتعقيم'
-                            print(f"✅ DEBUG: Device usage ended successfully")
+                            # Device usage ended successfully
                         else:
                             execution_message = f'المريض {patient.name} لا يستخدم الجهاز {device.name}'
-                            print(f"⚠️ DEBUG: Patient is not using this device")
+                            # Patient is not using this device
                         
                         # Clear the pending operation
                         if scan_session.context_json:
                             scan_session.context_json.pop('pending_operation', None)
                             scan_session.context_json.pop('pending_device', None)
                             scan_session.save()
-                            print(f"✅ DEBUG: Cleared pending operation from session")
+                            # Cleared pending operation from session
                     except Exception as e:
-                        print(f"❌ DEBUG: Error ending device usage: {e}")
                         execution_message = f'خطأ في إنهاء الاستخدام: {str(e)}'
                         operation_executed = False
             
@@ -3201,14 +3185,11 @@ def scan_qr_code(request):
                     scan_session.context_json.pop('pending_operation', None)
                     scan_session.context_json.pop('pending_device', None)
                     scan_session.save()
-                    print(f"✅ DEBUG: Cleared pending operation from session")
+                    # Cleared pending operation from session
         else:
             # Otherwise, try to match normally
             matched_operation = ops_manager.match_operation(scanned_entities)
-            if matched_operation:
-                print(f"🔄 DEBUG: Matched operation normally: {matched_operation.code}")
-            else:
-                print(f"⚠️ DEBUG: No operation matched for entities: {[e['type'] for e in scanned_entities]}")
+            # Check if operation matched
         
         operation_executed = False
         execution_result = None
@@ -3304,8 +3285,8 @@ def scan_qr_code(request):
                         # Check if there's an open work order
                         WorkOrder = apps.get_model('maintenance', 'WorkOrder')
                         open_wo = WorkOrder.objects.filter(
-                            device=device,
-                            status__in=['open', 'in_progress', 'pending']
+                            service_request__device=device,
+                            status__in=['new', 'assigned', 'in_progress']
                         ).exists()
                         
                         if open_wo:
@@ -3423,6 +3404,44 @@ def scan_qr_code(request):
                         if hasattr(device, 'next_calibration_date'):
                             from datetime import timedelta
                             if device.next_calibration_date and device.next_calibration_date <= timezone.now().date():
+                                operations_data = [
+                                    {
+                                        'id': 1,
+                                        'name': 'Device Check',
+                                        'code': 'device_check',
+                                        'description': 'Check device status',
+                                        'requires_badge': False,
+                                        'auto_execute': False,
+                                        'steps_count': 3
+                                    },
+                                    {
+                                        'id': 2,
+                                        'name': 'Maintenance',
+                                        'code': 'maintenance',
+                                        'description': 'Periodic maintenance',
+                                        'requires_badge': True,
+                                        'auto_execute': False,
+                                        'steps_count': 5
+                                    },
+                                    {
+                                        'id': 3,
+                                        'name': 'User Login',
+                                        'code': 'user_login',
+                                        'description': 'User login operation',
+                                        'requires_badge': True,
+                                        'auto_execute': True,
+                                        'steps_count': 1
+                                    },
+                                    {
+                                        'id': 4,
+                                        'name': 'User Logout',
+                                        'code': 'user_logout',
+                                        'description': 'User logout operation',
+                                        'requires_badge': True,
+                                        'auto_execute': True,
+                                        'steps_count': 1
+                                    }
+                                ]
                                 operations_list.append({
                                     'code': 'CALIBRATION',
                                     'name': 'معايرة الجهاز',
@@ -3691,21 +3710,16 @@ def scan_session_page(request):
     
     # Store badge in session for subsequent requests
     request.session['user_badge_id'] = user_badge_id
-    
-    # Get session_id from URL parameter
+    # Get user-specific active session based on badge or session_id
     session_id = request.GET.get('session_id')
-    print(f"[DEBUG scan_session_page] Looking for session_id: {session_id}")
-    
-    # Initialize variables
-    active_session = None
-    session_id_for_template = session_id  # Keep the original session_id for template
+    # Looking for session_id
     
     if session_id:
         active_session = ScanSession.objects.filter(
             session_id=session_id,
             status='active'
         ).first()
-        print(f"[DEBUG scan_session_page] Found session by ID: {active_session}")
+        # Found session by ID
         
         # If session not found by ID, try to find any active session for this user
         if not active_session:
@@ -3713,77 +3727,61 @@ def scan_session_page(request):
                 user=request.user,
                 status='active'
             ).order_by('-created_at').first()
-            print(f"[DEBUG scan_session_page] Fallback session found: {active_session}")
+            # Fallback session found
     else:
         active_session = ScanSession.objects.filter(
             user=request.user,
             metadata__contains={'user_badge_id': user_badge_id},
             status='active'
         ).first()
-        print(f"[DEBUG scan_session_page] Found session by badge: {active_session}")
-        
-        # If we found a session, use its session_id
-        if active_session:
-            session_id_for_template = active_session.session_id
-
-    # Get data based on whether we have a real session
-    if active_session and hasattr(active_session, 'id'):
-        # We have a real session
+        # Found session by badge
+    
+    # Create a temporary session object for template rendering only
+    if not active_session:
+        active_session = type('TempSession', (), {
+            'session_id': 'pending',
+            'user': request.user,
+            'status': 'pending'
+        })()
+    
+    # Get pending executions for this session (only if real session exists)
+    if hasattr(active_session, 'id'):
         pending_executions = OperationExecution.objects.filter(
             session=active_session,
             status='pending'
         ).select_related('operation')
         
+        # Get completed executions for this session
         completed_executions = OperationExecution.objects.filter(
             session=active_session,
             status='completed'
         ).select_related('operation').order_by('-completed_at')[:10]
         
+        # Get recent QR scan logs
         recent_scans = QRScanLog.objects.filter(
             session_id=active_session.session_id
         ).order_by('-scanned_at')[:20]
-        
-        # Use the real session
-        session_for_template = active_session
-        
     else:
-        # No real session yet - create minimal session object for template
-        session_for_template = type('TempSession', (), {
-            'session_id': session_id_for_template or 'pending',
-            'user': request.user,
-            'status': 'pending' if not session_id_for_template else 'not_found'
-        })()
-        
-        # Empty lists for pending session
+        # No real session yet - empty lists
         pending_executions = []
         completed_executions = []
         recent_scans = []
     
-    # Always get available operations - this was missing!
+    # Get available operations
     operations = OperationDefinition.objects.filter(is_active=True)
-    operations_list = list(operations)  # Convert to list to ensure it's evaluated
-    
-    print(f"[DEBUG] Operations query result: {operations}")
-    print(f"[DEBUG] Operations count: {len(operations_list)}")
-    print(f"[DEBUG] Operations list: {[op.name for op in operations_list]}")
     
     context = {
-        'active_session': session_for_template,
-        'session': session_for_template,  # Keep for backward compatibility
-        'operations': operations_list,  # Use the evaluated list
+        'active_session': active_session,
+        'session': active_session,  # Keep for backward compatibility
+        'operations': operations,
         'pending_executions': pending_executions,
         'completed_executions': completed_executions,
         'recent_scans': recent_scans,
-        'title': 'QR Scanner Session',
-        'session_id_from_url': session_id,  # Add this for JavaScript access
-        'user_badge_id': user_badge_id,  # Add this for debugging
+        'title': 'QR Scanner Session'
     }
     
-    print(f"[DEBUG] Context operations count: {len(operations_list)}")
-    print(f"[DEBUG] Session ID for template: {session_for_template.session_id}")
-    print(f"[DEBUG] Full context keys: {list(context.keys())}")
-    
     return render(request, 'maintenance/scan_session.html', context)
+
 
 @csrf_exempt
 @login_required
@@ -4880,15 +4878,28 @@ def execute_operation(request):
         # Handle two-step operations that should execute immediately
         if execute_now:
             if operation_code == 'MAINTENANCE_OPEN':
-                # Create work order
-                wo = WorkOrder.objects.create(
+                # Create service request first
+                service_request = ServiceRequest.objects.create(
                     device=device,
-                    type='corrective',
-                    priority='normal',
+                    reporter=request.user,
+                    request_type='maintenance',
+                    priority='medium',
+                    status='new',
+                    title=f"طلب صيانة للجهاز {device.name}",
+                    description=data.get('notes', 'تم فتح أمر صيانة من نظام QR')
+                )
+                
+                # Create work order linked to service request
+                wo = WorkOrder.objects.create(
+                    service_request=service_request,
+                    wo_type='corrective',
+                    priority='medium',
+                    status='new',
+                    created_by=request.user,
                     title=f'صيانة الجهاز {device.name}',
                     description=data.get('notes', 'تم فتح أمر صيانة من نظام QR'),
-                    requested_by=request.user,
-                    status='open'
+                    scheduled_start=timezone.now(),
+                    scheduled_end=timezone.now() + timedelta(hours=4)
                 )
                 device.status = 'maintenance'
                 device.save()
@@ -4900,12 +4911,12 @@ def execute_operation(request):
             elif operation_code == 'MAINTENANCE_CLOSE':
                 # Close open work orders
                 open_orders = WorkOrder.objects.filter(
-                    device=device,
-                    status__in=['open', 'in_progress', 'pending']
+                    service_request__device=device,
+                    status__in=['new', 'assigned', 'in_progress']
                 ).update(
-                    status='completed',
+                    status='resolved',
                     actual_end=timezone.now(),
-                    completed_by=request.user
+                    completed_at=timezone.now()
                 )
                 device.status = 'working'
                 device.save()
@@ -5031,7 +5042,7 @@ def execute_operation(request):
             
             elif operation_code == 'DEVICE_USAGE':
                 # For three-step operation, just store and wait for patient scan
-                print(f"📝 DEBUG: DEVICE_USAGE selected, waiting for patient scan")
+                # DEVICE_USAGE selected, waiting for patient scan
                 if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
                     scan_session.context_json = {}
                 
@@ -5047,7 +5058,7 @@ def execute_operation(request):
             
             elif operation_code == 'END_DEVICE_USAGE':
                 # For three-step operation, just store and wait for patient scan
-                print(f"📝 DEBUG: END_DEVICE_USAGE selected, waiting for patient scan")
+                # END_DEVICE_USAGE selected, waiting for patient scan
                 if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
                     scan_session.context_json = {}
                 
@@ -5063,7 +5074,7 @@ def execute_operation(request):
         
         # For three-step operations, store in session context
         else:
-            print(f"📝 DEBUG: Storing pending operation {operation_code} for three-step execution")
+            # Storing pending operation for three-step execution
             # Store the selected operation in session context
             if not hasattr(scan_session, 'context_json') or scan_session.context_json is None:
                 scan_session.context_json = {}
@@ -5071,7 +5082,7 @@ def execute_operation(request):
             scan_session.context_json['pending_operation'] = operation_code
             scan_session.context_json['pending_device'] = device_id
             scan_session.save()
-            print(f"✅ DEBUG: Saved pending operation to session: {scan_session.context_json}")
+            # Saved pending operation to session
             
             return JsonResponse({
                 'success': True,

@@ -1267,15 +1267,15 @@ def api_device_profile(request, device_id):
         completed_work_orders = WorkOrder.objects.filter(
             service_request__device=device,
             status__in=['closed', 'qa_verified', 'resolved'],
-            start_time__isnull=False,
-            end_time__isnull=False
+            actual_start__isnull=False,
+            actual_end__isnull=False
         )
         
         mttr_minutes = 0
         if completed_work_orders.exists():
             total_minutes = 0
             for wo in completed_work_orders:
-                duration = wo.end_time - wo.start_time
+                duration = wo.actual_end - wo.actual_start
                 total_minutes += duration.total_seconds() / 60
             
             mttr_minutes = total_minutes / completed_work_orders.count()

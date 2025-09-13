@@ -5,26 +5,6 @@
 {% block title %}QR Scanner Session | HMS{% endblock %}
 
 {% block content %}
-<script>
-// Initialize session ID early with better fallback
-(function() {
-    // Get session ID from multiple sources
-    var fromTemplate = '{{ active_session.session_id|escapejs }}';
-    var fromUrl = '{{ session_id_from_url|escapejs }}';
-    var urlParams = new URLSearchParams(window.location.search);
-    var urlSessionId = urlParams.get('session_id');
-    
-    // Use first valid session ID found
-    window.currentSessionId = urlSessionId || fromUrl || fromTemplate || '';
-    
-    console.log('Session ID sources:', {
-        fromURL: urlSessionId,
-        fromContext: fromUrl,
-        fromTemplate: fromTemplate,
-        final: window.currentSessionId
-    });
-})();
-</script>
 <style>
     .scanner-container {
         max-width: 1400px;
@@ -295,7 +275,7 @@
     <!-- Header -->
     <div class="scanner-header">
         <h1><i class="fas fa-qrcode"></i> QR Scanner Session</h1>
-        <p>Session ID: <span id="sessionIdDisplay">{{ active_session.session_id|default:"Loading..." }}</span></p>
+        <p>Session ID: {{ active_session.session_id|default:"" }}</p>
     </div>
     
     <!-- Session Info -->
@@ -370,6 +350,31 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Operations Selection -->
+    <h3 class="mb-3"><i class="fas fa-cogs"></i> {% trans "Available Operations" %}</h3>
+    <div class="operations-section">
+        {% for operation in operations %}
+        <div class="operation-card" data-operation-id="{{ operation.id }}" 
+             data-operation-code="{{ operation.code }}">
+            <h4>
+                {{ operation.name }}
+                {% if operation.requires_badge %}
+                    <span class="badge badge-warning">
+                        <i class="fas fa-id-badge"></i> Badge
+                    </span>
+                {% endif %}
+                {% if operation.auto_execute %}
+                    <span class="badge badge-success">Auto</span>
+                {% endif %}
+            </h4>
+            <p>{{ operation.description|default:"" }}</p>
+            <small class="text-muted">
+                <i class="fas fa-list"></i> {{ operation.steps.count }} steps
+            </small>
+        </div>
+        {% endfor %}
     </div>
     
     <!-- Pending Executions -->
@@ -1484,71 +1489,6 @@
     
     // Continue scanning button handler
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOMContentLoaded fired');
-        
-        // Debug: Check what session IDs are available
-        console.log('Debug - Available session IDs:', {
-            fromWindow: window.currentSessionId,
-            fromURL: new URLSearchParams(window.location.search).get('session_id'),
-            templateValue: '{{ active_session.session_id|escapejs }}',
-            urlContextValue: '{{ session_id_from_url|escapejs }}'
-        });
-        
-        // Update Session ID display
-        const sessionId = getSessionId();
-        const sessionIdDisplay = document.getElementById('sessionIdDisplay');
-        
-        console.log('Session ID elements:', {
-            sessionId: sessionId,
-            displayElement: sessionIdDisplay,
-            currentContent: sessionIdDisplay ? sessionIdDisplay.textContent : 'element not found'
-        });
-        
-        if (sessionId && sessionIdDisplay) {
-            sessionIdDisplay.textContent = sessionId;
-            console.log('✅ Updated session ID display to:', sessionId);
-        } else if (!sessionIdDisplay) {
-            console.error('❌ sessionIdDisplay element not found!');
-        } else if (!sessionId) {
-            console.warn('⚠️ No valid session ID found');
-            sessionIdDisplay.textContent = 'No active session';
-        }
-        
-        // Debug counters and operations
-        const pendingCount = document.getElementById('pendingCount');
-        const completedCount = document.getElementById('completedCount');
-        const operationsSection = document.querySelector('.operations-section');
-        
-        console.log('Operations debug:', {
-            operationsSection: operationsSection,
-            operationCards: document.querySelectorAll('.operation-card').length,
-            operationsFromTemplate: {{ operations|length|default:0 }}
-        });
-        
-        console.log('Counter elements:', {
-            pendingElement: pendingCount,
-            pendingValue: pendingCount ? pendingCount.textContent : 'not found',
-            completedElement: completedCount,
-            completedValue: completedCount ? completedCount.textContent : 'not found'
-        });
-        
-        // Ensure counters show 0 if empty
-        if (pendingCount && (!pendingCount.textContent || pendingCount.textContent.trim() === '')) {
-            pendingCount.textContent = '0';
-            console.log('Set pending count to 0');
-        }
-        if (completedCount && (!completedCount.textContent || completedCount.textContent.trim() === '')) {
-            completedCount.textContent = '0';
-            console.log('Set completed count to 0');
-        }
-        
-        // Check if operations are rendered
-        if ({{ operations|length|default:0 }} === 0) {
-            console.warn('⚠️ No operations found in template context!');
-        } else {
-            console.log('✅ Operations available:', {{ operations|length|default:0 }});
-        }
-        
         const continueBtn = document.getElementById('continueScanning');
         if (continueBtn) {
             continueBtn.addEventListener('click', function() {

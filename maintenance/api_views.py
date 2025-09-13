@@ -132,7 +132,7 @@ class ServiceRequestListAPIView(generics.ListCreateAPIView):
         # فلترة حسب المستخدم (طلباتي فقط)
         my_requests = self.request.query_params.get('my_requests')
         if my_requests == 'true':
-            queryset = queryset.filter(requested_by=self.request.user)
+            queryset = queryset.filter(reporter=self.request.user)
             
         return queryset.order_by('-created_at')
 
@@ -141,7 +141,7 @@ class ServiceRequestDetailAPIView(generics.RetrieveUpdateAPIView):
     API لجلب وتحديث تفاصيل طلب خدمة
     """
     queryset = ServiceRequest.objects.select_related(
-        'device', 'requested_by', 'assigned_to', 'sla'
+        'device', 'reporter', 'assigned_to', 'sla'
     )
     serializer_class = ServiceRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -490,7 +490,7 @@ def quick_service_request(request):
             title=title,
             description=description or '',
             device=device,
-            requested_by=request.user,
+            reporter=request.user,
             priority=priority,
             request_type='breakdown'
         )
