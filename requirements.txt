@@ -34,13 +34,14 @@ requests==2.32.5
 requests-oauthlib==2.0.0
 rosetta==0.3
 schedule==1.2.0
-scipy==1.16.1
+scipy
 setuptools==75.9.1
-six==1.17.0
+six
 sqlparse==0.5.3
 thriftpy2==0.5.3
 tqdm==4.67.1
 tzdata==2025.2
 urllib3==2.5.0
 zk==0.9.4
+
 
