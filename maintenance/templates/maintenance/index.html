@@ -1257,22 +1257,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- QR System -->
-        <div class="col-lg-4 col-md-6">
-            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%);">
-                <div class="card-body p-4 text-center">
-                    <div class="mb-3">
-                        <i class="fas fa-qrcode fa-3x gradient-icon"></i>
-                    </div>
-                    <h4 class="gradient-text mb-2">نظام QR</h4>
-                    <p class="gradient-text-muted mb-3">مسح ومتابعة الأجهزة</p>
-                    <a href="{% url 'maintenance:qr_test_page' %}" class="btn btn-light quick-action-btn w-100">
-                        <i class="fas fa-camera"></i> مسح QR Code
-                    </a>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Fourth Row - Advanced Features -->
@@ -1294,32 +1278,6 @@
                     <div class="d-grid gap-2">
                         <a href="{% url 'maintenance:device_usage_logs' %}" class="btn btn-light quick-action-btn">
                             <i class="fas fa-history"></i> سجل الاستخدام
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Test & Configuration -->
-        <div class="col-lg-6">
-            <div class="dashboard-card gradient-card" style="background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-4">
-                        <div class="me-3">
-                            <i class="fas fa-tools fa-3x gradient-icon"></i>
-                        </div>
-                        <div>
-                            <h3 class="gradient-text mb-1">⚙️ الأدوات والا��تبار</h3>
-                            <p class="gradient-text-muted mb-0">أدوات الاختبار والتكوين</p>
-                        </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'maintenance:test_links' %}" class="btn btn-light quick-action-btn">
-                            <i class="fas fa-link"></i> روابط الاختبار
-                        </a>
-                        <a href="{% url 'maintenance:calibration_tracking' %}" class="btn btn-outline-light quick-action-btn">
-                            <i class="fas fa-balance-scale"></i> تتبع المعايرة
                         </a>
                     </div>
                 </div>

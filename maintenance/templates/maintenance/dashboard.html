@@ -1,0 +1,610 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}QR Dashboard - نظام إدارة الصيانة{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-qrcode text-primary me-2"></i>
+                        QR Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">نظام إدارة العمليات والمسح الضوئي</p>
+                </div>
+                <div>
+                    <a href="{% url 'maintenance:scan_session_page' %}" class="btn btn-primary">
+                        <i class="fas fa-camera me-2"></i>
+                        بدء جلسة مسح جديدة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <!-- Operations Stats -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                العمليات النشطة
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.total_operations }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cogs fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Executions -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                العمليات المنفذة (30 يوم)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.recent_executions }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Operations -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                العمليات المعلقة
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.pending_executions }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Sessions -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                الجلسات النشطة
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.active_sessions }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Stats Row -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                إجمالي الأجهزة
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.total_devices }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-laptop-medical fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                تحتاج صيانة
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.devices_need_maintenance }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-wrench fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                تحتاج تنظيف
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.devices_need_cleaning }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-broom fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                قيد الاستخدام
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.devices_in_use }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-play-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Recent Executions -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">آخر العمليات المنفذة</h6>
+                    <a href="{% url 'maintenance:execution_list' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_executions %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>العملية</th>
+                                        <th>المستخدم</th>
+                                        <th>الحالة</th>
+                                        <th>التوقيت</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for execution in recent_executions %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'maintenance:execution_detail' execution.pk %}">
+                                                {{ execution.operation.name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ execution.executed_by.username }}</td>
+                                        <td>
+                                            {% if execution.status == 'completed' %}
+                                                <span class="badge badge-success">مكتملة</span>
+                                            {% elif execution.status == 'pending' %}
+                                                <span class="badge badge-warning">معلقة</span>
+                                            {% elif execution.status == 'failed' %}
+                                                <span class="badge badge-danger">فشلت</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ execution.started_at|date:"M d, H:i" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد عمليات منفذة حديثاً</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Operations -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning">العمليات المعلقة</h6>
+                    <span class="badge badge-warning">{{ stats.pending_executions }}</span>
+                </div>
+                <div class="card-body">
+                    {% if pending_operations %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>العملية</th>
+                                        <th>المستخدم</th>
+                                        <th>التوقيت</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for execution in pending_operations %}
+                                    <tr id="execution-{{ execution.pk }}">
+                                        <td>
+                                            <a href="{% url 'maintenance:execution_detail' execution.pk %}">
+                                                {{ execution.operation.name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ execution.executed_by.username }}</td>
+                                        <td>{{ execution.started_at|date:"M d, H:i" }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success me-1" onclick="confirmOperation({{ execution.pk }})">
+                                                <i class="fas fa-check"></i> تأكيد
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="cancelOperation({{ execution.pk }})">
+                                                <i class="fas fa-times"></i> إلغاء
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد عمليات معلقة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Sessions Row -->
+    <div class="row">
+        <div class="col-lg-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">الجلسات النشطة</h6>
+                    <a href="{% url 'maintenance:session_list' %}" class="btn btn-sm btn-outline-primary">
+                        عرض الكل
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if active_sessions %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>المستخدم</th>
+                                        <th>الحالة</th>
+                                        <th>بدأت في</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in active_sessions %}
+                                    <tr>
+                                        <td>{{ session.user.username }}</td>
+                                        <td>
+                                            <span class="badge badge-success">نشطة</span>
+                                        </td>
+                                        <td>{{ session.created_at|date:"M d, H:i" }}</td>
+                                        <td>
+                                            <a href="{% url 'maintenance:session_detail' session.pk %}" class="btn btn-sm btn-outline-info">
+                                                عرض
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">لا توجد جلسات نشطة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Devices Need Attention -->
+    {% if devices_need_attention %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-danger">أجهزة تحتاج انتباه</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>الجهاز</th>
+                                    <th>القسم</th>
+                                    <th>الحالة</th>
+                                    <th>حالة التنظيف</th>
+                                    <th>حالة التعقيم</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices_need_attention %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'maintenance:device_detail' device.pk %}">
+                                            {{ device.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ device.department.name|default:"غير محدد" }}</td>
+                                    <td>
+                                        {% if device.status == 'needs_maintenance' %}
+                                            <span class="badge badge-danger">تحتاج صيانة</span>
+                                        {% elif device.status == 'in_use' %}
+                                            <span class="badge badge-success">قيد الاستخدام</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ device.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if device.clean_status == 'needs_cleaning' %}
+                                            <span class="badge badge-warning">يحتاج تنظيف</span>
+                                        {% else %}
+                                            <span class="badge badge-success">نظيف</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if device.sterilization_status == 'needs_sterilization' %}
+                                            <span class="badge badge-warning">يحتاج تعقيم</span>
+                                        {% else %}
+                                            <span class="badge badge-success">معقم</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'maintenance:device_detail' device.pk %}" class="btn btn-sm btn-outline-primary">
+                                            عرض
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">إجراءات سريعة</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'maintenance:scan_session_page' %}" class="btn btn-primary btn-block">
+                                <i class="fas fa-camera me-2"></i>
+                                بدء جلسة مسح
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'maintenance:operations_list' %}" class="btn btn-info btn-block">
+                                <i class="fas fa-cogs me-2"></i>
+                                إدارة العمليات
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'maintenance:badges_management' %}" class="btn btn-success btn-block">
+                                <i class="fas fa-id-card me-2"></i>
+                                إدارة البطاقات
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'maintenance:device_list' %}" class="btn btn-warning btn-block">
+                                <i class="fas fa-laptop-medical me-2"></i>
+                                إدارة الأجهزة
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+.border-left-secondary {
+    border-left: 0.25rem solid #858796 !important;
+}
+
+/* Dark mode support */
+body.dark-mode .card {
+    background-color: #2d3748;
+    border-color: #4a5568;
+}
+
+body.dark-mode .text-gray-800 {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .text-gray-300 {
+    color: #a0aec0 !important;
+}
+</style>
+
+<script>
+function confirmOperation(executionId) {
+    if (confirm('هل أنت متأكد من تأكيد هذه العملية؟')) {
+        fetch(`/maintenance/api/operation/confirm/${executionId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from the table
+                const row = document.getElementById(`execution-${executionId}`);
+                if (row) {
+                    row.remove();
+                }
+                
+                // Show success message
+                showAlert('success', data.message || 'تم تأكيد العملية بنجاح');
+                
+                // Refresh the page after a short delay
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showAlert('error', data.error || 'فشل في تأكيد العملية');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'حدث خطأ أثناء تأكيد العملية');
+        });
+    }
+}
+
+function cancelOperation(executionId) {
+    if (confirm('هل أنت متأكد من إلغاء هذه العملية؟')) {
+        fetch(`/maintenance/api/operation/cancel/${executionId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from the table
+                const row = document.getElementById(`execution-${executionId}`);
+                if (row) {
+                    row.remove();
+                }
+                
+                // Show success message
+                showAlert('success', data.message || 'تم إلغاء العملية بنجاح');
+                
+                // Refresh the page after a short delay
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showAlert('error', data.error || 'فشل في إلغاء العملية');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'حدث خطأ أثناء إلغاء العملية');
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAlert(type, message) {
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.minWidth = '300px';
+    
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -442,7 +442,7 @@ def calculate_overdue_work_orders_rate(department_id=None, days=30):
     overdue_count = 0
     for wo in work_orders:
         sr = wo.service_request
-        if sr.resolution_due and timezone.now() > sr.resolution_due:
+        if sr and sr.resolution_due and timezone.now() > sr.resolution_due:
             overdue_count += 1
     
     return (overdue_count / work_orders.count()) * 100

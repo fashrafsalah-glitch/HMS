@@ -599,8 +599,8 @@
                             <div class="collapse" id="qrSystemSubmenu">
                                 <nav class="nav flex-column" style="padding-left: 40px;">
                                     <!-- QR Dashboard & Main Pages -->
+                                    <a class="nav-link" href="{% url 'maintenance:dashboard_qr' %}"><i class="fas fa-tachometer-alt me-2"></i><span>لوحة التحكم</span></a>
                                     <a class="nav-link" href="{% url 'maintenance:scan_session_page' %}"><i class="fas fa-camera me-2"></i><span>جلسة المسح</span></a>
-                                    <a class="nav-link" href="{% url 'maintenance:qr_test_page' %}"><i class="fas fa-vial me-2"></i><span>اختبار النظام</span></a>
                                     <a class="nav-link" href="{% url 'maintenance:device_usage_logs' %}"><i class="fas fa-history me-2"></i><span>سجلات الاستخدام</span></a>
                                     
                                     <!-- Operations Management -->

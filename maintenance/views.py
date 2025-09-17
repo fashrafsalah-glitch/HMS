@@ -4612,14 +4612,7 @@ def end_scan_session(request):
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
-def qr_test_page(request):
-    """
-    QR Test page for Step 2 implementation
-    Test scanning of Patient, Bed, CustomUser, and DeviceAccessory QR codes
-    """
-    return render(request, 'maintenance/qr_test.html', {
-        'title': 'اختبار نظام QR/Barcode - Step 2'
-    })
+
 
 
 @csrf_exempt
@@ -4726,11 +4719,6 @@ def generate_qr_code(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
-
-
-def test_links(request):
-    return render(request, "maintenance/test_links.html")
-
 
 
 @login_required

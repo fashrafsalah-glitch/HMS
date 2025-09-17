@@ -155,8 +155,7 @@ urlpatterns = [
     path('api/reset-session/', views.reset_scan_session, name='reset_scan_session'),
     path('api/session-status/<uuid:session_id>/', views.get_session_status, name='get_session_status'),
     path('api/generate-qr/', views.generate_qr_code, name='generate_qr_code'),
-    path('qr-test/', views.qr_test_page, name='qr_test_page'),
-    # Device Accessories URLs
+
     path('devices/<int:device_id>/accessories/', views_accessory.DeviceAccessoryListView.as_view(), name='device_accessories'),
     path('devices/<int:device_id>/accessories/add/', views_accessory.DeviceAccessoryCreateView.as_view(), name='accessory_create'),
     path('accessories/<int:pk>/edit/', views_accessory.DeviceAccessoryUpdateView.as_view(), name='accessory_edit'),
@@ -179,9 +178,7 @@ urlpatterns = [
     path('dashboard/', include('maintenance.urls_dashboard', namespace='dashboard')),
     
     # Spare Parts, Calibration and Downtime URLs - نظام قطع الغيار والمعايرة والتوقف
-    path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),
-    path("test-links/", views.test_links, name="test_links"),
-    
+    path('spare-parts/', include('maintenance.urls_spare_parts', namespace='spare_parts')),    
     # Reports URLs
     path('department/<int:department_id>/export-report/', views_reports.export_department_devices_report, name='export_department_report'),
     
